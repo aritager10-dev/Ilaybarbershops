@@ -1,0 +1,1294 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="ניהול Ilay" />
+  <meta name="theme-color" content="#06080d" />
+  <link id="appleTouchIcon" rel="apple-touch-icon" href="" />
+  <title>אפליקציית ניהול ויומן | Ilay Barbershop</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;800;900&family=Cinzel:wght@700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg-dark: #060911;
+      --gold: #d4af37;
+      --gold-light: #f7df8b;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --border-gold: rgba(212, 175, 55, 0.35);
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+    button, a, label, select, input { touch-action: manipulation; }
+    body { font-family: 'Heebo', sans-serif; background: var(--bg-dark); color: var(--text-main); min-height: 100vh; padding: calc(14px + var(--safe-top)) 12px calc(80px + var(--safe-bottom)); }
+
+    select, .input-field { width: 100%; padding: 11px 13px; border-radius: 11px; border: 1px solid rgba(255,255,255,0.16); background: #121724 !important; color: #fff !important; font-family: 'Heebo', sans-serif; font-size: 16px; margin-bottom: 10px; -webkit-user-select: text; user-select: text; }
+    select option { background: #121724 !important; color: #fff !important; font-weight: 700; }
+
+    .app-container { max-width: 1220px; margin: 0 auto; display: none; flex-direction: column; gap: 14px; }
+    .app-container.authenticated { display: flex; }
+
+    .login-screen { min-height: 85vh; display: flex; align-items: center; justify-content: center; padding: 16px; }
+    .login-box { width: 100%; max-width: 400px; background: #101522; border: 2px solid var(--gold); border-radius: 22px; padding: 24px 20px; box-shadow: 0 24px 60px rgba(0,0,0,0.9); text-align: center; }
+
+    .top-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; background: rgba(16, 21, 34, 0.96); border: 1px solid var(--border-gold); border-radius: 18px; padding: 14px 16px; }
+    .sync-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 0.75rem; font-weight: 800; color: #34d399; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.35); padding: 3px 10px; border-radius: 999px; }
+
+    .btn-gold { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 11px 18px; border-radius: 12px; border: none; background: linear-gradient(135deg, var(--gold), #b8860b); color: #090b10; font-family: 'Heebo', sans-serif; font-weight: 900; font-size: 0.9rem; cursor: pointer; }
+    .btn-outline { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 14px; border-radius: 12px; border: 1px solid var(--border-gold); background: rgba(255,255,255,0.04); color: var(--text-main); font-family: 'Heebo', sans-serif; font-weight: 700; font-size: 0.85rem; cursor: pointer; text-decoration: none; }
+    .btn-outline.active-filter { background: rgba(212,175,55,0.22); border-color: var(--gold); color: var(--gold-light); }
+
+    /* כרטיסי סטטיסטיקה אוטומטיים */
+    .stats-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+    .stat-rev-card { background: linear-gradient(145deg, rgba(20,26,40,0.95), rgba(12,16,25,0.98)); border: 1px solid var(--border-gold); border-radius: 16px; padding: 13px; position: relative; overflow: hidden; }
+    .stat-rev-card::before { content: ""; position: absolute; top: 0; right: 0; width: 4px; height: 100%; background: var(--gold); }
+    .stat-rev-label { font-size: 0.75rem; color: var(--text-muted); font-weight: 700; margin-bottom: 5px; display: flex; align-items: center; justify-content: space-between; }
+    .stat-rev-value { font-size: 1.4rem; font-weight: 900; color: var(--gold-light); }
+    .stat-rev-sub { font-size: 0.72rem; color: #cbd5e1; margin-top: 4px; }
+
+    .admin-tabs-bar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    .admin-tab-btn { padding: 11px 8px; border-radius: 12px; border: 1px solid rgba(212,175,55,0.3); background: rgba(255,255,255,0.03); color: var(--text-main); font-family: 'Heebo', sans-serif; font-weight: 800; font-size: 0.85rem; cursor: pointer; text-align: center; }
+    .admin-tab-btn.active { background: linear-gradient(135deg, var(--gold), #b8860b); color: #090b10; border-color: var(--gold); }
+
+    .panel-box { background: rgba(14, 18, 28, 0.96); border: 1px solid var(--border-gold); border-radius: 18px; padding: 15px; }
+
+    /* תיבת הודעה מוכנה אוטומטית שקופצת אחרי הזזת תור */
+    .prepared-msg-banner {
+      display: none;
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.16), rgba(15, 23, 42, 0.96));
+      border: 2px solid #10b981;
+      border-radius: 16px;
+      padding: 14px 16px;
+      margin-bottom: 14px;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.6);
+    }
+    .prepared-msg-banner.show { display: block; animation: popIn 0.25s ease; }
+    @keyframes popIn { from { transform: translateY(-8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    .prepared-msg-text {
+      background: rgba(0,0,0,0.45);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 10px;
+      padding: 10px 12px;
+      color: #fff;
+      font-weight: 700;
+      font-size: 0.92rem;
+      margin: 8px 0 10px;
+      -webkit-user-select: text;
+      user-select: text;
+    }
+
+    /* סרגל מצב הזזה בלחיצה + סינון ימים בלוח המשבצות */
+    .move-mode-helper {
+      display: none;
+      background: rgba(59, 130, 246, 0.18);
+      border: 2px solid #3b82f6;
+      color: #dbeafe;
+      padding: 10px 14px;
+      border-radius: 12px;
+      margin-bottom: 12px;
+      font-weight: 800;
+      font-size: 0.88rem;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .move-mode-helper.active { display: flex; }
+
+    .day-filter-pills {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      padding-bottom: 8px;
+      margin-bottom: 10px;
+      -webkit-overflow-scrolling: touch;
+    }
+    .day-filter-btn {
+      padding: 8px 13px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.04);
+      color: #fff;
+      font-family: 'Heebo';
+      font-weight: 800;
+      font-size: 0.8rem;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    .day-filter-btn.active {
+      background: var(--gold);
+      color: #090b10;
+      border-color: var(--gold);
+    }
+
+    /* =====================================================
+       לוח משבצות יומן (Grid Slots Board) עם גרירה נוחה!
+       ===================================================== */
+    .cal-grid-scroll {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: 10px;
+      border-radius: 14px;
+    }
+    .cal-board {
+      display: grid;
+      gap: 7px;
+      width: 100%;
+    }
+    .cal-board.cols-7 {
+      grid-template-columns: 74px repeat(7, minmax(148px, 1fr));
+      min-width: 1100px;
+    }
+    .cal-board.cols-1 {
+      grid-template-columns: 78px 1fr;
+      min-width: 100%;
+    }
+
+    .cal-col-header {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(212, 175, 55, 0.35);
+      border-radius: 12px;
+      padding: 10px 6px;
+      text-align: center;
+      font-weight: 900;
+      font-size: 0.86rem;
+      color: var(--gold-light);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .cal-col-header small {
+      display: block;
+      font-size: 0.72rem;
+      color: #cbd5e1;
+      font-weight: 600;
+      margin-top: 2px;
+    }
+
+    .cal-time-label {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      font-weight: 900;
+      font-size: 0.88rem;
+      color: var(--gold-light);
+      min-height: 92px;
+    }
+
+    /* משבצת שעה ביומן */
+    .cal-slot {
+      min-height: 92px;
+      border-radius: 12px;
+      border: 1.5px dashed rgba(255, 255, 255, 0.15);
+      background: rgba(255, 255, 255, 0.02);
+      padding: 6px;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      transition: all 0.16s ease;
+    }
+    .cal-slot:hover {
+      border-color: rgba(212, 175, 55, 0.5);
+      background: rgba(212, 175, 55, 0.05);
+    }
+    .cal-slot.drag-over {
+      border: 2.5px solid var(--gold) !important;
+      background: rgba(212, 175, 55, 0.24) !important;
+      transform: scale(1.02);
+    }
+    .cal-slot.tap-target-ready {
+      border: 2px dashed #3b82f6;
+      background: rgba(59, 130, 246, 0.08);
+      cursor: pointer;
+    }
+
+    .slot-empty-add {
+      font-size: 0.76rem;
+      font-weight: 700;
+      color: rgba(148, 163, 184, 0.7);
+      text-align: center;
+      cursor: pointer;
+      padding: 18px 4px;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .cal-slot:hover .slot-empty-add { color: var(--gold-light); }
+
+    /* כרטיס תור בתוך משבצת (נוח לתפיסה וגרירה!) */
+    .appt-card {
+      width: 100%;
+      background: linear-gradient(135deg, #1b253b, #111827);
+      border: 1.5px solid var(--gold);
+      border-right: 5px solid var(--gold);
+      border-radius: 10px;
+      padding: 8px 9px;
+      cursor: grab;
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.55);
+      position: relative;
+      touch-action: none;
+    }
+    .appt-card:active { cursor: grabbing; }
+    .appt-card.selected-for-move {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.4);
+    }
+    .appt-top { display: flex; align-items: center; justify-content: space-between; gap: 4px; margin-bottom: 4px; }
+    .appt-drag-handle { font-size: 0.72rem; font-weight: 900; color: var(--gold-light); background: rgba(212,175,55,0.18); padding: 2px 6px; border-radius: 5px; }
+    .appt-actions { display: flex; gap: 4px; }
+    .appt-btn-mini {
+      border-radius: 5px;
+      font-size: 0.68rem;
+      font-weight: 800;
+      padding: 2px 6px;
+      cursor: pointer;
+      font-family: 'Heebo';
+      border: 1px solid transparent;
+    }
+    .appt-btn-move { background: rgba(59,130,246,0.22); border-color: rgba(59,130,246,0.5); color: #93c5fd; }
+    .appt-btn-cancel { background: rgba(214,40,40,0.22); border-color: rgba(214,40,40,0.5); color: #fca5a5; }
+    .appt-client-name { font-size: 0.88rem; font-weight: 900; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .appt-phone { font-size: 0.76rem; color: #93c5fd; font-weight: 700; direction: ltr; text-align: right; }
+    .appt-service-tag { font-size: 0.72rem; color: var(--gold-light); margin-top: 2px; font-weight: 700; }
+    .appt-note-tag { font-size: 0.7rem; color: #fde68a; background: rgba(212,175,55,0.12); border-radius: 5px; padding: 2px 5px; margin-top: 3px; }
+
+    .service-edit-row, .add-service-grid { display: grid; grid-template-columns: 1.2fr 0.65fr 0.75fr 1.8fr auto; gap: 10px; align-items: end; background: rgba(0,0,0,0.35); padding: 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 10px; }
+    .service-edit-row input, .add-service-grid input { margin-bottom: 0 !important; }
+    .delete-srv-btn { height: 42px; padding: 0 12px; border-radius: 10px; border: 1px solid rgba(239,68,68,0.45); background: rgba(239,68,68,0.15); color: #fca5a5; font-family: 'Heebo'; font-weight: 800; font-size: 0.82rem; cursor: pointer; }
+
+    .admin-portfolio-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; margin-top: 12px; }
+    .admin-photo-item { position: relative; aspect-ratio: 3 / 4; border-radius: 12px; overflow: hidden; border: 1px solid var(--border-gold); background: #0d1017; }
+    .admin-photo-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .admin-photo-actions { position: absolute; inset: auto 0 0 0; padding: 6px 8px; background: linear-gradient(to top, rgba(0,0,0,0.92), transparent); display: flex; justify-content: space-between; align-items: center; }
+
+    .sr-file-input { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; clip: rect(0,0,0,0); }
+
+    .modal-backdrop { position: fixed; inset: 0; background: rgba(4,6,11,0.88); backdrop-filter: blur(12px); z-index: 3500; display: none; overflow-y: auto; padding: 16px 14px 100px; }
+    .modal-backdrop.open { display: block; }
+    .square-modal { width: 100%; max-width: 440px; background: #111520; border: 2px solid var(--gold); border-radius: 22px; padding: 20px; margin: 20px auto; }
+    .modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+    .modal-close { width: 34px; height: 34px; border-radius: 9px; border: 1px solid rgba(255,255,255,0.16); background: rgba(255,255,255,0.05); color: #fff; cursor: pointer; font-weight: 800; }
+
+    .toast-popup { position: fixed; bottom: 24px; right: 16px; left: 16px; max-width: 420px; margin: 0 auto; z-index: 4000; background: rgba(15,20,30,0.98); border: 2px solid var(--gold); border-radius: 14px; padding: 12px 16px; color: #fff; text-align: center; display: none; }
+    .toast-popup.show { display: block; }
+
+    @media (max-width: 760px) {
+      .stats-grid-4, .admin-tabs-bar { grid-template-columns: repeat(2, 1fr); }
+      .service-edit-row, .add-service-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- מסך כניסה מאובטח לאפליקציית הניהול -->
+  <div class="login-screen" id="loginScreen">
+    <div class="login-box">
+      <div style="font-size:2rem; margin-bottom:6px;">💈</div>
+      <div style="font-size:0.76rem; color:var(--gold-light); font-weight:700;">ILAY BARBERSHOP • WEB APP</div>
+      <h1 style="font-size:1.35rem; font-weight:900; margin:4px 0 16px;">כניסה לאפליקציית ניהול ויומן</h1>
+      <input type="text" id="barberUser" class="input-field" placeholder="שם משתמש" autocomplete="off" />
+      <input type="password" id="barberPass" class="input-field" placeholder="סיסמה" autocomplete="off" onkeydown="if(event.key==='Enter') verifyBarberLogin()" />
+      <label style="display:flex; align-items:center; justify-content:center; gap:7px; font-size:0.82rem; color:#cbd5e1; margin:4px 0 14px; cursor:pointer;">
+        <input type="checkbox" id="rememberAdminSession" checked />
+        זכור אותי באפליקציה באייפון
+      </label>
+      <div id="loginError" style="color:#f87171; font-size:0.82rem; margin-bottom:10px; display:none;">שם המשתמש או הסיסמה אינם נכונים.</div>
+      <button type="button" class="btn-gold" style="width:100%; padding:13px;" onclick="verifyBarberLogin()">כניסה לאפליקציית הניהול</button>
+    </div>
+  </div>
+
+  <!-- אפליקציית הניהול והיומן -->
+  <div class="app-container" id="adminApp">
+    <header class="top-header">
+      <div>
+        <div class="sync-badge">● מסונכרן בזמן אמת מול אתר הלקוחות</div>
+        <h1 style="font-size:1.28rem; font-weight:900; margin-top:4px;" id="adminHeaderTitle">אפליקציית ניהול - Ilay Barbershop</h1>
+      </div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; width:100%;">
+        <button type="button" class="btn-gold" style="flex:1;" onclick="openManualAddModal()">+ שבץ תור חדש</button>
+        <button type="button" class="btn-outline" onclick="document.getElementById('pwaGuideModal').classList.add('open')">📲 הוסף למסך הבית</button>
+        <button type="button" class="btn-outline" style="border-color:#f59e0b; color:#fde68a;" onclick="clearAllAppointments()">איפוס יומן</button>
+        <button type="button" class="btn-outline" style="border-color:#ef4444; color:#fca5a5;" onclick="logoutBarber()">התנתק</button>
+      </div>
+    </header>
+
+    <!-- 1. סטטיסטיקת הכנסות אוטומטית -->
+    <div class="stats-grid-4">
+      <div class="stat-rev-card">
+        <div class="stat-rev-label">
+          <span>הכנסה יומית</span>
+          <select id="statDayFilter" onchange="renderAdminStats()" style="width:auto; margin:0; padding:2px 6px; font-size:0.75rem; font-weight:800;">
+            <option value="0">ראשון</option>
+            <option value="1">שני</option>
+            <option value="2">שלישי</option>
+            <option value="3">רביעי</option>
+            <option value="4">חמישי</option>
+            <option value="5">שישי</option>
+            <option value="6">מוצ״ש</option>
+          </select>
+        </div>
+        <div class="stat-rev-value" id="statDailyMoney">0 ₪</div>
+        <div class="stat-rev-sub" id="statDailyCount">0 תורים ביום זה</div>
+      </div>
+
+      <div class="stat-rev-card">
+        <div class="stat-rev-label"><span>הכנסה שבועית</span><span>שבועי</span></div>
+        <div class="stat-rev-value" id="statWeeklyMoney">0 ₪</div>
+        <div class="stat-rev-sub" id="statWeeklyCount">סה״כ 0 תורים השבוע</div>
+      </div>
+
+      <div class="stat-rev-card">
+        <div class="stat-rev-label"><span>צפי חודשי</span><span>×4.3</span></div>
+        <div class="stat-rev-value" id="statMonthlyMoney">0 ₪</div>
+        <div class="stat-rev-sub" id="statMonthlyCount">לפי קצב שבועי</div>
+      </div>
+
+      <div class="stat-rev-card">
+        <div class="stat-rev-label"><span>מרווח תורים</span><span id="statIntervalBadge">30 דק'</span></div>
+        <div class="stat-rev-value" id="statAvgDayMoney">0 ₪</div>
+        <div class="stat-rev-sub" id="statCapacityInfo">ממוצע ליום פעיל</div>
+      </div>
+    </div>
+
+    <!-- לשוניות ניהול -->
+    <div class="admin-tabs-bar">
+      <button type="button" class="admin-tab-btn active" id="subtab-btn-cal" onclick="switchAdminSubTab('cal')">📅 יומן משבצות</button>
+      <button type="button" class="admin-tab-btn" id="subtab-btn-portfolio" onclick="switchAdminSubTab('portfolio')">📸 תיק עבודות (<span id="adminTabPhotoCount">10</span>)</button>
+      <button type="button" class="admin-tab-btn" id="subtab-btn-edit" onclick="switchAdminSubTab('edit')">✂️ תספורות וכותרת</button>
+      <button type="button" class="admin-tab-btn" id="subtab-btn-hours" onclick="switchAdminSubTab('hours')">⚙️ שעות ומרווחים</button>
+    </div>
+
+    <!-- לשונית 1: יומן משבצות עם גרירה נוחה + הודעה מוכנה אוטומטית -->
+    <div id="admin-sub-cal" class="panel-box">
+
+      <!-- תיבת הודעה מוכנה שקופצת אוטומטית כשמזיזים תור! -->
+      <div class="prepared-msg-banner" id="preparedMsgBanner">
+        <div style="display:flex; align-items:center; justify-content:space-between;">
+          <strong style="color:#34d399; font-size:0.9rem;">✅ התור הוזז! הנה ההודעה המוכנה ללקוח:</strong>
+          <button type="button" style="background:none; border:none; color:#94a3b8; font-weight:800; cursor:pointer;" onclick="document.getElementById('preparedMsgBanner').classList.remove('show')">✕</button>
+        </div>
+        <div class="prepared-msg-text" id="preparedMsgText"></div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <a id="preparedWhatsappBtn" href="#" target="_blank" class="btn-gold" style="text-decoration:none; flex:1;">📲 שלח בוואטסאפ ללקוח</a>
+          <button type="button" class="btn-outline" onclick="copyPreparedMessage()">📋 העתק הודעה</button>
+        </div>
+      </div>
+
+      <!-- סרגל עזר כשלוחצים על "הזז" בתוך משבצת -->
+      <div class="move-mode-helper" id="moveModeHelper">
+        <span id="moveModeText">בחר עכשיו כל משבצת פנויה בלוח כדי להעביר לשם את התור</span>
+        <button type="button" class="btn-outline" style="padding:5px 10px; font-size:0.78rem;" onclick="cancelTapMoveMode()">ביטול הזזה</button>
+      </div>
+
+      <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
+        <span style="font-size:0.84rem; color:var(--gold-light); font-weight:800;">✋ גרור כל תור בין המשבצות (או לחץ "הזז" בתור ובחר משבצת חדשה):</span>
+        <label style="display:flex; align-items:center; gap:6px; font-size:0.8rem; color:#cbd5e1; cursor:pointer;">
+          <input type="checkbox" id="autoOpenWhatsapp" checked />
+          פתח וואטסאפ אוטומטית מיד בהזזת תור
+        </label>
+      </div>
+
+      <!-- בחירת תצוגת כל השבוע או יום ספציפי במשבצות גדולות -->
+      <div class="day-filter-pills" id="calBoardFilterBar"></div>
+
+      <!-- לוח המשבצות -->
+      <div class="cal-grid-scroll" id="calGridScrollWrap">
+        <div class="cal-board cols-7" id="calendarBoard"></div>
+      </div>
+    </div>
+
+    <!-- לשונית 2: תיק עבודות -->
+    <div id="admin-sub-portfolio" class="panel-box" style="display:none;">
+      <h3 style="font-size:1.1rem; font-weight:900; color:var(--gold-light); margin-bottom:6px;">ניהול תיק עבודות (מסונכרן אוטומטית לאתר הלקוחות)</h3>
+      <p style="font-size:0.84rem; color:var(--text-muted); margin-bottom:12px;">בחר תמונות מהאייפון או מהמחשב והן יוצגו מיד באתר הראשי.</p>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px;">
+        <label for="replaceAllPortfolioInput" class="btn-gold" style="flex:1; min-width:160px; cursor:pointer;">🔄 החלף את כל התמונות בתיק</label>
+        <input type="file" id="replaceAllPortfolioInput" class="sr-file-input" multiple accept="image/*" onchange="handlePortfolioUpload(event, true)" />
+        <label for="addPortfolioInput" class="btn-outline" style="flex:1; min-width:160px; cursor:pointer;">+ הוסף עוד תמונות לתיק</label>
+        <input type="file" id="addPortfolioInput" class="sr-file-input" multiple accept="image/*" onchange="handlePortfolioUpload(event, false)" />
+      </div>
+      <div class="admin-portfolio-grid" id="adminPortfolioGrid"></div>
+    </div>
+
+    <!-- לשונית 3: תספורות, מחירים וכותרת -->
+    <div id="admin-sub-edit" class="panel-box" style="display:none;">
+      <h3 style="font-size:1.05rem; font-weight:900; color:var(--gold-light); margin-bottom:10px;">כותרת ראשית באתר הלקוחות</h3>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:10px; margin-bottom:16px;">
+        <input type="text" id="editSiteTitle" class="input-field" placeholder="כותרת ראשית" />
+        <input type="text" id="editSiteSubtitle" class="input-field" placeholder="תת-כותרת" />
+      </div>
+
+      <h3 style="font-size:1.05rem; font-weight:900; color:var(--gold-light); margin-bottom:10px;">עריכת תספורות והוספת תספורת חדשה</h3>
+      <div id="servicesEditorContainer"></div>
+
+      <div style="border:1px dashed var(--gold); border-radius:14px; padding:14px; margin-top:12px;">
+        <div style="font-size:0.9rem; font-weight:900; color:var(--gold-light); margin-bottom:8px;">+ הוספת תספורת חדשה:</div>
+        <div class="add-service-grid">
+          <input type="text" id="newSrvName" class="input-field" placeholder="שם התספורת..." />
+          <input type="number" id="newSrvPrice" class="input-field" placeholder="מחיר (₪)" />
+          <input type="text" id="newSrvTime" class="input-field" placeholder="זמן (30 דק')" />
+          <input type="text" id="newSrvDesc" class="input-field" placeholder="תיאור התספורת..." />
+          <button type="button" class="btn-gold" style="height:42px;" onclick="addNewCustomService()">+ הוסף</button>
+        </div>
+      </div>
+      <button type="button" class="btn-gold" style="width:100%; margin-top:14px; padding:14px;" onclick="saveSiteAndServicesChanges()">שמור ועדכן הכל באתר הלקוחות</button>
+    </div>
+
+    <!-- לשונית 4: שעות ומרווחים -->
+    <div id="admin-sub-hours" class="panel-box" style="display:none;">
+      <h3 style="font-size:1.05rem; font-weight:900; color:var(--gold-light); margin-bottom:10px;">זמן בין תספורת לתספורת</h3>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:10px; margin-bottom:16px;">
+        <div>
+          <label style="font-size:0.8rem; color:#cbd5e1;">מרווח תורים:</label>
+          <select id="slotIntervalSelect" class="input-field">
+            <option value="15">כל 15 דקות</option>
+            <option value="20">כל 20 דקות</option>
+            <option value="25">כל 25 דקות</option>
+            <option value="30">כל 30 דקות</option>
+            <option value="40">כל 40 דקות</option>
+            <option value="45">כל 45 דקות</option>
+            <option value="60">כל 60 דקות</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:0.8rem; color:#cbd5e1;">זמן הפסקה/התארגנות בין תורים:</label>
+          <select id="slotBufferSelect" class="input-field">
+            <option value="0">ללא הפסקה (0 דק')</option>
+            <option value="5">5 דקות התארגנות</option>
+            <option value="10">10 דקות התארגנות</option>
+            <option value="15">15 דקות הפסקה</option>
+          </select>
+        </div>
+      </div>
+      <h3 style="font-size:1.05rem; font-weight:900; color:var(--gold-light); margin-bottom:10px;">שעות פעילות שבועיות</h3>
+      <div id="hoursEditorRows" style="display:flex; flex-direction:column; gap:8px; margin-bottom:14px;"></div>
+      <button type="button" class="btn-gold" style="width:100%; padding:14px;" onclick="saveWeeklyHours()">שמור שעות ומרווחים ועדכן באתר</button>
+    </div>
+  </div>
+
+  <!-- חלונית שיבוץ תור ידני -->
+  <div class="modal-backdrop" id="manualAddModal" onclick="if(event.target===this) this.classList.remove('open')">
+    <div class="square-modal">
+      <div class="modal-head">
+        <h3 style="font-size:1.12rem; font-weight:900; color:var(--gold-light);">שיבוץ תור חדש במשבצת</h3>
+        <button type="button" class="modal-close" onclick="document.getElementById('manualAddModal').classList.remove('open')">✕</button>
+      </div>
+      <select id="manualDaySelect" class="input-field"></select>
+      <select id="manualHourSelect" class="input-field"></select>
+      <select id="manualServiceSelect" class="input-field"></select>
+      <input type="text" id="manualNameInput" class="input-field" placeholder="שם הלקוח (לפחות 2 אותיות)" />
+      <input type="tel" id="manualPhoneInput" class="input-field" inputmode="numeric" oninput="this.value=this.value.replace(/[^0-9]/g,'')" placeholder="מספר טלפון (ספרות בלבד)" />
+      <input type="text" id="manualNoteInput" class="input-field" placeholder="הערות לתור" />
+      <button type="button" class="btn-gold" style="width:100%; padding:13px;" onclick="saveManualAppointment()">שמור תור במשבצת</button>
+    </div>
+  </div>
+
+  <!-- מדריך הוספת האפליקציה למסך הבית באייפון -->
+  <div class="modal-backdrop" id="pwaGuideModal" onclick="if(event.target===this) this.classList.remove('open')">
+    <div class="square-modal">
+      <div class="modal-head">
+        <h3 style="font-size:1.1rem; font-weight:900; color:var(--gold-light);">📲 הפיכת היומן לאפליקציה באייפון</h3>
+        <button type="button" class="modal-close" onclick="document.getElementById('pwaGuideModal').classList.remove('open')">✕</button>
+      </div>
+      <div style="font-size:0.9rem; color:#cbd5e1; line-height:1.7;">
+        <p style="margin-bottom:8px;">1. פתח את הקישור של הניהול (<code>/admin.html</code>) בדפדפן <strong>Safari</strong> באייפון.</p>
+        <p style="margin-bottom:8px;">2. לחץ בתחתית המסך על כפתור ה<strong>שיתוף (Share)</strong>.</p>
+        <p style="margin-bottom:8px;">3. בחר <strong>"הוסף למסך הבית" (Add to Home Screen)</strong>.</p>
+        <p>4. יופיע לך אייקון <strong>ניהול Ilay</strong> על מסך הבית באייפון שפותח ישירות את יומן המשבצות במסך מלא!</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-popup" id="toastPopup"></div>
+
+  <script>
+    function sanitizeStr(str, maxLen = 120) {
+      if (typeof str !== "string") return "";
+      return str.slice(0, maxLen).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;").trim();
+    }
+
+    function encodeShift(str) {
+      return Array.from(str).map(ch => ch.charCodeAt(0) + 7).join("-");
+    }
+
+    const SECURE_ADMINS = [
+      { u: "112-115-104-128-105-108-117-104-121-121-118-106-111", p: "80-115-104-128-56-58-63-61-40", label: "עילי בן הרוש" },
+      { u: "104-121-112-107-108-125", p: "60-58-60-59-61-58-58", label: "AriDev" }
+    ];
+
+    (function setupAppIcon() {
+      const c = document.createElement("canvas");
+      c.width = 180; c.height = 180;
+      const ctx = c.getContext("2d");
+      ctx.fillStyle = "#080b12"; ctx.fillRect(0, 0, 180, 180);
+      ctx.strokeStyle = "#d4af37"; ctx.lineWidth = 8; ctx.strokeRect(10, 10, 160, 160);
+      ctx.fillStyle = "#f7df8b"; ctx.font = "900 26px Cinzel, serif"; ctx.textAlign = "center";
+      ctx.fillText("ILAY", 90, 75);
+      ctx.font = "800 20px Heebo, sans-serif";
+      ctx.fillText("ADMIN", 90, 115);
+      document.getElementById("appleTouchIcon").href = c.toDataURL("image/png");
+    })();
+
+    let gunCloud = null;
+    try {
+      if (window.Gun) {
+        gunCloud = Gun({
+          peers: ["https://gun-manhattan.herokuapp.com/gun", "https://relay.peer.ooo/gun"],
+          localStorage: false
+        }).get("ilay_barbershop_cloud_gt_2026_v3");
+      }
+    } catch (e) {}
+
+    const DB_NAME = "IlayBarbershopPortfolioDB";
+    const STORE_NAME = "portfolioStore";
+
+    function openPortfolioDB() {
+      return new Promise((resolve, reject) => {
+        if (!window.indexedDB) return reject("No IndexedDB");
+        const req = indexedDB.open(DB_NAME, 1);
+        req.onupgradeneeded = e => {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains(STORE_NAME)) db.createObjectStore(STORE_NAME);
+        };
+        req.onsuccess = e => resolve(e.target.result);
+        req.onerror = e => reject(e.target.error);
+      });
+    }
+
+    async function savePortfolioToDB(list) {
+      try { localStorage.setItem("ilay_portfolio_list_v3", JSON.stringify(list)); } catch (_) {}
+      try {
+        const db = await openPortfolioDB();
+        await new Promise((resolve, reject) => {
+          const tx = db.transaction(STORE_NAME, "readwrite");
+          tx.objectStore(STORE_NAME).put(list, "custom_photos");
+          tx.oncomplete = () => resolve();
+          tx.onerror = e => reject(e);
+        });
+      } catch (_) {}
+      if (gunCloud) {
+        try { gunCloud.get("portfolio").put({ updatedAt: Date.now(), data: JSON.stringify(list) }); } catch (_) {}
+      }
+    }
+
+    async function loadPortfolioFromDB() {
+      try {
+        const savedLS = localStorage.getItem("ilay_portfolio_list_v3");
+        if (savedLS) {
+          const parsed = JSON.parse(savedLS);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch (_) {}
+      try {
+        const db = await openPortfolioDB();
+        return await new Promise(resolve => {
+          const tx = db.transaction(STORE_NAME, "readonly");
+          const req = tx.objectStore(STORE_NAME).get("custom_photos");
+          req.onsuccess = () => resolve(req.result || null);
+          req.onerror = () => resolve(null);
+        });
+      } catch (_) { return null; }
+    }
+
+    let siteConfig = JSON.parse(localStorage.getItem("ilay_site_cfg") || "null") || {
+      title: "ILAY BARBERSHOP",
+      subtitle: "תספורת נקייה, אווירה טובה וסטייל שיושב בול.",
+      slotInterval: 30,
+      slotBuffer: 0
+    };
+
+    let SERVICES = JSON.parse(localStorage.getItem("ilay_services_v2") || "null") || [
+      { name: "תספורת קלאסי", price: 70, duration: "30 דק'", desc: "דירוג (מולט, טייפר, בארסט ועוד..) עם גזירות ואפשרות להוסיף פנס לבחירה." },
+      { name: "תספורת מוגזם", price: 90, duration: "45 דק'", desc: "לא הסתפרת הרבה זמן ורוצה לעשות שינוי, תספורת גזירות מלאה." },
+      { name: "תספורת קלאסי + זקן", price: 80, duration: "35 דק'", desc: "דירוג נקי (מולט, טייפר, בארסט ועוד) עם גזירות, פנס לבחירה וסידור זקן מדויק." },
+      { name: "תספורת מוגזם + זקן", price: 100, duration: "50 דק'", desc: "שינוי לוק מלא בגזירות ודירוג למי שלא הסתפר הרבה זמן, כולל עיצוב וסידור זקן." }
+    ];
+
+    const DAYS = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "מוצ״ש"];
+    const DEFAULT_PORTFOLIO = [
+      "image_b9797c.jpg", "image_b9797f.jpg", "image_b97997.jpg", "image_b97999.jpg", "image_b979b7.jpg",
+      "image_b979bb.jpg", "image_b979d4.jpg", "image_b979d8.jpg", "image_b97c7d.jpg", "image_b97c80.jpg"
+    ];
+    const FALLBACK_BARBER_PHOTOS = [
+      "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1599351431202-1e0f0137899a?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1621607512214-68297480165e?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1585747860715-2ba37e788b70?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1622286342621-4bd786c2447c?auto=format&fit=crop&w=600&q=80"
+    ];
+
+    let portfolioList = [...DEFAULT_PORTFOLIO];
+    let hasCustomUploadedPhotos = localStorage.getItem("ilay_has_custom_photos") === "1";
+
+    let weeklySchedule = JSON.parse(localStorage.getItem("ilay_weekly_hours") || "null") || [
+      { active: true, start: "10:00", end: "20:00" },
+      { active: true, start: "10:00", end: "20:00" },
+      { active: true, start: "10:00", end: "20:00" },
+      { active: true, start: "10:00", end: "20:00" },
+      { active: true, start: "10:00", end: "21:00" },
+      { active: true, start: "09:00", end: "15:00" },
+      { active: false, start: "19:30", end: "22:00" }
+    ];
+
+    let appointments = JSON.parse(localStorage.getItem("ilay_appointments_clean_v1") || "[]");
+    let boardFilterMode = "all"; // 'all' = כל 7 הימים בלוח משבצות, או מספר יום (0..6)
+    let tapMoveApptId = null;    // מזהה תור שנבחר להזזה בלחיצה
+
+    // חישוב תאריך מדויק לכל יום בשבוע הקרוב
+    function getFormattedDateForDayIdx(dayIdx) {
+      const now = new Date();
+      const currentDay = now.getDay(); // 0 = Sunday .. 6 = Saturday
+      let diff = dayIdx - currentDay;
+      if (diff < 0) diff += 7;
+      const target = new Date(now);
+      target.setDate(now.getDate() + diff);
+      const dd = String(target.getDate()).padStart(2, "0");
+      const mm = String(target.getMonth() + 1).padStart(2, "0");
+      return `${dd}/${mm}`;
+    }
+
+    function broadcastStateToCloud() {
+      if (!gunCloud) return;
+      try {
+        gunCloud.get("state").put({
+          updatedAt: Date.now(),
+          siteConfig: JSON.stringify(siteConfig),
+          services: JSON.stringify(SERVICES),
+          weeklySchedule: JSON.stringify(weeklySchedule),
+          appointments: JSON.stringify(appointments)
+        });
+      } catch (_) {}
+    }
+
+    function initSyncListeners() {
+      window.addEventListener("storage", () => {
+        appointments = JSON.parse(localStorage.getItem("ilay_appointments_clean_v1") || "[]");
+        renderCalendarBoard();
+        renderAdminStats();
+      });
+
+      if (!gunCloud) return;
+      gunCloud.get("state").on(node => {
+        if (!node) return;
+        try {
+          if (node.appointments) {
+            appointments = JSON.parse(node.appointments);
+            localStorage.setItem("ilay_appointments_clean_v1", node.appointments);
+            renderCalendarBoard();
+            renderAdminStats();
+          }
+        } catch (_) {}
+      });
+    }
+
+    function verifyBarberLogin() {
+      const uEnc = encodeShift(document.getElementById("barberUser").value.trim().toLowerCase());
+      const pEnc = encodeShift(document.getElementById("barberPass").value.trim());
+      const matched = SECURE_ADMINS.find(a => a.u === uEnc && a.p === pEnc);
+
+      if (matched) {
+        if (document.getElementById("rememberAdminSession").checked) {
+          localStorage.setItem("ilay_saved_admin_label", matched.label);
+        }
+        unlockAdminApp(matched.label);
+      } else {
+        document.getElementById("loginError").style.display = "block";
+      }
+    }
+
+    function unlockAdminApp(label) {
+      document.getElementById("loginScreen").style.display = "none";
+      document.getElementById("adminApp").classList.add("authenticated");
+      document.getElementById("adminHeaderTitle").textContent = `ניהול ויומן • ${label}`;
+      renderCalendarBoard();
+      renderAdminStats();
+      renderAdminEditors();
+    }
+
+    function logoutBarber() {
+      localStorage.removeItem("ilay_saved_admin_label");
+      document.getElementById("adminApp").classList.remove("authenticated");
+      document.getElementById("loginScreen").style.display = "flex";
+    }
+
+    function getEffectiveStepMinutes() {
+      return Math.max(10, (Number(siteConfig.slotInterval) || 30) + (Number(siteConfig.slotBuffer) || 0));
+    }
+
+    function buildDaySlots(startStr, endStr) {
+      const step = getEffectiveStepMinutes();
+      const [sh, sm] = startStr.split(":").map(Number);
+      const [eh, em] = endStr.split(":").map(Number);
+      const out = [];
+      for (let cur = sh * 60 + sm; cur < eh * 60 + em; cur += step) {
+        out.push(`${String(Math.floor(cur / 60)).padStart(2, "0")}:${String(cur % 60).padStart(2, "0")}`);
+      }
+      return out;
+    }
+
+    function generateCalendarHours() {
+      const step = getEffectiveStepMinutes();
+      const hours = [];
+      for (let cur = 9 * 60; cur <= 21 * 60 + 30; cur += step) {
+        hours.push(`${String(Math.floor(cur / 60)).padStart(2, "0")}:${String(cur % 60).padStart(2, "0")}`);
+      }
+      appointments.forEach(a => { if (a.time && !hours.includes(a.time)) hours.push(a.time); });
+      return hours.sort();
+    }
+
+    function saveAppointments() {
+      localStorage.setItem("ilay_appointments_clean_v1", JSON.stringify(appointments));
+      broadcastStateToCloud();
+      renderAdminStats();
+    }
+
+    function clearAllAppointments() {
+      appointments = [];
+      saveAppointments();
+      renderCalendarBoard();
+      showToast("כל התורים ביומן אופסו ל-0!");
+    }
+
+    function renderAdminStats() {
+      const selectedDayIdx = Number(document.getElementById("statDayFilter")?.value || 0);
+      const stepMin = getEffectiveStepMinutes();
+      let weeklyRevenue = 0;
+      const dayTotals = [0, 0, 0, 0, 0, 0, 0], dayCounts = [0, 0, 0, 0, 0, 0, 0], dayMaxSlots = [0, 0, 0, 0, 0, 0, 0];
+
+      DAYS.forEach((_, idx) => {
+        const cfg = weeklySchedule[idx];
+        if (cfg && cfg.active) dayMaxSlots[idx] = buildDaySlots(cfg.start, cfg.end).length;
+      });
+
+      appointments.forEach(appt => {
+        const d = Number(appt.dayIdx);
+        const price = Number(appt.price) || 70;
+        if (d >= 0 && d < 7) { dayTotals[d] += price; dayCounts[d] += 1; weeklyRevenue += price; }
+      });
+
+      const totalAppts = appointments.length;
+      const totalWeeklyCapacity = dayMaxSlots.reduce((a, b) => a + b, 0) || 1;
+      const occupancyPct = Math.min(100, Math.round((totalAppts / totalWeeklyCapacity) * 100));
+      const monthlyRevenue = Math.round(weeklyRevenue * 4.3);
+      const activeDaysCount = weeklySchedule.filter(d => d.active).length || 1;
+
+      document.getElementById("statDailyMoney").textContent = `${dayTotals[selectedDayIdx].toLocaleString()} ₪`;
+      document.getElementById("statDailyCount").textContent = `${dayCounts[selectedDayIdx]} מתוך ${dayMaxSlots[selectedDayIdx]} תורים ביום ${DAYS[selectedDayIdx]}`;
+      document.getElementById("statWeeklyMoney").textContent = `${weeklyRevenue.toLocaleString()} ₪`;
+      document.getElementById("statWeeklyCount").textContent = `סה״כ ${totalAppts} תורים השבוע (${occupancyPct}% תפוסה)`;
+      document.getElementById("statMonthlyMoney").textContent = `${monthlyRevenue.toLocaleString()} ₪`;
+      document.getElementById("statMonthlyCount").textContent = `כ-${Math.round(totalAppts * 4.3)} תורים בחודש`;
+      document.getElementById("statIntervalBadge").textContent = `כל ${stepMin} דק'`;
+      document.getElementById("statAvgDayMoney").textContent = `${Math.round(weeklyRevenue / activeDaysCount).toLocaleString()} ₪ / יום`;
+      document.getElementById("adminTabPhotoCount").textContent = portfolioList.length;
+    }
+
+    /* ==========================================
+       לוח המשבצות החדש + גרירה בעכבר ובאצבע + הודעה מוכנה אוטומטית!
+       ========================================== */
+    function renderBoardFilterBar() {
+      const bar = document.getElementById("calBoardFilterBar");
+      bar.innerHTML = "";
+
+      const allBtn = document.createElement("button");
+      allBtn.type = "button";
+      allBtn.className = "day-filter-btn" + (boardFilterMode === "all" ? " active" : "");
+      allBtn.textContent = "🗓️ לוח משבצות מלא (כל השבוע)";
+      allBtn.onclick = () => { boardFilterMode = "all"; renderCalendarBoard(); };
+      bar.appendChild(allBtn);
+
+      DAYS.forEach((dName, idx) => {
+        const count = appointments.filter(a => Number(a.dayIdx) === idx).length;
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "day-filter-btn" + (boardFilterMode === idx ? " active" : "");
+        btn.textContent = `יום ${dName} (${getFormattedDateForDayIdx(idx)}) • ${count}`;
+        btn.onclick = () => { boardFilterMode = idx; renderCalendarBoard(); };
+        bar.appendChild(btn);
+      });
+    }
+
+    function renderCalendarBoard() {
+      renderBoardFilterBar();
+      const board = document.getElementById("calendarBoard");
+      board.innerHTML = "";
+
+      const activeDayIndices = boardFilterMode === "all" ? [0, 1, 2, 3, 4, 5, 6] : [Number(boardFilterMode)];
+      board.className = "cal-board " + (activeDayIndices.length === 1 ? "cols-1" : "cols-7");
+
+      const corner = document.createElement("div");
+      corner.className = "cal-col-header";
+      corner.innerHTML = `שעה / יום<small>גרור משבצת</small>`;
+      board.appendChild(corner);
+
+      activeDayIndices.forEach(dIdx => {
+        const head = document.createElement("div");
+        head.className = "cal-col-header";
+        const sched = weeklySchedule[dIdx];
+        const dateStr = getFormattedDateForDayIdx(dIdx);
+        head.innerHTML = `יום ${DAYS[dIdx]} (${dateStr})<small>${sched.active ? sched.start + " - " + sched.end : "סגור"}</small>`;
+        board.appendChild(head);
+      });
+
+      const allHours = generateCalendarHours();
+
+      allHours.forEach(hourStr => {
+        const timeCell = document.createElement("div");
+        timeCell.className = "cal-time-label";
+        timeCell.textContent = hourStr;
+        board.appendChild(timeCell);
+
+        activeDayIndices.forEach(dIdx => {
+          const slot = document.createElement("div");
+          slot.className = "cal-slot" + (tapMoveApptId ? " tap-target-ready" : "");
+          slot.dataset.dayIdx = dIdx;
+          slot.dataset.time = hourStr;
+
+          slot.addEventListener("dragover", e => { e.preventDefault(); slot.classList.add("drag-over"); });
+          slot.addEventListener("dragleave", () => slot.classList.remove("drag-over"));
+          slot.addEventListener("drop", e => {
+            e.preventDefault();
+            slot.classList.remove("drag-over");
+            const draggedId = e.dataTransfer.getData("text/plain");
+            if (draggedId) moveAppointmentToSlot(draggedId, dIdx, hourStr);
+          });
+
+          const found = appointments.find(a => Number(a.dayIdx) === dIdx && a.time === hourStr);
+          if (found) {
+            slot.appendChild(createAppointmentCard(found));
+          } else {
+            const emptyHint = document.createElement("div");
+            emptyHint.className = "slot-empty-add";
+            emptyHint.textContent = tapMoveApptId ? "📍 לחץ כאן להעברת התור" : "+ פנוי (שבץ תור)";
+            emptyHint.onclick = () => {
+              if (tapMoveApptId) {
+                const idToMove = tapMoveApptId;
+                cancelTapMoveMode();
+                moveAppointmentToSlot(idToMove, dIdx, hourStr);
+              } else {
+                quickOpenManualSlot(dIdx, hourStr);
+              }
+            };
+            slot.appendChild(emptyHint);
+          }
+
+          board.appendChild(slot);
+        });
+      });
+    }
+
+    function createAppointmentCard(appt) {
+      const card = document.createElement("div");
+      card.className = "appt-card" + (tapMoveApptId === appt.id ? " selected-for-move" : "");
+      card.draggable = true;
+      card.dataset.id = appt.id;
+
+      card.innerHTML = `
+        <div class="appt-top">
+          <span class="appt-drag-handle">✋ ${sanitizeStr(appt.time, 10)}</span>
+          <div class="appt-actions">
+            <button type="button" class="appt-btn-mini appt-btn-move" onclick="startTapMoveMode('${sanitizeStr(appt.id, 30)}', event)">הזז</button>
+            <button type="button" class="appt-btn-mini appt-btn-cancel" onclick="cancelAppointment('${sanitizeStr(appt.id, 30)}', event)">✕</button>
+          </div>
+        </div>
+        <div class="appt-client-name">👤 ${sanitizeStr(appt.name, 35)}</div>
+        <div class="appt-phone">📞 ${sanitizeStr(appt.phone, 15)}</div>
+        <div class="appt-service-tag">✂️ ${sanitizeStr(appt.service, 50)}</div>
+        ${appt.note ? `<div class="appt-note-tag">📝 ${sanitizeStr(appt.note, 120)}</div>` : ""}
+      `;
+
+      card.addEventListener("dragstart", e => {
+        e.dataTransfer.setData("text/plain", appt.id);
+      });
+
+      enableTouchDragOnGrid(card, appt.id);
+      return card;
+    }
+
+    // גרירת משבצת חלקה עם האצבע בטלפון (כולל גלילה אוטומטית של הלוח)
+    function enableTouchDragOnGrid(cardEl, apptId) {
+      let clone = null;
+      let startX = 0, startY = 0, isDragging = false;
+
+      cardEl.addEventListener("touchstart", e => {
+        if (e.target.closest("button")) return;
+        const t = e.touches[0];
+        startX = t.clientX;
+        startY = t.clientY;
+        isDragging = false;
+      }, { passive: true });
+
+      cardEl.addEventListener("touchmove", e => {
+        const t = e.touches[0];
+        if (!isDragging) {
+          if (Math.hypot(t.clientX - startX, t.clientY - startY) < 8) return;
+          isDragging = true;
+          clone = cardEl.cloneNode(true);
+          clone.style.cssText = `position:fixed; width:148px; z-index:5000; pointer-events:none; opacity:0.92; transform:scale(1.05); box-shadow:0 16px 35px rgba(0,0,0,0.85); left:${t.clientX - 74}px; top:${t.clientY - 40}px;`;
+          document.body.appendChild(clone);
+        }
+
+        e.preventDefault();
+        clone.style.left = (t.clientX - 74) + "px";
+        clone.style.top = (t.clientY - 40) + "px";
+
+        // גלילה אוטומטית של הלוח כשמתקרבים לקצוות המסך
+        const scrollWrap = document.getElementById("calGridScrollWrap");
+        if (t.clientX < 55) scrollWrap.scrollLeft -= 10;
+        else if (t.clientX > window.innerWidth - 55) scrollWrap.scrollLeft += 10;
+        if (t.clientY < 90) window.scrollBy(0, -10);
+        else if (t.clientY > window.innerHeight - 90) window.scrollBy(0, 10);
+
+        document.querySelectorAll(".cal-slot").forEach(s => s.classList.remove("drag-over"));
+        const target = document.elementFromPoint(t.clientX, t.clientY);
+        const slotEl = target ? target.closest(".cal-slot") : null;
+        if (slotEl) slotEl.classList.add("drag-over");
+      }, { passive: false });
+
+      cardEl.addEventListener("touchend", e => {
+        if (!isDragging || !clone) return;
+        const t = e.changedTouches[0];
+        clone.remove();
+        clone = null;
+        isDragging = false;
+        document.querySelectorAll(".cal-slot").forEach(s => s.classList.remove("drag-over"));
+
+        const target = document.elementFromPoint(t.clientX, t.clientY);
+        const slotEl = target ? target.closest(".cal-slot") : null;
+        if (slotEl) {
+          moveAppointmentToSlot(apptId, Number(slotEl.dataset.dayIdx), slotEl.dataset.time);
+        }
+      });
+    }
+
+    function startTapMoveMode(apptId, ev) {
+      if (ev) ev.stopPropagation();
+      const appt = appointments.find(a => a.id === apptId);
+      if (!appt) return;
+      tapMoveApptId = apptId;
+      document.getElementById("moveModeText").textContent = `הזזת התור של ${appt.name}: לחץ עכשיו על כל משבצת פנויה בלוח כדי להעביר אותו לשם`;
+      document.getElementById("moveModeHelper").classList.add("active");
+      renderCalendarBoard();
+    }
+
+    function cancelTapMoveMode() {
+      tapMoveApptId = null;
+      document.getElementById("moveModeHelper").classList.remove("active");
+      renderCalendarBoard();
+    }
+
+    // הזזת התור למשבצת חדשה + הכנת ההודעה המדויקת שביקשת!
+    function moveAppointmentToSlot(apptId, newDayIdx, newTime) {
+      const appt = appointments.find(a => a.id === apptId);
+      if (!appt || (Number(appt.dayIdx) === Number(newDayIdx) && appt.time === newTime)) return;
+
+      const occupied = appointments.find(a => Number(a.dayIdx) === Number(newDayIdx) && a.time === newTime && a.id !== apptId);
+      if (occupied) return showToast("⚠️ המשבצת הזו כבר תפוסה ע״י " + occupied.name);
+
+      appt.dayIdx = Number(newDayIdx);
+      appt.time = newTime;
+      saveAppointments();
+      renderCalendarBoard();
+
+      const dateStr = getFormattedDateForDayIdx(Number(newDayIdx));
+      const dayName = DAYS[Number(newDayIdx)];
+      const preparedMsg = `אהלן ${appt.name}, הודעה מהמספרה של עיליי: התור שלך הוזז לשעה ${newTime} בתאריך ${dateStr} (יום ${dayName}).`;
+
+      const cleanPhone = appt.phone.replace(/[^0-9]/g, "").replace(/^0/, "972");
+      const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(preparedMsg)}`;
+
+      document.getElementById("preparedMsgText").textContent = preparedMsg;
+      document.getElementById("preparedWhatsappBtn").href = waUrl;
+      document.getElementById("preparedMsgBanner").classList.add("show");
+
+      showToast(`✅ התור של ${appt.name} הוזז ליום ${dayName} (${dateStr}) בשעה ${newTime}!`);
+
+      if (document.getElementById("autoOpenWhatsapp").checked && cleanPhone.length >= 9) {
+        window.open(waUrl, "_blank");
+      }
+    }
+
+    function copyPreparedMessage() {
+      const txt = document.getElementById("preparedMsgText").textContent;
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(txt);
+        showToast("📋 ההודעה המוכנה הועתקה!");
+      }
+    }
+
+    function cancelAppointment(apptId, ev) {
+      if (ev) ev.stopPropagation();
+      const idx = appointments.findIndex(a => a.id === apptId);
+      if (idx === -1) return;
+      const appt = appointments.splice(idx, 1)[0];
+      saveAppointments();
+      renderCalendarBoard();
+      showToast(`🗑️ התור של ${appt.name} בוטל והמשבצת התפנתה באתר.`);
+    }
+
+    function openManualAddModal() {
+      const defaultDay = boardFilterMode === "all" ? 0 : Number(boardFilterMode);
+      document.getElementById("manualDaySelect").innerHTML = DAYS.map((d, i) => `<option value="${i}" ${i === defaultDay ? "selected" : ""}>יום ${d} (${getFormattedDateForDayIdx(i)})</option>`).join("");
+      document.getElementById("manualHourSelect").innerHTML = generateCalendarHours().map(h => `<option value="${h}">${h}</option>`).join("");
+      document.getElementById("manualServiceSelect").innerHTML = SERVICES.map((s, i) => `<option value="${i}">${sanitizeStr(s.name, 40)} (${s.price} ₪)</option>`).join("");
+      document.getElementById("manualNameInput").value = "";
+      document.getElementById("manualPhoneInput").value = "";
+      document.getElementById("manualNoteInput").value = "";
+      document.getElementById("manualAddModal").classList.add("open");
+    }
+
+    function quickOpenManualSlot(dayIdx, hourStr) {
+      openManualAddModal();
+      document.getElementById("manualDaySelect").value = String(dayIdx);
+      document.getElementById("manualHourSelect").value = hourStr;
+    }
+
+    function saveManualAppointment() {
+      const dayIdx = Number(document.getElementById("manualDaySelect").value);
+      const time = document.getElementById("manualHourSelect").value;
+      const srvIdx = Number(document.getElementById("manualServiceSelect").value);
+      const srv = SERVICES[srvIdx] || SERVICES[0];
+      const name = sanitizeStr(document.getElementById("manualNameInput").value, 35);
+      const phone = document.getElementById("manualPhoneInput").value.replace(/[^0-9]/g, "").slice(0, 12);
+      const note = sanitizeStr(document.getElementById("manualNoteInput").value, 120);
+
+      if (name.replace(/[^a-zA-Zא-ת]/g, "").length < 2) return showToast("שם הלקוח חייב להכיל לפחות 2 אותיות");
+      if (phone.length < 9) return showToast("נא להזין מספר טלפון תקין");
+
+      appointments.push({ id: "ap_" + Date.now(), dayIdx, time, name, phone, srvIdx, price: srv.price, service: `${srv.name} • ${srv.price} ₪`, note });
+      saveAppointments();
+      renderCalendarBoard();
+      document.getElementById("manualAddModal").classList.remove("open");
+      showToast(`✅ התור של ${name} שובץ במשבצת וסונכרן לאתר!`);
+    }
+
+    function renderAdminPortfolioManager() {
+      const container = document.getElementById("adminPortfolioGrid");
+      container.innerHTML = "";
+      document.getElementById("adminTabPhotoCount").textContent = portfolioList.length;
+      portfolioList.forEach((src, idx) => {
+        const fallbackUrl = FALLBACK_BARBER_PHOTOS[idx % FALLBACK_BARBER_PHOTOS.length];
+        const box = document.createElement("div");
+        box.className = "admin-photo-item";
+        box.innerHTML = `
+          <img src="${src}" alt="תמונה ${idx + 1}" onerror="this.onerror=null; this.src='${fallbackUrl}';" />
+          <div class="admin-photo-actions">
+            <span style="font-size:0.75rem; font-weight:800; color:var(--gold-light);">#${idx + 1}</span>
+            <button type="button" class="delete-srv-btn" style="height:28px; padding:0 8px; font-size:0.74rem;" onclick="deletePortfolioPhoto(${idx})">מחק</button>
+          </div>
+        `;
+        container.appendChild(box);
+      });
+    }
+
+    function compressImageFile(file) {
+      return new Promise(resolve => {
+        const objUrl = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const maxDim = 560;
+          let w = img.width || 500, h = img.height || 650;
+          if (w > h && w > maxDim) { h = Math.round((h * maxDim) / w); w = maxDim; }
+          else if (h > maxDim) { w = Math.round((w * maxDim) / h); h = maxDim; }
+          canvas.width = w; canvas.height = h;
+          canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+          URL.revokeObjectURL(objUrl);
+          resolve(canvas.toDataURL("image/jpeg", 0.72));
+        };
+        img.onerror = () => {
+          URL.revokeObjectURL(objUrl);
+          const reader = new FileReader();
+          reader.onload = e => resolve(e.target.result);
+          reader.readAsDataURL(file);
+        };
+        img.src = objUrl;
+      });
+    }
+
+    async function handlePortfolioUpload(ev, replaceAll) {
+      const files = Array.from(ev.target.files || []);
+      if (!files.length) return;
+      showToast(`מעלה ומכווץ ${files.length} תמונות...`);
+      const compressedList = [];
+      for (const file of files) {
+        compressedList.push(await compressImageFile(file));
+      }
+      if (replaceAll || !hasCustomUploadedPhotos) {
+        portfolioList = compressedList;
+        hasCustomUploadedPhotos = true;
+        localStorage.setItem("ilay_has_custom_photos", "1");
+      } else {
+        portfolioList.push(...compressedList);
+      }
+      await savePortfolioToDB(portfolioList);
+      ev.target.value = "";
+      renderAdminPortfolioManager();
+      showToast(`${compressedList.length} תמונות נשמרו והתעדכנו באתר הלקוחות!`);
+    }
+
+    async function deletePortfolioPhoto(idx) {
+      if (portfolioList.length <= 1) return showToast("חייבת להישאר לפחות תמונה אחת");
+      portfolioList.splice(idx, 1);
+      hasCustomUploadedPhotos = true;
+      localStorage.setItem("ilay_has_custom_photos", "1");
+      await savePortfolioToDB(portfolioList);
+      renderAdminPortfolioManager();
+      showToast("התמונה הוסרה.");
+    }
+
+    function syncEditedServicesFromDOM() {
+      SERVICES.forEach((srv, idx) => {
+        const n = document.getElementById(`editSrvName_${idx}`);
+        const p = document.getElementById(`editSrvPrice_${idx}`);
+        const t = document.getElementById(`editSrvTime_${idx}`);
+        const d = document.getElementById(`editSrvDesc_${idx}`);
+        if (n && n.value.trim()) srv.name = sanitizeStr(n.value, 40);
+        if (p && Number(p.value) > 0) srv.price = Number(p.value);
+        if (t && t.value.trim()) srv.duration = sanitizeStr(t.value, 20);
+        if (d && d.value.trim()) srv.desc = sanitizeStr(d.value, 120);
+      });
+    }
+
+    function renderAdminEditors() {
+      document.getElementById("editSiteTitle").value = siteConfig.title;
+      document.getElementById("editSiteSubtitle").value = siteConfig.subtitle;
+      const container = document.getElementById("servicesEditorContainer");
+      container.innerHTML = "";
+      SERVICES.forEach((srv, idx) => {
+        const row = document.createElement("div");
+        row.className = "service-edit-row";
+        row.innerHTML = `
+          <div><label style="font-size:0.74rem; color:#94a3b8;">שם:</label><input type="text" id="editSrvName_${idx}" class="input-field" value="${sanitizeStr(srv.name, 40)}" /></div>
+          <div><label style="font-size:0.74rem; color:#94a3b8;">מחיר (₪):</label><input type="number" id="editSrvPrice_${idx}" class="input-field" value="${Number(srv.price) || 0}" /></div>
+          <div><label style="font-size:0.74rem; color:#94a3b8;">זמן:</label><input type="text" id="editSrvTime_${idx}" class="input-field" value="${sanitizeStr(srv.duration, 20)}" /></div>
+          <div><label style="font-size:0.74rem; color:#94a3b8;">תיאור:</label><input type="text" id="editSrvDesc_${idx}" class="input-field" value="${sanitizeStr(srv.desc, 120)}" /></div>
+          <button type="button" class="delete-srv-btn" onclick="deleteServiceItem(${idx})">מחק</button>
+        `;
+        container.appendChild(row);
+      });
+
+      document.getElementById("slotIntervalSelect").value = String(siteConfig.slotInterval || 30);
+      document.getElementById("slotBufferSelect").value = String(siteConfig.slotBuffer || 0);
+      const hoursContainer = document.getElementById("hoursEditorRows");
+      hoursContainer.innerHTML = "";
+      DAYS.forEach((dayName, idx) => {
+        const cfg = weeklySchedule[idx];
+        const row = document.createElement("div");
+        row.style.cssText = "display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; background:rgba(255,255,255,0.03); padding:9px 12px; border-radius:11px; border:1px solid rgba(255,255,255,0.08);";
+        row.innerHTML = `
+          <label style="display:flex; align-items:center; gap:8px; font-weight:800; min-width:92px;">
+            <input type="checkbox" id="dayActive_${idx}" ${cfg.active ? "checked" : ""} /> יום ${dayName}
+          </label>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span style="font-size:0.78rem; color:#94a3b8;">מ-</span>
+            <input type="time" id="dayStart_${idx}" value="${cfg.start}" class="input-field" style="width:110px; margin:0; padding:6px;" />
+            <span style="font-size:0.78rem; color:#94a3b8;">עד</span>
+            <input type="time" id="dayEnd_${idx}" value="${cfg.end}" class="input-field" style="width:110px; margin:0; padding:6px;" />
+          </div>
+        `;
+        hoursContainer.appendChild(row);
+      });
+      renderAdminPortfolioManager();
+    }
+
+    function addNewCustomService() {
+      syncEditedServicesFromDOM();
+      const name = sanitizeStr(document.getElementById("newSrvName").value, 40);
+      const rawPrice = document.getElementById("newSrvPrice").value.trim();
+      const price = rawPrice ? Math.max(1, Number(rawPrice)) : 100;
+      const duration = sanitizeStr(document.getElementById("newSrvTime").value, 20) || "30 דק'";
+      const desc = sanitizeStr(document.getElementById("newSrvDesc").value, 120) || "תספורת מותאמת אישית.";
+      if (!name) return showToast("נא להקליד שם תספורת");
+      SERVICES.push({ name, price, duration, desc });
+      localStorage.setItem("ilay_services_v2", JSON.stringify(SERVICES));
+      broadcastStateToCloud();
+      document.getElementById("newSrvName").value = "";
+      document.getElementById("newSrvPrice").value = "";
+      document.getElementById("newSrvTime").value = "";
+      document.getElementById("newSrvDesc").value = "";
+      renderAdminEditors();
+      showToast(`התספורת "${name}" נוספה ועודכנה באתר!`);
+    }
+
+    function deleteServiceItem(idx) {
+      syncEditedServicesFromDOM();
+      if (SERVICES.length <= 1) return showToast("חייבת להישאר לפחות תספורת אחת");
+      SERVICES.splice(idx, 1);
+      localStorage.setItem("ilay_services_v2", JSON.stringify(SERVICES));
+      broadcastStateToCloud();
+      renderAdminEditors();
+      showToast("התספורת הוסרה.");
+    }
+
+    function saveSiteAndServicesChanges() {
+      siteConfig.title = sanitizeStr(document.getElementById("editSiteTitle").value, 50) || "ILAY BARBERSHOP";
+      siteConfig.subtitle = sanitizeStr(document.getElementById("editSiteSubtitle").value, 90) || "תספורת נקייה, אווירה טובה וסטייל שיושב בול.";
+      localStorage.setItem("ilay_site_cfg", JSON.stringify(siteConfig));
+      syncEditedServicesFromDOM();
+      localStorage.setItem("ilay_services_v2", JSON.stringify(SERVICES));
+      broadcastStateToCloud();
+      renderAdminEditors();
+      showToast("השינויים נשמרו והתעדכנו באתר הלקוחות!");
+    }
+
+    function saveWeeklyHours() {
+      siteConfig.slotInterval = Number(document.getElementById("slotIntervalSelect").value) || 30;
+      siteConfig.slotBuffer = Number(document.getElementById("slotBufferSelect").value) || 0;
+      localStorage.setItem("ilay_site_cfg", JSON.stringify(siteConfig));
+      DAYS.forEach((_, idx) => {
+        weeklySchedule[idx] = {
+          active: document.getElementById(`dayActive_${idx}`).checked,
+          start: document.getElementById(`dayStart_${idx}`).value || "10:00",
+          end: document.getElementById(`dayEnd_${idx}`).value || "20:00"
+        };
+      });
+      localStorage.setItem("ilay_weekly_hours", JSON.stringify(weeklySchedule));
+      broadcastStateToCloud();
+      renderCalendarBoard();
+      renderAdminStats();
+      showToast("שעות הפתיחה והמרווחים עודכנו באתר!");
+    }
+
+    function switchAdminSubTab(tab) {
+      document.querySelectorAll(".admin-tabs-bar .admin-tab-btn").forEach(b => b.classList.remove("active"));
+      document.getElementById("subtab-btn-" + tab).classList.add("active");
+      document.getElementById("admin-sub-cal").style.display = tab === "cal" ? "block" : "none";
+      document.getElementById("admin-sub-portfolio").style.display = tab === "portfolio" ? "block" : "none";
+      document.getElementById("admin-sub-edit").style.display = tab === "edit" ? "block" : "none";
+      document.getElementById("admin-sub-hours").style.display = tab === "hours" ? "block" : "none";
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById("toastPopup");
+      t.textContent = msg; t.classList.add("show");
+      clearTimeout(window._toastTimer);
+      window._toastTimer = setTimeout(() => t.classList.remove("show"), 3500);
+    }
+
+    window.addEventListener("DOMContentLoaded", async () => {
+      const dbPhotos = await loadPortfolioFromDB();
+      if (dbPhotos && Array.isArray(dbPhotos) && dbPhotos.length > 0) {
+        portfolioList = dbPhotos;
+        hasCustomUploadedPhotos = true;
+      }
+      initSyncListeners();
+      const savedAdmin = localStorage.getItem("ilay_saved_admin_label");
+      if (savedAdmin) unlockAdminApp(savedAdmin);
+    });
+  </script>
+</body>
+</html>
