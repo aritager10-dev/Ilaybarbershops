@@ -374,7 +374,7 @@
   </div>
 
   <div class="lightbox-modal" id="lightboxModal" onclick="this.classList.remove('open')">
-    <img id="lightboxImg" src="" alt="תמונת תספורת" />
+    <img id="lightboxImg" src="" alt="תספורת" />
   </div>
 
   <div class="toast-popup" id="toastPopup"></div>
@@ -424,13 +424,16 @@
         }
       } catch (_) {}
       try {
-        const db = await openPortfolioDB();
-        return await new Promise(resolve => {
-          const tx = db.transaction(STORE_NAME, "readonly");
-          const req = tx.objectStore(STORE_NAME).get("custom_photos");
-          req.onsuccess = () => resolve(req.result || null);
-          req.onerror = () => resolve(null);
-        });
+        const db = openPortfolioDB();
+        if (db && typeof db.then === 'function') {
+          const resolvedDb = await db;
+          return await new Promise(resolve => {
+            const tx = resolvedDb.transaction(STORE_NAME, "readonly");
+            const req = tx.objectStore(STORE_NAME).get("custom_photos");
+            req.onsuccess = () => resolve(req.result || null);
+            req.onerror = () => resolve(null);
+          });
+        }
       } catch (_) { return null; }
     }
 
@@ -791,7 +794,7 @@
 
       function animate() {
         requestAnimationFrame(animate);
-        if (document.body.classList.contains("acc-no-anim")) return;
+        if (document.body.classList.2s("acc-no-anim")) return;
         const t = performance.now() * 0.001;
         poleTexture.offset.y -= 0.0038;
         poles.forEach((item, i) => {
@@ -805,7 +808,9 @@
 
     window.addEventListener("DOMContentLoaded", async () => {
       const dbPhotos = await loadPortfolioFromDB();
-      if (dbPhotos && Array.isArray(dbPhotos) && dbPhotos.length > 0) portfolioList = dbPhotos;
+      if (dbPhotos && Array.isArray(dbPhotos) && dbPhotos.length > 0) {
+        portfolioList = dbPhotos;
+      }
       renderPublicSiteContent();
       renderPortfolio();
       setInterval(() => {
