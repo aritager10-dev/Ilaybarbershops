@@ -44,9 +44,7 @@
 
     .btn-gold { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 11px 18px; border-radius: 12px; border: none; background: linear-gradient(135deg, var(--gold), #b8860b); color: #090b10; font-family: 'Heebo', sans-serif; font-weight: 900; font-size: 0.9rem; cursor: pointer; }
     .btn-outline { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 14px; border-radius: 12px; border: 1px solid var(--border-gold); background: rgba(255,255,255,0.04); color: var(--text-main); font-family: 'Heebo', sans-serif; font-weight: 700; font-size: 0.85rem; cursor: pointer; text-decoration: none; }
-    .btn-outline.active-filter { background: rgba(212,175,55,0.22); border-color: var(--gold); color: var(--gold-light); }
 
-    /* כרטיסי סטטיסטיקה אוטומטיים */
     .stats-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
     .stat-rev-card { background: linear-gradient(145deg, rgba(20,26,40,0.95), rgba(12,16,25,0.98)); border: 1px solid var(--border-gold); border-radius: 16px; padding: 13px; position: relative; overflow: hidden; }
     .stat-rev-card::before { content: ""; position: absolute; top: 0; right: 0; width: 4px; height: 100%; background: var(--gold); }
@@ -60,204 +58,43 @@
 
     .panel-box { background: rgba(14, 18, 28, 0.96); border: 1px solid var(--border-gold); border-radius: 18px; padding: 15px; }
 
-    /* תיבת הודעה מוכנה אוטומטית שקופצת אחרי הזזת תור */
     .prepared-msg-banner {
       display: none;
       background: linear-gradient(135deg, rgba(16, 185, 129, 0.16), rgba(15, 23, 42, 0.96));
-      border: 2px solid #10b981;
-      border-radius: 16px;
-      padding: 14px 16px;
-      margin-bottom: 14px;
+      border: 2px solid #10b981; border-radius: 16px; padding: 14px 16px; margin-bottom: 14px;
       box-shadow: 0 12px 30px rgba(0,0,0,0.6);
     }
-    .prepared-msg-banner.show { display: block; animation: popIn 0.25s ease; }
-    @keyframes popIn { from { transform: translateY(-8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-    .prepared-msg-text {
-      background: rgba(0,0,0,0.45);
-      border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 10px;
-      padding: 10px 12px;
-      color: #fff;
-      font-weight: 700;
-      font-size: 0.92rem;
-      margin: 8px 0 10px;
-      -webkit-user-select: text;
-      user-select: text;
-    }
+    .prepared-msg-banner.show { display: block; }
+    .prepared-msg-text { background: rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.12); border-radius: 10px; padding: 10px 12px; color: #fff; font-weight: 700; font-size: 0.92rem; margin: 8px 0 10px; -webkit-user-select: text; user-select: text; }
 
-    /* סרגל מצב הזזה בלחיצה + סינון ימים בלוח המשבצות */
-    .move-mode-helper {
-      display: none;
-      background: rgba(59, 130, 246, 0.18);
-      border: 2px solid #3b82f6;
-      color: #dbeafe;
-      padding: 10px 14px;
-      border-radius: 12px;
-      margin-bottom: 12px;
-      font-weight: 800;
-      font-size: 0.88rem;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-    }
+    .move-mode-helper { display: none; background: rgba(59, 130, 246, 0.18); border: 2px solid #3b82f6; color: #dbeafe; padding: 10px 14px; border-radius: 12px; margin-bottom: 12px; font-weight: 800; font-size: 0.88rem; align-items: center; justify-content: space-between; gap: 10px; }
     .move-mode-helper.active { display: flex; }
 
-    .day-filter-pills {
-      display: flex;
-      gap: 6px;
-      overflow-x: auto;
-      padding-bottom: 8px;
-      margin-bottom: 10px;
-      -webkit-overflow-scrolling: touch;
-    }
-    .day-filter-btn {
-      padding: 8px 13px;
-      border-radius: 10px;
-      border: 1px solid rgba(255,255,255,0.12);
-      background: rgba(255,255,255,0.04);
-      color: #fff;
-      font-family: 'Heebo';
-      font-weight: 800;
-      font-size: 0.8rem;
-      white-space: nowrap;
-      cursor: pointer;
-    }
-    .day-filter-btn.active {
-      background: var(--gold);
-      color: #090b10;
-      border-color: var(--gold);
-    }
+    .day-filter-pills { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 10px; -webkit-overflow-scrolling: touch; }
+    .day-filter-btn { padding: 8px 13px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.04); color: #fff; font-family: 'Heebo'; font-weight: 800; font-size: 0.8rem; white-space: nowrap; cursor: pointer; }
+    .day-filter-btn.active { background: var(--gold); color: #090b10; border-color: var(--gold); }
 
-    /* =====================================================
-       לוח משבצות יומן (Grid Slots Board) עם גרירה נוחה!
-       ===================================================== */
-    .cal-grid-scroll {
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-      padding-bottom: 10px;
-      border-radius: 14px;
-    }
-    .cal-board {
-      display: grid;
-      gap: 7px;
-      width: 100%;
-    }
-    .cal-board.cols-7 {
-      grid-template-columns: 74px repeat(7, minmax(148px, 1fr));
-      min-width: 1100px;
-    }
-    .cal-board.cols-1 {
-      grid-template-columns: 78px 1fr;
-      min-width: 100%;
-    }
+    .cal-grid-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 10px; border-radius: 14px; }
+    .cal-board { display: grid; gap: 7px; width: 100%; }
+    .cal-board.cols-7 { grid-template-columns: 74px repeat(7, minmax(148px, 1fr)); min-width: 1100px; }
+    .cal-board.cols-1 { grid-template-columns: 78px 1fr; min-width: 100%; }
 
-    .cal-col-header {
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(212, 175, 55, 0.35);
-      border-radius: 12px;
-      padding: 10px 6px;
-      text-align: center;
-      font-weight: 900;
-      font-size: 0.86rem;
-      color: var(--gold-light);
-      position: sticky;
-      top: 0;
-      z-index: 10;
-    }
-    .cal-col-header small {
-      display: block;
-      font-size: 0.72rem;
-      color: #cbd5e1;
-      font-weight: 600;
-      margin-top: 2px;
-    }
+    .cal-col-header { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(212, 175, 55, 0.35); border-radius: 12px; padding: 10px 6px; text-align: center; font-weight: 900; font-size: 0.86rem; color: var(--gold-light); position: sticky; top: 0; z-index: 10; }
+    .cal-col-header small { display: block; font-size: 0.72rem; color: #cbd5e1; font-weight: 600; margin-top: 2px; }
+    .cal-time-label { display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; font-weight: 900; font-size: 0.88rem; color: var(--gold-light); min-height: 92px; }
 
-    .cal-time-label {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 12px;
-      font-weight: 900;
-      font-size: 0.88rem;
-      color: var(--gold-light);
-      min-height: 92px;
-    }
+    .cal-slot { min-height: 92px; border-radius: 12px; border: 1.5px dashed rgba(255, 255, 255, 0.15); background: rgba(255, 255, 255, 0.02); padding: 6px; position: relative; display: flex; flex-direction: column; justify-content: center; transition: all 0.16s ease; }
+    .cal-slot.drag-over { border: 2.5px solid var(--gold) !important; background: rgba(212, 175, 55, 0.24) !important; }
+    .cal-slot.tap-target-ready { border: 2px dashed #3b82f6; background: rgba(59, 130, 246, 0.08); cursor: pointer; }
 
-    /* משבצת שעה ביומן */
-    .cal-slot {
-      min-height: 92px;
-      border-radius: 12px;
-      border: 1.5px dashed rgba(255, 255, 255, 0.15);
-      background: rgba(255, 255, 255, 0.02);
-      padding: 6px;
-      position: relative;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      transition: all 0.16s ease;
-    }
-    .cal-slot:hover {
-      border-color: rgba(212, 175, 55, 0.5);
-      background: rgba(212, 175, 55, 0.05);
-    }
-    .cal-slot.drag-over {
-      border: 2.5px solid var(--gold) !important;
-      background: rgba(212, 175, 55, 0.24) !important;
-      transform: scale(1.02);
-    }
-    .cal-slot.tap-target-ready {
-      border: 2px dashed #3b82f6;
-      background: rgba(59, 130, 246, 0.08);
-      cursor: pointer;
-    }
+    .slot-empty-add { font-size: 0.76rem; font-weight: 700; color: rgba(148, 163, 184, 0.7); text-align: center; cursor: pointer; padding: 18px 4px; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
 
-    .slot-empty-add {
-      font-size: 0.76rem;
-      font-weight: 700;
-      color: rgba(148, 163, 184, 0.7);
-      text-align: center;
-      cursor: pointer;
-      padding: 18px 4px;
-      width: 100%;
-      height: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .cal-slot:hover .slot-empty-add { color: var(--gold-light); }
-
-    /* כרטיס תור בתוך משבצת (נוח לתפיסה וגרירה!) */
-    .appt-card {
-      width: 100%;
-      background: linear-gradient(135deg, #1b253b, #111827);
-      border: 1.5px solid var(--gold);
-      border-right: 5px solid var(--gold);
-      border-radius: 10px;
-      padding: 8px 9px;
-      cursor: grab;
-      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.55);
-      position: relative;
-      touch-action: none;
-    }
-    .appt-card:active { cursor: grabbing; }
-    .appt-card.selected-for-move {
-      border-color: #3b82f6;
-      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.4);
-    }
+    .appt-card { width: 100%; background: linear-gradient(135deg, #1b253b, #111827); border: 1.5px solid var(--gold); border-right: 5px solid var(--gold); border-radius: 10px; padding: 8px 9px; cursor: grab; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.55); touch-action: none; }
+    .appt-card.selected-for-move { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.4); }
     .appt-top { display: flex; align-items: center; justify-content: space-between; gap: 4px; margin-bottom: 4px; }
     .appt-drag-handle { font-size: 0.72rem; font-weight: 900; color: var(--gold-light); background: rgba(212,175,55,0.18); padding: 2px 6px; border-radius: 5px; }
     .appt-actions { display: flex; gap: 4px; }
-    .appt-btn-mini {
-      border-radius: 5px;
-      font-size: 0.68rem;
-      font-weight: 800;
-      padding: 2px 6px;
-      cursor: pointer;
-      font-family: 'Heebo';
-      border: 1px solid transparent;
-    }
+    .appt-btn-mini { border-radius: 5px; font-size: 0.68rem; font-weight: 800; padding: 2px 6px; cursor: pointer; font-family: 'Heebo'; border: 1px solid transparent; }
     .appt-btn-move { background: rgba(59,130,246,0.22); border-color: rgba(59,130,246,0.5); color: #93c5fd; }
     .appt-btn-cancel { background: rgba(214,40,40,0.22); border-color: rgba(214,40,40,0.5); color: #fca5a5; }
     .appt-client-name { font-size: 0.88rem; font-weight: 900; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -293,7 +130,6 @@
 </head>
 <body>
 
-  <!-- מסך כניסה מאובטח לאפליקציית הניהול -->
   <div class="login-screen" id="loginScreen">
     <div class="login-box">
       <div style="font-size:2rem; margin-bottom:6px;">💈</div>
@@ -310,7 +146,6 @@
     </div>
   </div>
 
-  <!-- אפליקציית הניהול והיומן -->
   <div class="app-container" id="adminApp">
     <header class="top-header">
       <div>
@@ -325,7 +160,6 @@
       </div>
     </header>
 
-    <!-- 1. סטטיסטיקת הכנסות אוטומטית -->
     <div class="stats-grid-4">
       <div class="stat-rev-card">
         <div class="stat-rev-label">
@@ -363,7 +197,6 @@
       </div>
     </div>
 
-    <!-- לשוניות ניהול -->
     <div class="admin-tabs-bar">
       <button type="button" class="admin-tab-btn active" id="subtab-btn-cal" onclick="switchAdminSubTab('cal')">📅 יומן משבצות</button>
       <button type="button" class="admin-tab-btn" id="subtab-btn-portfolio" onclick="switchAdminSubTab('portfolio')">📸 תיק עבודות (<span id="adminTabPhotoCount">10</span>)</button>
@@ -371,10 +204,7 @@
       <button type="button" class="admin-tab-btn" id="subtab-btn-hours" onclick="switchAdminSubTab('hours')">⚙️ שעות ומרווחים</button>
     </div>
 
-    <!-- לשונית 1: יומן משבצות עם גרירה נוחה + הודעה מוכנה אוטומטית -->
     <div id="admin-sub-cal" class="panel-box">
-
-      <!-- תיבת הודעה מוכנה שקופצת אוטומטית כשמזיזים תור! -->
       <div class="prepared-msg-banner" id="preparedMsgBanner">
         <div style="display:flex; align-items:center; justify-content:space-between;">
           <strong style="color:#34d399; font-size:0.9rem;">✅ התור הוזז! הנה ההודעה המוכנה ללקוח:</strong>
@@ -387,7 +217,6 @@
         </div>
       </div>
 
-      <!-- סרגל עזר כשלוחצים על "הזז" בתוך משבצת -->
       <div class="move-mode-helper" id="moveModeHelper">
         <span id="moveModeText">בחר עכשיו כל משבצת פנויה בלוח כדי להעביר לשם את התור</span>
         <button type="button" class="btn-outline" style="padding:5px 10px; font-size:0.78rem;" onclick="cancelTapMoveMode()">ביטול הזזה</button>
@@ -401,16 +230,13 @@
         </label>
       </div>
 
-      <!-- בחירת תצוגת כל השבוע או יום ספציפי במשבצות גדולות -->
       <div class="day-filter-pills" id="calBoardFilterBar"></div>
 
-      <!-- לוח המשבצות -->
       <div class="cal-grid-scroll" id="calGridScrollWrap">
         <div class="cal-board cols-7" id="calendarBoard"></div>
       </div>
     </div>
 
-    <!-- לשונית 2: תיק עבודות -->
     <div id="admin-sub-portfolio" class="panel-box" style="display:none;">
       <h3 style="font-size:1.1rem; font-weight:900; color:var(--gold-light); margin-bottom:6px;">ניהול תיק עבודות (מסונכרן אוטומטית לאתר הלקוחות)</h3>
       <p style="font-size:0.84rem; color:var(--text-muted); margin-bottom:12px;">בחר תמונות מהאייפון או מהמחשב והן יוצגו מיד באתר הראשי.</p>
@@ -423,7 +249,6 @@
       <div class="admin-portfolio-grid" id="adminPortfolioGrid"></div>
     </div>
 
-    <!-- לשונית 3: תספורות, מחירים וכותרת -->
     <div id="admin-sub-edit" class="panel-box" style="display:none;">
       <h3 style="font-size:1.05rem; font-weight:900; color:var(--gold-light); margin-bottom:10px;">כותרת ראשית באתר הלקוחות</h3>
       <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:10px; margin-bottom:16px;">
@@ -447,7 +272,6 @@
       <button type="button" class="btn-gold" style="width:100%; margin-top:14px; padding:14px;" onclick="saveSiteAndServicesChanges()">שמור ועדכן הכל באתר הלקוחות</button>
     </div>
 
-    <!-- לשונית 4: שעות ומרווחים -->
     <div id="admin-sub-hours" class="panel-box" style="display:none;">
       <h3 style="font-size:1.05rem; font-weight:900; color:var(--gold-light); margin-bottom:10px;">זמן בין תספורת לתספורת</h3>
       <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:10px; margin-bottom:16px;">
@@ -479,7 +303,6 @@
     </div>
   </div>
 
-  <!-- חלונית שיבוץ תור ידני -->
   <div class="modal-backdrop" id="manualAddModal" onclick="if(event.target===this) this.classList.remove('open')">
     <div class="square-modal">
       <div class="modal-head">
@@ -496,7 +319,6 @@
     </div>
   </div>
 
-  <!-- מדריך הוספת האפליקציה למסך הבית באייפון -->
   <div class="modal-backdrop" id="pwaGuideModal" onclick="if(event.target===this) this.classList.remove('open')">
     <div class="square-modal">
       <div class="modal-head">
@@ -644,13 +466,11 @@
     ];
 
     let appointments = JSON.parse(localStorage.getItem("ilay_appointments_clean_v1") || "[]");
-    let boardFilterMode = "all"; // 'all' = כל 7 הימים בלוח משבצות, או מספר יום (0..6)
-    let tapMoveApptId = null;    // מזהה תור שנבחר להזזה בלחיצה
+    let selectedAdminCalDay = 0;
 
-    // חישוב תאריך מדויק לכל יום בשבוע הקרוב
     function getFormattedDateForDayIdx(dayIdx) {
       const now = new Date();
-      const currentDay = now.getDay(); // 0 = Sunday .. 6 = Saturday
+      const currentDay = now.getDay();
       let diff = dayIdx - currentDay;
       if (diff < 0) diff += 7;
       const target = new Date(now);
@@ -728,27 +548,6 @@
       return Math.max(10, (Number(siteConfig.slotInterval) || 30) + (Number(siteConfig.slotBuffer) || 0));
     }
 
-    function buildDaySlots(startStr, endStr) {
-      const step = getEffectiveStepMinutes();
-      const [sh, sm] = startStr.split(":").map(Number);
-      const [eh, em] = endStr.split(":").map(Number);
-      const out = [];
-      for (let cur = sh * 60 + sm; cur < eh * 60 + em; cur += step) {
-        out.push(`${String(Math.floor(cur / 60)).padStart(2, "0")}:${String(cur % 60).padStart(2, "0")}`);
-      }
-      return out;
-    }
-
-    function generateCalendarHours() {
-      const step = getEffectiveStepMinutes();
-      const hours = [];
-      for (let cur = 9 * 60; cur <= 21 * 60 + 30; cur += step) {
-        hours.push(`${String(Math.floor(cur / 60)).padStart(2, "0")}:${String(cur % 60).padStart(2, "0")}`);
-      }
-      appointments.forEach(a => { if (a.time && !hours.includes(a.time)) hours.push(a.time); });
-      return hours.sort();
-    }
-
     function saveAppointments() {
       localStorage.setItem("ilay_appointments_clean_v1", JSON.stringify(appointments));
       broadcastStateToCloud();
@@ -796,9 +595,6 @@
       document.getElementById("adminTabPhotoCount").textContent = portfolioList.length;
     }
 
-    /* ==========================================
-       לוח המשבצות החדש + גרירה בעכבר ובאצבע + הודעה מוכנה אוטומטית!
-       ========================================== */
     function renderBoardFilterBar() {
       const bar = document.getElementById("calBoardFilterBar");
       bar.innerHTML = "";
@@ -820,6 +616,9 @@
         bar.appendChild(btn);
       });
     }
+
+    let boardFilterMode = "all";
+    let tapMoveApptId = null;
 
     function renderCalendarBoard() {
       renderBoardFilterBar();
@@ -872,7 +671,7 @@
           } else {
             const emptyHint = document.createElement("div");
             emptyHint.className = "slot-empty-add";
-            emptyHint.textContent = tapMoveApptId ? "📍 לחץ כאן להעברת התור" : "+ פנוי (שבץ תור)";
+            emptyHint.textContent = tapMoveApptId ? "📍 לחץ כאן להעברה" : "+ פנוי";
             emptyHint.onclick = () => {
               if (tapMoveApptId) {
                 const idToMove = tapMoveApptId;
@@ -910,15 +709,11 @@
         ${appt.note ? `<div class="appt-note-tag">📝 ${sanitizeStr(appt.note, 120)}</div>` : ""}
       `;
 
-      card.addEventListener("dragstart", e => {
-        e.dataTransfer.setData("text/plain", appt.id);
-      });
-
+      card.addEventListener("dragstart", e => { e.dataTransfer.setData("text/plain", appt.id); });
       enableTouchDragOnGrid(card, appt.id);
       return card;
     }
 
-    // גרירת משבצת חלקה עם האצבע בטלפון (כולל גלילה אוטומטית של הלוח)
     function enableTouchDragOnGrid(cardEl, apptId) {
       let clone = null;
       let startX = 0, startY = 0, isDragging = false;
@@ -926,9 +721,7 @@
       cardEl.addEventListener("touchstart", e => {
         if (e.target.closest("button")) return;
         const t = e.touches[0];
-        startX = t.clientX;
-        startY = t.clientY;
-        isDragging = false;
+        startX = t.clientX; startY = t.clientY; isDragging = false;
       }, { passive: true });
 
       cardEl.addEventListener("touchmove", e => {
@@ -945,13 +738,6 @@
         clone.style.left = (t.clientX - 74) + "px";
         clone.style.top = (t.clientY - 40) + "px";
 
-        // גלילה אוטומטית של הלוח כשמתקרבים לקצוות המסך
-        const scrollWrap = document.getElementById("calGridScrollWrap");
-        if (t.clientX < 55) scrollWrap.scrollLeft -= 10;
-        else if (t.clientX > window.innerWidth - 55) scrollWrap.scrollLeft += 10;
-        if (t.clientY < 90) window.scrollBy(0, -10);
-        else if (t.clientY > window.innerHeight - 90) window.scrollBy(0, 10);
-
         document.querySelectorAll(".cal-slot").forEach(s => s.classList.remove("drag-over"));
         const target = document.elementFromPoint(t.clientX, t.clientY);
         const slotEl = target ? target.closest(".cal-slot") : null;
@@ -961,16 +747,12 @@
       cardEl.addEventListener("touchend", e => {
         if (!isDragging || !clone) return;
         const t = e.changedTouches[0];
-        clone.remove();
-        clone = null;
-        isDragging = false;
+        clone.remove(); clone = null; isDragging = false;
         document.querySelectorAll(".cal-slot").forEach(s => s.classList.remove("drag-over"));
 
         const target = document.elementFromPoint(t.clientX, t.clientY);
         const slotEl = target ? target.closest(".cal-slot") : null;
-        if (slotEl) {
-          moveAppointmentToSlot(apptId, Number(slotEl.dataset.dayIdx), slotEl.dataset.time);
-        }
+        if (slotEl) moveAppointmentToSlot(apptId, Number(slotEl.dataset.dayIdx), slotEl.dataset.time);
       });
     }
 
@@ -979,7 +761,7 @@
       const appt = appointments.find(a => a.id === apptId);
       if (!appt) return;
       tapMoveApptId = apptId;
-      document.getElementById("moveModeText").textContent = `הזזת התור של ${appt.name}: לחץ עכשיו על כל משבצת פנויה בלוח כדי להעביר אותו לשם`;
+      document.getElementById("moveModeText").textContent = `הזזת התור של ${appt.name}: לחץ עכשיו על משבצת פנויה`;
       document.getElementById("moveModeHelper").classList.add("active");
       renderCalendarBoard();
     }
@@ -990,13 +772,12 @@
       renderCalendarBoard();
     }
 
-    // הזזת התור למשבצת חדשה + הכנת ההודעה המדויקת שביקשת!
     function moveAppointmentToSlot(apptId, newDayIdx, newTime) {
       const appt = appointments.find(a => a.id === apptId);
       if (!appt || (Number(appt.dayIdx) === Number(newDayIdx) && appt.time === newTime)) return;
 
       const occupied = appointments.find(a => Number(a.dayIdx) === Number(newDayIdx) && a.time === newTime && a.id !== apptId);
-      if (occupied) return showToast("⚠️ המשבצת הזו כבר תפוסה ע״י " + occupied.name);
+      if (occupied) return showToast("⚠️ המשבצת הזו תפוסה ע״י " + occupied.name);
 
       appt.dayIdx = Number(newDayIdx);
       appt.time = newTime;
@@ -1036,7 +817,7 @@
       const appt = appointments.splice(idx, 1)[0];
       saveAppointments();
       renderCalendarBoard();
-      showToast(`🗑️ התור של ${appt.name} בוטל והמשבצת התפנתה באתר.`);
+      showToast(`🗑️ התור של ${appt.name} בוטל.`);
     }
 
     function openManualAddModal() {
@@ -1072,7 +853,7 @@
       saveAppointments();
       renderCalendarBoard();
       document.getElementById("manualAddModal").classList.remove("open");
-      showToast(`✅ התור של ${name} שובץ במשבצת וסונכרן לאתר!`);
+      showToast(`✅ התור של ${name} שובץ בהצלחה!`);
     }
 
     function renderAdminPortfolioManager() {
@@ -1094,35 +875,10 @@
       });
     }
 
-    function compressImageFile(file) {
-      return new Promise(resolve => {
-        const objUrl = URL.createObjectURL(file);
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement("canvas");
-          const maxDim = 560;
-          let w = img.width || 500, h = img.height || 650;
-          if (w > h && w > maxDim) { h = Math.round((h * maxDim) / w); w = maxDim; }
-          else if (h > maxDim) { w = Math.round((w * maxDim) / h); h = maxDim; }
-          canvas.width = w; canvas.height = h;
-          canvas.getContext("2d").drawImage(img, 0, 0, w, h);
-          URL.revokeObjectURL(objUrl);
-          resolve(canvas.toDataURL("image/jpeg", 0.72));
-        };
-        img.onerror = () => {
-          URL.revokeObjectURL(objUrl);
-          const reader = new FileReader();
-          reader.onload = e => resolve(e.target.result);
-          reader.readAsDataURL(file);
-        };
-        img.src = objUrl;
-      });
-    }
-
     async function handlePortfolioUpload(ev, replaceAll) {
       const files = Array.from(ev.target.files || []);
       if (!files.length) return;
-      showToast(`מעלה ומכווץ ${files.length} תמונות...`);
+      showToast(`מעלה ${files.length} תמונות...`);
       const compressedList = [];
       for (const file of files) {
         compressedList.push(await compressImageFile(file));
@@ -1137,7 +893,7 @@
       await savePortfolioToDB(portfolioList);
       ev.target.value = "";
       renderAdminPortfolioManager();
-      showToast(`${compressedList.length} תמונות נשמרו והתעדכנו באתר הלקוחות!`);
+      showToast(`${compressedList.length} תמונות התעדכנו באתר הלקוחות!`);
     }
 
     async function deletePortfolioPhoto(idx) {
@@ -1216,12 +972,8 @@
       SERVICES.push({ name, price, duration, desc });
       localStorage.setItem("ilay_services_v2", JSON.stringify(SERVICES));
       broadcastStateToCloud();
-      document.getElementById("newSrvName").value = "";
-      document.getElementById("newSrvPrice").value = "";
-      document.getElementById("newSrvTime").value = "";
-      document.getElementById("newSrvDesc").value = "";
       renderAdminEditors();
-      showToast(`התספורת "${name}" נוספה ועודכנה באתר!`);
+      showToast(`התספורת "${name}" נוספה!`);
     }
 
     function deleteServiceItem(idx) {
@@ -1242,7 +994,7 @@
       localStorage.setItem("ilay_services_v2", JSON.stringify(SERVICES));
       broadcastStateToCloud();
       renderAdminEditors();
-      showToast("השינויים נשמרו והתעדכנו באתר הלקוחות!");
+      showToast("השינויים נשמרו והתעדכנו באתר!");
     }
 
     function saveWeeklyHours() {
@@ -1260,7 +1012,7 @@
       broadcastStateToCloud();
       renderCalendarBoard();
       renderAdminStats();
-      showToast("שעות הפתיחה והמרווחים עודכנו באתר!");
+      showToast("שעות הפתיחה עודכנו!");
     }
 
     function switchAdminSubTab(tab) {
