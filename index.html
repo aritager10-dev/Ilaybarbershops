@@ -457,11 +457,9 @@
       subtitle: "תספורת נקייה, אווירה טובה וסטייל שיושב בול.",
       slotInterval: 30,
       slotBuffer: 0,
-      notifyPhone: "0542223765",
-      greenIdInstance: "",
-      greenApiToken: ""
+      ntfyTopic: "ilay_barbershop_alerts"
     };
-    if (!siteConfig.notifyPhone) siteConfig.notifyPhone = "0542223765";
+    if (!siteConfig.ntfyTopic) siteConfig.ntfyTopic = "ilay_barbershop_alerts";
 
     let SERVICES = JSON.parse(localStorage.getItem("ilay_services_v2") || "null") || [
       { name: "תספורת קלאסי", price: 70, duration: "30 דק'", desc: "דירוג (מולט, טייפר, בארסט ועוד..) עם גזירות ואפשרות להוסיף פנס לבחירה." },
@@ -492,7 +490,7 @@
     ];
     let appointments = JSON.parse(localStorage.getItem("ilay_appointments_clean_v1") || "[]");
 
-    // --- מנוע סנכרון חי בזמן אמת ---
+    // --- מנוע סנכרון ענן בזמן אמת ---
     const CLOUD_TOPIC_BASE = "ilay_barbershop_gt_2026_live_v7";
     const CLOUD_BROKERS = [
       "wss://broker.emqx.io:8084/mqtt",
@@ -630,34 +628,33 @@
       });
     }
 
-    // שליחת הודעת וואטסאפ אוטומטית ברקע למספר 0542223765
-    async function sendAutomaticWhatsAppToBarber(appt) {
-      const targetPhoneRaw = (siteConfig.notifyPhone || "0542223765").replace(/[^0-9]/g, "");
-      const formattedPhone = targetPhoneRaw.replace(/^0/, "972");
-      const chatId = `${formattedPhone}@c.us`;
+    // שליחת התראת פוש אמיתית לטלפון דרך ntfy (עובד גם כשהאפליקציה סגורה לגמרי)
+    async function sendNtfyPushNotification(appt) {
+      const topic = (siteConfig.ntfyTopic || "ilay_barbershop_alerts").trim();
       const dateStr = getFormattedDateForDayIdx(appt.dayIdx);
       const dayName = DAYS[appt.dayIdx];
       const adminUrl = `${window.location.origin}/admin.html`;
 
-      const messageText =
-        `💈 *תור חדש נקבע באתר - Ilay Barbershop!*\n\n` +
-        `👤 *לקוח:* ${appt.name}\n` +
-        `📞 *טלפון:* ${appt.phone}\n` +
-        `✂️ *תספורת:* ${appt.service}\n` +
-        `📅 *מועד:* יום ${dayName} (${dateStr}) בשעה *${appt.time}*\n` +
-        (appt.note ? `📝 *הערה:* ${appt.note}\n` : ``) +
-        `\n📲 *לצפייה ביומן הניהול ופרטים נוספים:*\n${adminUrl}`;
+      const payload = {
+        topic: topic,
+        title: "💈 תור חדש נקבע - Ilay Barbershop!",
+        message:
+          `👤 לקוח: ${appt.name} (${appt.phone})\n` +
+          `✂️ שירות: ${appt.service}\n` +
+          `📅 מועד: יום ${dayName} (${dateStr}) בשעה ${appt.time}` +
+          (appt.note ? `\n📝 הערה: ${appt.note}` : ``) +
+          `\n\nלחץ על ההתראה לפתיחת היומן`,
+        priority: 5,
+        tags: ["barber", "calendar"],
+        click: adminUrl
+      };
 
-      if (siteConfig.greenIdInstance && siteConfig.greenApiToken) {
-        try {
-          const url = `https://api.green-api.com/waInstance${siteConfig.greenIdInstance.trim()}/sendMessage/${siteConfig.greenApiToken.trim()}`;
-          await fetch(url, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ chatId, message: messageText })
-          });
-        } catch (_) {}
-      }
+      try {
+        await fetch("https://ntfy.sh", {
+          method: "POST",
+          body: JSON.stringify(payload)
+        });
+      } catch (_) {}
     }
 
     function getEffectiveStepMinutes() {
@@ -820,7 +817,7 @@
 
       appointments.push(newAppt);
       broadcastNewBookingFromClient(newAppt);
-      sendAutomaticWhatsAppToBarber(newAppt);
+      sendNtfyPushNotification(newAppt);
 
       closeBookingModal();
       document.getElementById("clientNameInput").value = "";
