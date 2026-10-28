@@ -26,6 +26,9 @@
     body { font-family: 'Heebo', sans-serif; background: var(--bg-dark); color: var(--text-main); overflow-x: hidden; width: 100%; max-width: 100vw; min-height: 100vh; }
     body.modal-open { overflow: hidden; }
     body.modal-open .mobile-bottom-nav { display: none !important; }
+    body.acc-large-text { font-size: 112%; }
+    body.acc-high-contrast { filter: contrast(1.25); }
+    body.acc-no-anim *, body.acc-no-anim *::before, body.acc-no-anim *::after { animation: none !important; transition: none !important; }
 
     select, select.input-field { background-color: #111520 !important; color: #f8fafc !important; color-scheme: dark; }
     select option { background-color: #111520 !important; color: #f8fafc !important; padding: 10px; font-weight: 700; }
@@ -109,10 +112,12 @@
       border: 1px solid rgba(212,175,55,0.24); border-radius: 24px; padding: 22px; box-shadow: 0 16px 40px rgba(0,0,0,0.6);
     }
     .sec-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+    .sec-tag { display: inline-flex; align-items: center; gap: 6px; font-size: 0.74rem; font-weight: 700; color: var(--gold-light); background: rgba(212,175,55,0.12); border: 1px solid var(--border-gold); padding: 3px 10px; border-radius: 999px; margin-bottom: 4px; }
     .sec-title { font-size: clamp(1.3rem, 2.2vw, 1.8rem); font-weight: 900; color: #ffffff; }
 
     .services-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; width: 100%; }
-    .service-card { background: rgba(18, 23, 35, 0.94); border: 1px solid var(--border-gold); border-radius: 18px; padding: 18px; display: flex; flex-direction: column; justify-content: space-between; gap: 12px; cursor: pointer; min-width: 0; }
+    .service-card { background: rgba(18, 23, 35, 0.94); border: 1px solid var(--border-gold); border-radius: 18px; padding: 18px; display: flex; flex-direction: column; justify-content: space-between; gap: 12px; cursor: pointer; transition: transform 0.2s ease, border-color 0.2s ease; min-width: 0; }
+    .service-card:hover { transform: translateY(-2px); border-color: var(--gold); }
     .srv-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
     .srv-title-group { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
     .srv-name { font-size: 1.15rem; font-weight: 800; color: #ffffff; }
@@ -120,7 +125,7 @@
     .srv-price { font-size: 1.22rem; font-weight: 900; color: var(--gold-light); background: rgba(212,175,55,0.14); border: 1px solid rgba(212,175,55,0.4); padding: 6px 13px; border-radius: 12px; white-space: nowrap; }
     .srv-desc { color: var(--text-muted); font-size: 0.88rem; line-height: 1.5; }
     .srv-book-btn { width: 100%; padding: 11px 14px; border-radius: 12px; border: 1px solid rgba(212,175,55,0.5); background: linear-gradient(135deg, rgba(212,175,55,0.22), rgba(212,175,55,0.1)); color: var(--gold-light); font-family: 'Heebo', sans-serif; font-weight: 800; font-size: 0.9rem; cursor: pointer; }
-    .srv-book-btn:hover { background: var(--gold); color: #090b10; }
+    .srv-book-btn:active, .srv-book-btn:hover { background: var(--gold); color: #090b10; }
 
     .portfolio-grid-clean {
       display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -131,39 +136,44 @@
       aspect-ratio: 3 / 4; border-radius: 15px; padding: 2.5px;
       background: linear-gradient(145deg, rgba(212,175,55,0.65), rgba(18,22,32,0.95));
       box-shadow: 0 8px 20px rgba(0,0,0,0.6); cursor: pointer; overflow: hidden;
+      transition: transform 0.2s ease;
     }
+    .photo-card-clean:hover { transform: translateY(-3px); }
     .photo-inner { width: 100%; height: 100%; border-radius: 12.5px; overflow: hidden; background: #0d1017; position: relative; }
-    .photo-inner img { width: 100%; height: 100%; max-width: 100%; object-fit: cover; display: block; pointer-events: none; }
+    .photo-inner img { width: 100%; height: 100%; max-width: 100%; object-fit: cover; object-position: center; display: block; pointer-events: none; }
     .photo-clean-badge {
       position: absolute; bottom: 6px; right: 6px; left: 6px; padding: 4px 8px; border-radius: 8px;
       background: rgba(8, 11, 18, 0.84); backdrop-filter: blur(5px); border: 1px solid rgba(212, 175, 55, 0.32);
-      color: var(--gold-light); font-size: 0.7rem; font-weight: 800; display: flex; align-items: center; justify-content: space-between;
+      color: var(--gold-light); font-size: 0.7rem; font-weight: 800;
+      display: flex; align-items: center; justify-content: space-between; gap: 4px;
+      white-space: nowrap; overflow: hidden; pointer-events: none;
     }
 
     .legal-mini-footer { text-align: center; padding: 12px 8px 6px; font-size: 0.72rem; color: #64748b; display: flex; justify-content: center; align-items: center; gap: 10px; flex-wrap: wrap; }
     .legal-mini-link { background: none; border: none; color: #94a3b8; font-family: 'Heebo', sans-serif; font-size: 0.72rem; text-decoration: underline; cursor: pointer; padding: 2px 4px; }
 
-    .modal-backdrop { position: fixed; inset: 0; width: 100vw; height: 100vh; background: rgba(4, 6, 11, 0.88); backdrop-filter: blur(12px); z-index: 3500; display: none; overflow-y: auto; padding: 16px 14px 120px; }
+    .modal-backdrop { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; background: rgba(4, 6, 11, 0.88); backdrop-filter: blur(12px); z-index: 3500; display: none; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 16px 14px 120px; }
     .modal-backdrop.open { display: block; }
-    .square-modal { width: 100%; max-width: 460px; background: #111520; border: 2px solid var(--gold); border-radius: 22px; padding: 20px; margin: 12px auto 60px; }
+    .square-modal { width: 100%; max-width: 460px; background: #111520; border: 2px solid var(--gold); border-radius: 22px; padding: 20px 18px 26px; box-shadow: 0 25px 75px rgba(0,0,0,0.95); margin: 12px auto 60px; }
     .modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.08); }
     .modal-close { width: 36px; height: 36px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.16); background: rgba(255,255,255,0.05); color: #fff; cursor: pointer; font-weight: 800; }
 
     .days-row, .hours-matrix { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; margin-bottom: 14px; }
-    .day-chip, .hour-chip { min-height: 42px; padding: 8px 6px; border-radius: 9px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.04); color: #fff; font-family: 'Heebo'; font-weight: 800; font-size: 0.85rem; cursor: pointer; text-align: center; }
+    .day-chip, .hour-chip { min-height: 42px; padding: 8px 6px; border-radius: 9px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.04); color: #fff; font-family: 'Heebo', sans-serif; font-weight: 800; font-size: 0.85rem; cursor: pointer; text-align: center; }
     .day-chip.active { border-color: var(--gold); background: rgba(212,175,55,0.22); color: var(--gold-light); }
     .hour-chip.active { background: var(--gold); color: #090b10; border-color: var(--gold); }
     .hour-chip.taken { opacity: 0.32; cursor: not-allowed; text-decoration: line-through; }
 
-    .input-field { width: 100%; padding: 11px 13px; border-radius: 11px; border: 1px solid rgba(255,255,255,0.15); background: #141926; color: #fff; font-family: 'Heebo'; font-size: 16px; margin-bottom: 10px; }
+    .input-field { width: 100%; padding: 11px 13px; border-radius: 11px; border: 1px solid rgba(255,255,255,0.15); background: #141926; color: #fff; font-family: 'Heebo', sans-serif; font-size: 16px; margin-bottom: 10px; -webkit-user-select: text; user-select: text; }
     textarea.input-field { resize: vertical; min-height: 68px; }
 
-    .toast-popup { position: fixed; bottom: 24px; right: 20px; z-index: 4000; background: rgba(15,20,30,0.98); border: 2px solid var(--gold); border-radius: 14px; padding: 12px 16px; color: #fff; display: none; }
-    .toast-popup.show { display: block; }
+    .toast-popup { position: fixed; bottom: 24px; right: 20px; z-index: 4000; background: rgba(15,20,30,0.98); border: 2px solid var(--gold); border-radius: 14px; padding: 12px 16px; color: #fff; box-shadow: 0 16px 36px rgba(0,0,0,0.9); max-width: min(380px, 90vw); display: none; opacity: 0; pointer-events: none; }
+    .toast-popup.show { display: block; opacity: 1; pointer-events: auto; }
 
     .lightbox-modal { position: fixed; inset: 0; width: 100vw; height: 100dvh; background: rgba(4,6,10,0.94); z-index: 3600; display: none; flex-direction: column; align-items: center; justify-content: center; padding: 64px 16px 84px; }
     .lightbox-modal.open { display: flex; }
-    .lightbox-modal img { max-width: 90vw; max-height: 74dvh; object-fit: contain; border-radius: 16px; border: 2px solid var(--gold); }
+    .lightbox-modal img { max-width: 90vw; max-height: 74dvh; width: auto; height: auto; object-fit: contain; border-radius: 16px; border: 2px solid var(--gold); box-shadow: 0 20px 50px rgba(0,0,0,0.9); }
+    .lightbox-close-hint { margin-top: 12px; padding: 6px 16px; border-radius: 999px; background: rgba(212,175,55,0.2); border: 1px solid var(--gold); color: var(--gold-light); font-size: 0.82rem; font-weight: 800; }
 
     @media (max-width: 1120px) { .portfolio-grid-clean { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
     @media (max-width: 980px) {
@@ -173,8 +183,23 @@
     }
     @media (max-width: 680px) {
       .mobile-bottom-nav { display: flex; }
-      .services-grid { grid-template-columns: 1fr; }
+      .toast-popup { bottom: 74px; right: 12px; left: 12px; max-width: none; text-align: center; }
+      .main-container { gap: 14px; }
+      .hero-card { padding: 18px 12px; border-radius: 18px; }
+      .hero-title { font-size: 1.85rem; }
+      .hero-subtitle { font-size: 1.02rem; }
+      .hero-desc { font-size: 0.88rem; margin-bottom: 12px; }
+      .hero-stats { gap: 8px; margin-bottom: 14px; }
+      .stat-pill { padding: 9px 6px; border-radius: 12px; }
+      .stat-pill strong { font-size: 0.92rem; }
+      .stat-pill span { font-size: 0.68rem; }
+      .hero-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+      .hero-btns .btn-gold, .hero-btns .btn-outline { width: 100%; padding: 11px 10px; font-size: 0.86rem; }
+      .content-section { padding: 14px 10px; border-radius: 18px; background: rgba(11,14,22,0.88); }
+      .services-grid { grid-template-columns: 1fr; gap: 10px; }
+      .service-card { padding: 14px; border-radius: 15px; gap: 10px; }
       .portfolio-grid-clean { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+      .photo-clean-badge { font-size: 0.64rem; padding: 3px 6px; bottom: 5px; right: 5px; left: 5px; }
       .days-row, .hours-matrix { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     }
   </style>
@@ -229,7 +254,7 @@
         </button>
         <button type="button" class="side-btn" id="nav-portfolio" onclick="switchCategory('portfolio')">
           <span class="btn-right"><span>📸</span> <span>תיק העבודות של עילי</span></span>
-          <span id="sidePortfolioCount">10</span>
+          <span id="sidePortfolioCount">6</span>
         </button>
       </nav>
     </div>
@@ -358,6 +383,7 @@
 
   <div class="lightbox-modal" id="lightboxModal" onclick="this.classList.remove('open')">
     <img id="lightboxImg" src="" alt="תספורת" />
+    <div class="lightbox-close-hint">✕ לחץ בכל מקום לסגירה</div>
   </div>
 
   <div class="toast-popup" id="toastPopup"></div>
@@ -370,6 +396,16 @@
 
     function syncModalBodyClass() {
       document.body.classList.toggle("modal-open", Boolean(document.querySelector(".modal-backdrop.open")));
+    }
+
+    function getFormattedDateForDayIdx(dayIdx) {
+      const now = new Date();
+      const currentDay = now.getDay();
+      let diff = dayIdx - currentDay;
+      if (diff < 0) diff += 7;
+      const target = new Date(now);
+      target.setDate(now.getDate() + diff);
+      return `${String(target.getDate()).padStart(2, "0")}/${String(target.getMonth() + 1).padStart(2, "0")}`;
     }
 
     const DB_NAME = "IlayBarbershopPortfolioDB";
@@ -389,7 +425,7 @@
     }
 
     async function savePortfolioLocally(list) {
-      try { localStorage.setItem("ilay_portfolio_list_v4", JSON.stringify(list)); } catch (_) {}
+      try { localStorage.setItem("ilay_portfolio_list_v5", JSON.stringify(list)); } catch (_) {}
       try {
         const db = await openPortfolioDB();
         const tx = db.transaction(STORE_NAME, "readwrite");
@@ -399,7 +435,7 @@
 
     async function loadPortfolioFromDB() {
       try {
-        const savedLS = localStorage.getItem("ilay_portfolio_list_v4") || localStorage.getItem("ilay_portfolio_list_v3");
+        const savedLS = localStorage.getItem("ilay_portfolio_list_v5") || localStorage.getItem("ilay_portfolio_list_v4");
         if (savedLS) {
           const parsed = JSON.parse(savedLS);
           if (Array.isArray(parsed) && parsed.length > 0) return parsed;
@@ -420,8 +456,12 @@
       title: "ILAY BARBERSHOP",
       subtitle: "תספורת נקייה, אווירה טובה וסטייל שיושב בול.",
       slotInterval: 30,
-      slotBuffer: 0
+      slotBuffer: 0,
+      notifyPhone: "0542223765",
+      greenIdInstance: "",
+      greenApiToken: ""
     };
+    if (!siteConfig.notifyPhone) siteConfig.notifyPhone = "0542223765";
 
     let SERVICES = JSON.parse(localStorage.getItem("ilay_services_v2") || "null") || [
       { name: "תספורת קלאסי", price: 70, duration: "30 דק'", desc: "דירוג (מולט, טייפר, בארסט ועוד..) עם גזירות ואפשרות להוסיף פנס לבחירה." },
@@ -452,7 +492,8 @@
     ];
     let appointments = JSON.parse(localStorage.getItem("ilay_appointments_clean_v1") || "[]");
 
-    const CLOUD_TOPIC_BASE = "ilay_barbershop_gt_2026_live_v6";
+    // --- מנוע סנכרון חי בזמן אמת ---
+    const CLOUD_TOPIC_BASE = "ilay_barbershop_gt_2026_live_v7";
     const CLOUD_BROKERS = [
       "wss://broker.emqx.io:8084/mqtt",
       "wss://test.mosquitto.org:8081/mqtt",
@@ -461,20 +502,25 @@
     const mqttClients = [];
     let lastStateTimestamp = Number(localStorage.getItem("ilay_state_ts") || 0);
     let lastPortfolioTimestamp = Number(localStorage.getItem("ilay_portfolio_ts") || 0);
-    let expectedCloudPhotos = 0;
-    let currentCloudBatchTs = 0;
-    const incomingPhotoChunks = {};
+    let lastPortfolioBatchId = localStorage.getItem("ilay_portfolio_batch") || "";
+    const batchMetaMap = {};
+    const batchChunksMap = {};
 
-    function checkAndAssembleCloudPhotos() {
-      if (expectedCloudPhotos <= 0) return;
+    function tryAssemblePortfolioBatch(batchId) {
+      if (!batchId || !batchMetaMap[batchId]) return;
+      const meta = batchMetaMap[batchId];
+      if (meta.updatedAt < lastPortfolioTimestamp) return;
+      const chunks = batchChunksMap[batchId] || {};
       const assembled = [];
-      for (let i = 0; i < expectedCloudPhotos; i++) {
-        if (incomingPhotoChunks[i]) assembled.push(incomingPhotoChunks[i]);
+      for (let i = 0; i < meta.count; i++) {
+        if (chunks[i]) assembled.push(chunks[i]);
       }
-      if (assembled.length === expectedCloudPhotos && assembled.length > 0) {
+      if (assembled.length === meta.count && assembled.length > 0) {
         portfolioList = assembled;
-        lastPortfolioTimestamp = currentCloudBatchTs;
+        lastPortfolioTimestamp = meta.updatedAt;
+        lastPortfolioBatchId = batchId;
         localStorage.setItem("ilay_portfolio_ts", String(lastPortfolioTimestamp));
+        localStorage.setItem("ilay_portfolio_batch", batchId);
         savePortfolioLocally(portfolioList);
         renderPortfolio();
       }
@@ -500,7 +546,7 @@
           const client = mqtt.connect(brokerUrl, {
             clientId: "ilay_client_" + Math.random().toString(16).slice(2, 10),
             clean: true,
-            reconnectPeriod: 3000
+            reconnectPeriod: 2500
           });
 
           client.on("connect", () => {
@@ -518,27 +564,34 @@
                 lastStateTimestamp = data.updatedAt;
                 localStorage.setItem("ilay_state_ts", String(lastStateTimestamp));
 
-                if (data.siteConfig) { siteConfig = data.siteConfig; localStorage.setItem("ilay_site_cfg", JSON.stringify(siteConfig)); }
+                if (data.siteConfig) { siteConfig = { ...siteConfig, ...data.siteConfig }; localStorage.setItem("ilay_site_cfg", JSON.stringify(siteConfig)); }
                 if (data.services) { SERVICES = data.services; localStorage.setItem("ilay_services_v2", JSON.stringify(SERVICES)); }
                 if (data.weeklySchedule) { weeklySchedule = data.weeklySchedule; localStorage.setItem("ilay_weekly_hours", JSON.stringify(weeklySchedule)); }
-                if (data.appointments) { appointments = data.appointments; localStorage.setItem("ilay_appointments_clean_v1", JSON.stringify(appointments)); }
+                if (Array.isArray(data.appointments)) {
+                  appointments = data.appointments;
+                  localStorage.setItem("ilay_appointments_clean_v1", JSON.stringify(appointments));
+                }
 
                 renderPublicSiteContent();
                 if (document.getElementById("bookingModal").classList.contains("open")) renderBookingHours();
-              } else if (topic === `${CLOUD_TOPIC_BASE}/portfolio_meta`) {
-                if (!data.updatedAt || data.updatedAt < lastPortfolioTimestamp) return;
-                currentCloudBatchTs = data.updatedAt;
-                expectedCloudPhotos = Number(data.count) || 0;
-                checkAndAssembleCloudPhotos();
-              } else if (topic.startsWith(`${CLOUD_TOPIC_BASE}/photo/`)) {
-                const idx = Number(topic.split("/").pop());
-                if (!isNaN(idx) && data && data.src) {
-                  if (data.updatedAt && data.updatedAt >= currentCloudBatchTs) {
-                    currentCloudBatchTs = data.updatedAt;
+              } else if (topic === `${CLOUD_TOPIC_BASE}/new_booking`) {
+                if (data && data.appt && data.appt.id) {
+                  const exists = appointments.some(a => a.id === data.appt.id);
+                  if (!exists) {
+                    appointments.push(data.appt);
+                    localStorage.setItem("ilay_appointments_clean_v1", JSON.stringify(appointments));
+                    if (document.getElementById("bookingModal").classList.contains("open")) renderBookingHours();
                   }
-                  incomingPhotoChunks[idx] = data.src;
-                  checkAndAssembleCloudPhotos();
                 }
+              } else if (topic === `${CLOUD_TOPIC_BASE}/portfolio_meta`) {
+                if (!data.batchId || !data.updatedAt || data.updatedAt < lastPortfolioTimestamp) return;
+                batchMetaMap[data.batchId] = { count: Number(data.count) || 0, updatedAt: data.updatedAt };
+                tryAssemblePortfolioBatch(data.batchId);
+              } else if (topic.startsWith(`${CLOUD_TOPIC_BASE}/photo/`)) {
+                if (!data || !data.batchId || !data.src) return;
+                if (!batchChunksMap[data.batchId]) batchChunksMap[data.batchId] = {};
+                batchChunksMap[data.batchId][Number(data.idx)] = data.src;
+                tryAssemblePortfolioBatch(data.batchId);
               }
             } catch (_) {}
           });
@@ -546,6 +599,65 @@
           mqttClients.push(client);
         } catch (_) {}
       });
+    }
+
+    function broadcastNewBookingFromClient(newAppt) {
+      const now = Date.now();
+      lastStateTimestamp = now;
+      localStorage.setItem("ilay_state_ts", String(now));
+      localStorage.setItem("ilay_appointments_clean_v1", JSON.stringify(appointments));
+
+      const statePayload = JSON.stringify({
+        updatedAt: now,
+        siteConfig,
+        services: SERVICES,
+        weeklySchedule,
+        appointments
+      });
+
+      const bookingEventPayload = JSON.stringify({
+        updatedAt: now,
+        appt: newAppt
+      });
+
+      mqttClients.forEach(c => {
+        try {
+          if (c.connected) {
+            c.publish(`${CLOUD_TOPIC_BASE}/state`, statePayload, { qos: 1, retain: true });
+            c.publish(`${CLOUD_TOPIC_BASE}/new_booking`, bookingEventPayload, { qos: 1, retain: true });
+          }
+        } catch (_) {}
+      });
+    }
+
+    // שליחת הודעת וואטסאפ אוטומטית ברקע למספר 0542223765
+    async function sendAutomaticWhatsAppToBarber(appt) {
+      const targetPhoneRaw = (siteConfig.notifyPhone || "0542223765").replace(/[^0-9]/g, "");
+      const formattedPhone = targetPhoneRaw.replace(/^0/, "972");
+      const chatId = `${formattedPhone}@c.us`;
+      const dateStr = getFormattedDateForDayIdx(appt.dayIdx);
+      const dayName = DAYS[appt.dayIdx];
+      const adminUrl = `${window.location.origin}/admin.html`;
+
+      const messageText =
+        `💈 *תור חדש נקבע באתר - Ilay Barbershop!*\n\n` +
+        `👤 *לקוח:* ${appt.name}\n` +
+        `📞 *טלפון:* ${appt.phone}\n` +
+        `✂️ *תספורת:* ${appt.service}\n` +
+        `📅 *מועד:* יום ${dayName} (${dateStr}) בשעה *${appt.time}*\n` +
+        (appt.note ? `📝 *הערה:* ${appt.note}\n` : ``) +
+        `\n📲 *לצפייה ביומן הניהול ופרטים נוספים:*\n${adminUrl}`;
+
+      if (siteConfig.greenIdInstance && siteConfig.greenApiToken) {
+        try {
+          const url = `https://api.green-api.com/waInstance${siteConfig.greenIdInstance.trim()}/sendMessage/${siteConfig.greenApiToken.trim()}`;
+          await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ chatId, message: messageText })
+          });
+        } catch (_) {}
+      }
     }
 
     function getEffectiveStepMinutes() {
@@ -694,8 +806,8 @@
       if (phone.length < 9) return showToast("⚠️ נא להזין מספר טלפון תקין (ספרות בלבד)");
 
       const srv = SERVICES[selectedServiceIdx] || SERVICES[0];
-      appointments.push({
-        id: "ap_" + Date.now(),
+      const newAppt = {
+        id: "ap_" + Date.now() + "_" + Math.random().toString(36).slice(2, 5),
         dayIdx: selectedBookDay,
         time: selectedBookHour,
         name,
@@ -704,7 +816,11 @@
         price: srv.price,
         service: `${srv.name} • ${srv.price} ₪`,
         note
-      });
+      };
+
+      appointments.push(newAppt);
+      broadcastNewBookingFromClient(newAppt);
+      sendAutomaticWhatsAppToBarber(newAppt);
 
       closeBookingModal();
       document.getElementById("clientNameInput").value = "";
