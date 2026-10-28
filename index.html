@@ -319,7 +319,6 @@
     </div>
   </main>
 
-  <!-- חלונית קביעת תור ללקוח -->
   <div class="modal-backdrop" id="bookingModal" onclick="if(event.target===this) closeBookingModal()">
     <div class="square-modal">
       <div class="modal-head">
@@ -350,7 +349,6 @@
     </div>
   </div>
 
-  <!-- חלונית הצהרת נגישות -->
   <div class="modal-backdrop" id="accessibilityModal" onclick="if(event.target===this) closeAccessibilityModal()">
     <div class="square-modal" style="max-width:460px;">
       <div class="modal-head">
@@ -374,7 +372,7 @@
   </div>
 
   <div class="lightbox-modal" id="lightboxModal" onclick="this.classList.remove('open')">
-    <img id="lightboxImg" src="" alt="תמונת תספורת" />
+    <img id="lightboxImg" src="" alt="תספורת" />
   </div>
 
   <div class="toast-popup" id="toastPopup"></div>
@@ -393,7 +391,11 @@
     try {
       if (window.Gun) {
         gunCloud = Gun({
-          peers: ["https://gun-manhattan.herokuapp.com/gun", "https://relay.peer.ooo/gun"],
+          peers: [
+            "https://gun-manhattan.herokuapp.com/gun",
+            "https://relay.peer.ooo/gun",
+            "https://peer.wallie.io/gun"
+          ],
           localStorage: false
         }).get("ilay_barbershop_cloud_gt_2026_v3");
       }
@@ -413,6 +415,15 @@
         req.onsuccess = e => resolve(e.target.result);
         req.onerror = e => reject(e.target.error);
       });
+    }
+
+    async function savePortfolioLocally(list) {
+      try { localStorage.setItem("ilay_portfolio_list_v3", JSON.stringify(list)); } catch (_) {}
+      try {
+        const db = await openPortfolioDB();
+        const tx = db.transaction(STORE_NAME, "readwrite");
+        tx.objectStore(STORE_NAME).put(list, "custom_photos");
+      } catch (_) {}
     }
 
     async function loadPortfolioFromDB() {
@@ -473,6 +484,23 @@
     ];
     let appointments = JSON.parse(localStorage.getItem("ilay_appointments_clean_v1") || "[]");
 
+    // קליטת תמונות מפוצלת מהענן כדי לעבוד חלק בכל אייפון ומחשב!
+    const cloudChunks = {};
+    let expectedChunkCount = 0;
+
+    function rebuildPortfolioFromChunks() {
+      if (expectedChunkCount <= 0) return;
+      const assembled = [];
+      for (let i = 0; i < expectedChunkCount; i++) {
+        if (cloudChunks[i]) assembled.push(cloudChunks[i]);
+      }
+      if (assembled.length > 0) {
+        portfolioList = assembled;
+        savePortfolioLocally(portfolioList);
+        renderPortfolio();
+      }
+    }
+
     function initSyncListeners() {
       window.addEventListener("storage", async () => {
         siteConfig = JSON.parse(localStorage.getItem("ilay_site_cfg") || JSON.stringify(siteConfig));
@@ -487,13 +515,29 @@
       });
 
       if (!gunCloud) return;
+
+      // 1. האזנה לשיטת הפיצול החדשה (ללא הגבלת גודל בטלפון)
+      gunCloud.get("portfolio_meta").on(meta => {
+        if (!meta || !meta.count) return;
+        expectedChunkCount = Number(meta.count) || 0;
+        for (let i = 0; i < expectedChunkCount; i++) {
+          gunCloud.get("portfolio_chunk_" + i).on(node => {
+            if (node && node.src) {
+              cloudChunks[i] = node.src;
+              rebuildPortfolioFromChunks();
+            }
+          });
+        }
+      });
+
+      // 2. תמיכה גם בשיטה הקודמת
       gunCloud.get("portfolio").on(node => {
         if (!node || !node.data) return;
         try {
           const remote = JSON.parse(node.data);
           if (Array.isArray(remote) && remote.length > 0) {
             portfolioList = remote;
-            try { localStorage.setItem("ilay_portfolio_list_v3", node.data); } catch (_) {}
+            savePortfolioLocally(portfolioList);
             renderPortfolio();
           }
         } catch (_) {}
@@ -805,7 +849,9 @@
 
     window.addEventListener("DOMContentLoaded", async () => {
       const dbPhotos = await loadPortfolioFromDB();
-      if (dbPhotos && Array.isArray(dbPhotos) && dbPhotos.length > 0) portfolioList = dbPhotos;
+      if (dbPhotos && Array.isArray(dbPhotos) && dbPhotos.length > 0) {
+        portfolioList = dbPhotos;
+      }
       renderPublicSiteContent();
       renderPortfolio();
       setInterval(() => {
