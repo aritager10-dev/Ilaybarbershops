@@ -224,7 +224,7 @@
     <div id="admin-sub-cal" class="panel-box">
       <div class="prepared-msg-banner" id="preparedMsgBanner">
         <div style="display:flex; align-items:center; justify-content:space-between;">
-          <strong style="color:#34d399; font-size:0.9rem;">✅ התור הוזז! הנה ההודעה המוכנה ללקוח:</strong>
+          <strong id="preparedMsgTitle" style="color:#34d399; font-size:0.9rem;">✅ ההודעה מוכנה לשליחה ללקוח:</strong>
           <button type="button" style="background:none; border:none; color:#94a3b8; font-weight:800; cursor:pointer;" onclick="document.getElementById('preparedMsgBanner').classList.remove('show')">✕</button>
         </div>
         <div class="prepared-msg-text" id="preparedMsgText"></div>
@@ -240,10 +240,10 @@
       </div>
 
       <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
-        <span style="font-size:0.84rem; color:var(--gold-light); font-weight:800;">✋ גרור כל תור בין המשבצות (או לחץ "הזז" בתור ובחר משבצת חדשה):</span>
+        <span style="font-size:0.84rem; color:var(--gold-light); font-weight:800;">✋ גרור תור להזזה, או לחץ ✕ לביטול תור ושליחת הודעה ללקוח:</span>
         <label style="display:flex; align-items:center; gap:6px; font-size:0.8rem; color:#cbd5e1; cursor:pointer;">
           <input type="checkbox" id="autoOpenWhatsapp" checked />
-          פתח וואטסאפ אוטומטית מיד בהזזת תור
+          פתח וואטסאפ אוטומטית בהזזה או ביטול תור
         </label>
       </div>
 
@@ -293,23 +293,16 @@
 
     <div id="admin-sub-hours" class="panel-box" style="display:none;">
       <div style="background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.35); border-radius:14px; padding:14px; margin-bottom:18px;">
-        <h3 style="font-size:1.02rem; font-weight:900; color:#34d399; margin-bottom:6px;">📲 התראות וואטסאפ אוטומטיות על תור חדש (Green API)</h3>
-        <p style="font-size:0.8rem; color:#cbd5e1; margin-bottom:10px;">בכל פעם שלקוח קובע תור באתר, תישלח הודעת וואטסאפ אוטומטית למספר המוגדר כאן (כרגע <strong>0542223765</strong>) גם כשהאפליקציה סגורה:</p>
-        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:10px;">
-          <div>
-            <label style="font-size:0.76rem; color:#94a3b8;">מספר טלפון לקבלת התראות:</label>
-            <input type="tel" id="notifyPhoneInput" class="input-field" value="0542223765" placeholder="0542223765" />
-          </div>
-          <div>
-            <label style="font-size:0.76rem; color:#94a3b8;">Green API - idInstance:</label>
-            <input type="text" id="greenIdInput" class="input-field" placeholder="לדוגמה: 71039..." />
-          </div>
-          <div>
-            <label style="font-size:0.76rem; color:#94a3b8;">Green API - apiTokenInstance:</label>
-            <input type="text" id="greenTokenInput" class="input-field" placeholder="הדבק Token מ-Green API..." />
-          </div>
+        <h3 style="font-size:1.02rem; font-weight:900; color:#34d399; margin-bottom:6px;">🔔 התראות פוש אוטומטיות לטלפון על תור חדש (ntfy)</h3>
+        <p style="font-size:0.82rem; color:#cbd5e1; line-height:1.6; margin-bottom:10px;">
+          כדי לקבל התראה קופצת לטלפון גם כשהאפליקציה סגורה לגמרי:<br>
+          1. הורד לאייפון/אנדרואיד את האפליקציה החינמית <strong>ntfy</strong>.<br>
+          2. לחץ על <strong>+</strong> באפליקציה והקלד את שם הערוץ: <strong><code>ilay_barbershop_alerts</code></strong> (ובאייפון רשום ב-Server כתובת <code>https://ntfy.sh</code>).
+        </p>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+          <input type="text" id="ntfyTopicInput" class="input-field" value="ilay_barbershop_alerts" style="max-width:280px; margin:0;" placeholder="ilay_barbershop_alerts" />
+          <button type="button" class="btn-outline" style="border-color:#10b981; color:#34d399;" onclick="testNtfyNotification()">🔔 שלח התראת בדיקה לטלפון עכשיו</button>
         </div>
-        <button type="button" class="btn-outline" style="border-color:#10b981; color:#34d399; margin-top:4px;" onclick="testWhatsAppNotification()">📨 שלח הודעת בדיקה ל-0542223765</button>
       </div>
 
       <h3 style="font-size:1.05rem; font-weight:900; color:var(--gold-light); margin-bottom:10px;">זמן בין תספורת לתספורת</h3>
@@ -481,11 +474,9 @@
       subtitle: "תספורת נקייה, אווירה טובה וסטייל שיושב בול.",
       slotInterval: 30,
       slotBuffer: 0,
-      notifyPhone: "0542223765",
-      greenIdInstance: "",
-      greenApiToken: ""
+      ntfyTopic: "ilay_barbershop_alerts"
     };
-    if (!siteConfig.notifyPhone) siteConfig.notifyPhone = "0542223765";
+    if (!siteConfig.ntfyTopic) siteConfig.ntfyTopic = "ilay_barbershop_alerts";
 
     let SERVICES = JSON.parse(localStorage.getItem("ilay_services_v2") || "null") || [
       { name: "תספורת קלאסי", price: 70, duration: "30 דק'", desc: "דירוג (מולט, טייפר, בארסט ועוד..) עם גזירות ואפשרות להוסיף פנס לבחירה." },
@@ -636,7 +627,6 @@
             list.forEach((src, idx) => {
               c.publish(`${CLOUD_TOPIC_BASE}/photo/${idx}`, JSON.stringify({ batchId, idx, src, updatedAt: now }), { qos: 1, retain: true });
             });
-            // ניקוי שאריות של תמונות שנמחקו מהענן כדי שלא יחזרו לעולם
             for (let oldIdx = list.length; oldIdx < 24; oldIdx++) {
               c.publish(`${CLOUD_TOPIC_BASE}/photo/${oldIdx}`, "", { qos: 1, retain: true });
             }
@@ -721,34 +711,29 @@
       });
     }
 
-    async function testWhatsAppNotification() {
-      const notifyPhone = document.getElementById("notifyPhoneInput").value.trim() || "0542223765";
-      const greenId = document.getElementById("greenIdInput").value.trim();
-      const greenToken = document.getElementById("greenTokenInput").value.trim();
-
-      siteConfig.notifyPhone = notifyPhone;
-      siteConfig.greenIdInstance = greenId;
-      siteConfig.greenApiToken = greenToken;
+    async function testNtfyNotification() {
+      const topic = document.getElementById("ntfyTopicInput").value.trim() || "ilay_barbershop_alerts";
+      siteConfig.ntfyTopic = topic;
       localStorage.setItem("ilay_site_cfg", JSON.stringify(siteConfig));
       broadcastStateToCloud();
 
-      const formattedPhone = notifyPhone.replace(/[^0-9]/g, "").replace(/^0/, "972");
       const adminUrl = window.location.href.split("?")[0];
-      const msg = `💈 *בדיקת מערכת התראות - Ilay Barbershop!*\nהחיבור למספר ${notifyPhone} עובד מצוין. כל תור חדש שייקבע באתר יישלח לכאן אוטומטית.\n\n📲 *כניסה ליומן:*\n${adminUrl}`;
-
-      if (greenId && greenToken) {
-        try {
-          const res = await fetch(`https://api.green-api.com/waInstance${greenId}/sendMessage/${greenToken}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ chatId: `${formattedPhone}@c.us`, message: msg })
-          });
-          if (res.ok) {
-            return showToast(`✅ הודעת וואטסאפ נשלחה אוטומטית ל-${notifyPhone}!`);
-          }
-        } catch (_) {}
+      try {
+        await fetch("https://ntfy.sh", {
+          method: "POST",
+          body: JSON.stringify({
+            topic: topic,
+            title: "💈 בדיקת התראה - Ilay Barbershop!",
+            message: "החיבור לערוץ " + topic + " פועל! כל תור חדש שייקבע באתר יקפיץ לך התראה כזו לטלפון.",
+            priority: 5,
+            tags: ["barber", "white_check_mark"],
+            click: adminUrl
+          })
+        });
+        showToast(`🔔 התראת בדיקה נשלחה לערוץ ${topic}!`);
+      } catch (_) {
+        showToast("⚠️ שגיאה בשליחת ההתראה");
       }
-      showToast("⚠️ שמור מזהה ו-Token של Green API כדי לשלוח אוטומטית ברקע");
     }
 
     function getFormattedDateForDayIdx(dayIdx) {
@@ -1061,6 +1046,7 @@
       const cleanPhone = appt.phone.replace(/[^0-9]/g, "").replace(/^0/, "972");
       const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(preparedMsg)}`;
 
+      document.getElementById("preparedMsgTitle").textContent = "✅ התור הוזז! הנה ההודעה המוכנה ללקוח:";
       document.getElementById("preparedMsgText").textContent = preparedMsg;
       document.getElementById("preparedWhatsappBtn").href = waUrl;
       document.getElementById("preparedMsgBanner").classList.add("show");
@@ -1087,7 +1073,24 @@
       const appt = appointments.splice(idx, 1)[0];
       saveAppointments();
       renderCalendarBoard();
-      showToast(`🗑️ התור של ${appt.name} בוטל.`);
+
+      const dateStr = getFormattedDateForDayIdx(Number(appt.dayIdx));
+      const dayName = DAYS[Number(appt.dayIdx)];
+      const cancelMsg = `אהלן ${appt.name}, הודעה מהמספרה של עיליי: התור שלך ליום ${dayName} (${dateStr}) בשעה ${appt.time} בוטל. לקביעת מועד חדש ניתן להיכנס לאתר המספרה.`;
+
+      const cleanPhone = (appt.phone || "").replace(/[^0-9]/g, "").replace(/^0/, "972");
+      const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(cancelMsg)}`;
+
+      document.getElementById("preparedMsgTitle").textContent = "🗑️ התור בוטל! הנה הודעת הביטול המוכנה ללקוח:";
+      document.getElementById("preparedMsgText").textContent = cancelMsg;
+      document.getElementById("preparedWhatsappBtn").href = waUrl;
+      document.getElementById("preparedMsgBanner").classList.add("show");
+
+      showToast(`🗑️ התור של ${appt.name} בוטל והודעת וואטסאפ הוכנה.`);
+
+      if (document.getElementById("autoOpenWhatsapp").checked && cleanPhone.length >= 9) {
+        window.open(waUrl, "_blank");
+      }
     }
 
     function openManualAddModal() {
@@ -1196,9 +1199,7 @@
     function renderAdminEditors() {
       document.getElementById("editSiteTitle").value = siteConfig.title;
       document.getElementById("editSiteSubtitle").value = siteConfig.subtitle;
-      document.getElementById("notifyPhoneInput").value = siteConfig.notifyPhone || "0542223765";
-      document.getElementById("greenIdInput").value = siteConfig.greenIdInstance || "";
-      document.getElementById("greenTokenInput").value = siteConfig.greenApiToken || "";
+      document.getElementById("ntfyTopicInput").value = siteConfig.ntfyTopic || "ilay_barbershop_alerts";
 
       const container = document.getElementById("servicesEditorContainer");
       container.innerHTML = "";
@@ -1278,9 +1279,7 @@
     function saveWeeklyHours() {
       siteConfig.slotInterval = Number(document.getElementById("slotIntervalSelect").value) || 30;
       siteConfig.slotBuffer = Number(document.getElementById("slotBufferSelect").value) || 0;
-      siteConfig.notifyPhone = document.getElementById("notifyPhoneInput").value.trim() || "0542223765";
-      siteConfig.greenIdInstance = document.getElementById("greenIdInput").value.trim();
-      siteConfig.greenApiToken = document.getElementById("greenTokenInput").value.trim();
+      siteConfig.ntfyTopic = document.getElementById("ntfyTopicInput").value.trim() || "ilay_barbershop_alerts";
       localStorage.setItem("ilay_site_cfg", JSON.stringify(siteConfig));
       DAYS.forEach((_, idx) => {
         weeklySchedule[idx] = {
@@ -1293,7 +1292,7 @@
       broadcastStateToCloud();
       renderCalendarBoard();
       renderAdminStats();
-      showToast("✅ שעות הפתיחה והגדרות הוואטסאפ ל-0542223765 נשמרו!");
+      showToast("✅ שעות הפתיחה וערוץ ההתראות נשמרו!");
     }
 
     function switchAdminSubTab(tab) {
