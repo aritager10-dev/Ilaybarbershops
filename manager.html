@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;800;900&family=Cinzel:wght@700;800&display=swap" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.3.4/mqtt.min.js"></script>
   <style>
     :root {
       color-scheme: dark;
@@ -149,7 +149,7 @@
   <div class="app-container" id="adminApp">
     <header class="top-header">
       <div>
-        <div class="sync-badge">● מסונכרן בזמן אמת מול אתר הלקוחות</div>
+        <div class="sync-badge" id="cloudSyncBadge">● מתחבר לענן הסנכרון החי...</div>
         <h1 style="font-size:1.28rem; font-weight:900; margin-top:4px;" id="adminHeaderTitle">אפליקציית ניהול - Ilay Barbershop</h1>
       </div>
       <div style="display:flex; gap:8px; flex-wrap:wrap; width:100%;">
@@ -239,10 +239,10 @@
 
     <div id="admin-sub-portfolio" class="panel-box" style="display:none;">
       <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
-        <h3 style="font-size:1.1rem; font-weight:900; color:var(--gold-light);">ניהול תיק עבודות (סנכרון חי לאייפון ולמחשב)</h3>
-        <button type="button" class="btn-outline" style="border-color:#10b981; color:#34d399;" onclick="forceSyncCurrentPhotosToCloud()">☁️ סנכרן תמונות אלו לענן ולטלפון</button>
+        <h3 style="font-size:1.1rem; font-weight:900; color:var(--gold-light);">ניהול תיק עבודות (מסונכרן בזמן אמת לכל המכשירים)</h3>
+        <button type="button" class="btn-outline" style="border-color:#10b981; color:#34d399;" onclick="forceSyncAllToCloud()">☁️ שדר תמונות ונתונים לענן עכשיו</button>
       </div>
-      <p style="font-size:0.84rem; color:var(--text-muted); margin-bottom:12px;">בחר תמונות מהאייפון או מהמחשב והן יוצגו מיד באתר הראשי בכל המכשירים.</p>
+      <p style="font-size:0.84rem; color:var(--text-muted); margin-bottom:12px;">בחר תמונות מהאייפון, מהטאבלט או מהמחשב והן יעלו מיד לאתר הלקוחות בכל המכשירים.</p>
       <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px;">
         <label for="replaceAllPortfolioInput" class="btn-gold" style="flex:1; min-width:160px; cursor:pointer;">🔄 החלף את כל התמונות בתיק</label>
         <input type="file" id="replaceAllPortfolioInput" class="sr-file-input" multiple accept="image/*" onchange="handlePortfolioUpload(event, true)" />
@@ -367,20 +367,6 @@
       document.getElementById("appleTouchIcon").href = c.toDataURL("image/png");
     })();
 
-    let gunCloud = null;
-    try {
-      if (window.Gun) {
-        gunCloud = Gun({
-          peers: [
-            "https://gun-manhattan.herokuapp.com/gun",
-            "https://relay.peer.ooo/gun",
-            "https://peer.wallie.io/gun"
-          ],
-          localStorage: false
-        }).get("ilay_barbershop_cloud_gt_2026_v3");
-      }
-    } catch (e) {}
-
     const DB_NAME = "IlayBarbershopPortfolioDB";
     const STORE_NAME = "portfolioStore";
 
@@ -397,21 +383,20 @@
       });
     }
 
-    // פונקציית הכיווץ המלאה לתמונות (מותאמת לסנכרון מהיר בענן בין מחשב לאייפון)
     function compressImageFile(file) {
       return new Promise(resolve => {
         const objUrl = URL.createObjectURL(file);
         const img = new Image();
         img.onload = () => {
           const canvas = document.createElement("canvas");
-          const maxDim = 460;
-          let w = img.width || 460, h = img.height || 600;
+          const maxDim = 480;
+          let w = img.width || 480, h = img.height || 640;
           if (w > h && w > maxDim) { h = Math.round((h * maxDim) / w); w = maxDim; }
           else if (h > maxDim) { w = Math.round((w * maxDim) / h); h = maxDim; }
           canvas.width = w; canvas.height = h;
           canvas.getContext("2d").drawImage(img, 0, 0, w, h);
           URL.revokeObjectURL(objUrl);
-          resolve(canvas.toDataURL("image/jpeg", 0.62));
+          resolve(canvas.toDataURL("image/jpeg", 0.64));
         };
         img.onerror = () => {
           URL.revokeObjectURL(objUrl);
@@ -423,21 +408,8 @@
       });
     }
 
-    // שליחת כל תמונה בנפרד לענן כדי שלא תיחסם חבילה של 13 תמונות!
-    function pushPortfolioChunksToCloud(list) {
-      if (!gunCloud || !Array.isArray(list)) return;
-      try {
-        const now = Date.now();
-        list.forEach((src, i) => {
-          gunCloud.get("portfolio_chunk_" + i).put({ src, updatedAt: now });
-        });
-        gunCloud.get("portfolio_meta").put({ count: list.length, updatedAt: now });
-        gunCloud.get("portfolio").put({ updatedAt: now, data: JSON.stringify(list) });
-      } catch (_) {}
-    }
-
-    async function savePortfolioToDB(list) {
-      try { localStorage.setItem("ilay_portfolio_list_v3", JSON.stringify(list)); } catch (_) {}
+    async function savePortfolioLocally(list) {
+      try { localStorage.setItem("ilay_portfolio_list_v4", JSON.stringify(list)); } catch (_) {}
       try {
         const db = await openPortfolioDB();
         await new Promise((resolve, reject) => {
@@ -447,17 +419,11 @@
           tx.onerror = e => reject(e);
         });
       } catch (_) {}
-      pushPortfolioChunksToCloud(list);
-    }
-
-    async function forceSyncCurrentPhotosToCloud() {
-      pushPortfolioChunksToCloud(portfolioList);
-      showToast("☁️ כל התמונות סונכרנו לענן ויופיעו עכשיו גם באייפון!");
     }
 
     async function loadPortfolioFromDB() {
       try {
-        const savedLS = localStorage.getItem("ilay_portfolio_list_v3");
+        const savedLS = localStorage.getItem("ilay_portfolio_list_v4") || localStorage.getItem("ilay_portfolio_list_v3");
         if (savedLS) {
           const parsed = JSON.parse(savedLS);
           if (Array.isArray(parsed) && parsed.length > 0) return parsed;
@@ -490,15 +456,12 @@
 
     const DAYS = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "מוצ״ש"];
     const DEFAULT_PORTFOLIO = [
-      "image_b9797c.jpg", "image_b9797f.jpg", "image_b97997.jpg", "image_b97999.jpg", "image_b979b7.jpg",
-      "image_b979bb.jpg", "image_b979d4.jpg", "image_b979d8.jpg", "image_b97c7d.jpg", "image_b97c80.jpg"
-    ];
-    const FALLBACK_BARBER_PHOTOS = [
       "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=600&q=80",
       "https://images.unsplash.com/photo-1599351431202-1e0f0137899a?auto=format&fit=crop&w=600&q=80",
       "https://images.unsplash.com/photo-1621607512214-68297480165e?auto=format&fit=crop&w=600&q=80",
       "https://images.unsplash.com/photo-1585747860715-2ba37e788b70?auto=format&fit=crop&w=600&q=80",
-      "https://images.unsplash.com/photo-1622286342621-4bd786c2447c?auto=format&fit=crop&w=600&q=80"
+      "https://images.unsplash.com/photo-1622286342621-4bd786c2447c?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1517832607067-4db24a2ae47c?auto=format&fit=crop&w=600&q=80"
     ];
 
     let portfolioList = [...DEFAULT_PORTFOLIO];
@@ -516,6 +479,164 @@
 
     let appointments = JSON.parse(localStorage.getItem("ilay_appointments_clean_v1") || "[]");
 
+    // --- מנוע סנכרון ענן בזמן אמת (MQTT Retained Cloud) ---
+    const CLOUD_TOPIC_BASE = "ilay_barbershop_gt_2026_live_v6";
+    const CLOUD_BROKERS = [
+      "wss://broker.emqx.io:8084/mqtt",
+      "wss://test.mosquitto.org:8081/mqtt",
+      "wss://broker.hivemq.com:8884/mqtt"
+    ];
+    const mqttClients = [];
+    let lastStateTimestamp = Number(localStorage.getItem("ilay_state_ts") || 0);
+    let lastPortfolioTimestamp = Number(localStorage.getItem("ilay_portfolio_ts") || 0);
+    let expectedCloudPhotos = 0;
+    let currentCloudBatchTs = 0;
+    const incomingPhotoChunks = {};
+
+    function checkAndAssembleAdminPhotos() {
+      if (expectedCloudPhotos <= 0) return;
+      const assembled = [];
+      for (let i = 0; i < expectedCloudPhotos; i++) {
+        if (incomingPhotoChunks[i]) assembled.push(incomingPhotoChunks[i]);
+      }
+      if (assembled.length === expectedCloudPhotos && assembled.length > 0) {
+        portfolioList = assembled;
+        hasCustomUploadedPhotos = true;
+        localStorage.setItem("ilay_has_custom_photos", "1");
+        lastPortfolioTimestamp = currentCloudBatchTs;
+        localStorage.setItem("ilay_portfolio_ts", String(lastPortfolioTimestamp));
+        savePortfolioLocally(portfolioList);
+        renderAdminPortfolioManager();
+        renderAdminStats();
+      }
+    }
+
+    function broadcastStateToCloud() {
+      const now = Date.now();
+      lastStateTimestamp = now;
+      localStorage.setItem("ilay_state_ts", String(now));
+
+      const payload = JSON.stringify({
+        updatedAt: now,
+        siteConfig,
+        services: SERVICES,
+        weeklySchedule,
+        appointments
+      });
+
+      mqttClients.forEach(c => {
+        try {
+          if (c.connected) {
+            c.publish(`${CLOUD_TOPIC_BASE}/state`, payload, { qos: 1, retain: true });
+          }
+        } catch (_) {}
+      });
+    }
+
+    function broadcastPortfolioToCloud(list) {
+      if (!Array.isArray(list) || !list.length) return;
+      const now = Date.now();
+      lastPortfolioTimestamp = now;
+      localStorage.setItem("ilay_portfolio_ts", String(now));
+
+      const metaPayload = JSON.stringify({ updatedAt: now, count: list.length });
+
+      mqttClients.forEach(c => {
+        try {
+          if (c.connected) {
+            list.forEach((src, idx) => {
+              c.publish(`${CLOUD_TOPIC_BASE}/photo/${idx}`, JSON.stringify({ idx, src, updatedAt: now }), { qos: 1, retain: true });
+            });
+            c.publish(`${CLOUD_TOPIC_BASE}/portfolio_meta`, metaPayload, { qos: 1, retain: true });
+          }
+        } catch (_) {}
+      });
+    }
+
+    function forceSyncAllToCloud() {
+      broadcastStateToCloud();
+      broadcastPortfolioToCloud(portfolioList);
+      showToast("☁️ כל התמונות, התספורות והתורים שודרו לענן ולכל המכשירים!");
+    }
+
+    function initRealtimeCloudSync() {
+      window.addEventListener("storage", () => {
+        appointments = JSON.parse(localStorage.getItem("ilay_appointments_clean_v1") || "[]");
+        renderCalendarBoard();
+        renderAdminStats();
+      });
+
+      if (!window.mqtt) return;
+
+      let didInitialAutoPush = false;
+
+      CLOUD_BROKERS.forEach(brokerUrl => {
+        try {
+          const client = mqtt.connect(brokerUrl, {
+            clientId: "ilay_admin_" + Math.random().toString(16).slice(2, 10),
+            clean: true,
+            reconnectPeriod: 3000
+          });
+
+          client.on("connect", () => {
+            const badge = document.getElementById("cloudSyncBadge");
+            if (badge) badge.textContent = "● מחובר לענן החי • מסונכרן בזמן אמת לכל מכשיר";
+            client.subscribe(`${CLOUD_TOPIC_BASE}/#`, { qos: 1 });
+
+            // אם במכשיר הזה כבר יש תמונות מותאמות אישית, נשדר אותן לענן אוטומטית לאחר 1.5 שניות
+            if (!didInitialAutoPush && hasCustomUploadedPhotos && portfolioList.length > 0) {
+              didInitialAutoPush = true;
+              setTimeout(() => {
+                if (lastPortfolioTimestamp === 0) {
+                  broadcastPortfolioToCloud(portfolioList);
+                  broadcastStateToCloud();
+                }
+              }, 1500);
+            }
+          });
+
+          client.on("message", (topic, payload) => {
+            try {
+              const str = payload.toString();
+              if (!str) return;
+              const data = JSON.parse(str);
+
+              if (topic === `${CLOUD_TOPIC_BASE}/state`) {
+                if (!data.updatedAt || data.updatedAt <= lastStateTimestamp) return;
+                lastStateTimestamp = data.updatedAt;
+                localStorage.setItem("ilay_state_ts", String(lastStateTimestamp));
+
+                if (data.siteConfig) { siteConfig = data.siteConfig; localStorage.setItem("ilay_site_cfg", JSON.stringify(siteConfig)); }
+                if (data.services) { SERVICES = data.services; localStorage.setItem("ilay_services_v2", JSON.stringify(SERVICES)); }
+                if (data.weeklySchedule) { weeklySchedule = data.weeklySchedule; localStorage.setItem("ilay_weekly_hours", JSON.stringify(weeklySchedule)); }
+                if (data.appointments) { appointments = data.appointments; localStorage.setItem("ilay_appointments_clean_v1", JSON.stringify(appointments)); }
+
+                renderCalendarBoard();
+                renderAdminStats();
+                renderAdminEditors();
+              } else if (topic === `${CLOUD_TOPIC_BASE}/portfolio_meta`) {
+                if (!data.updatedAt || data.updatedAt <= lastPortfolioTimestamp) return;
+                currentCloudBatchTs = data.updatedAt;
+                expectedCloudPhotos = Number(data.count) || 0;
+                checkAndAssembleAdminPhotos();
+              } else if (topic.startsWith(`${CLOUD_TOPIC_BASE}/photo/`)) {
+                const idx = Number(topic.split("/").pop());
+                if (!isNaN(idx) && data && data.src) {
+                  if (data.updatedAt && data.updatedAt >= currentCloudBatchTs) {
+                    currentCloudBatchTs = data.updatedAt;
+                  }
+                  incomingPhotoChunks[idx] = data.src;
+                  checkAndAssembleAdminPhotos();
+                }
+              }
+            } catch (_) {}
+          });
+
+          mqttClients.push(client);
+        } catch (_) {}
+      });
+    }
+
     function getFormattedDateForDayIdx(dayIdx) {
       const now = new Date();
       const currentDay = now.getDay();
@@ -526,66 +647,6 @@
       const dd = String(target.getDate()).padStart(2, "0");
       const mm = String(target.getMonth() + 1).padStart(2, "0");
       return `${dd}/${mm}`;
-    }
-
-    function broadcastStateToCloud() {
-      if (!gunCloud) return;
-      try {
-        gunCloud.get("state").put({
-          updatedAt: Date.now(),
-          siteConfig: JSON.stringify(siteConfig),
-          services: JSON.stringify(SERVICES),
-          weeklySchedule: JSON.stringify(weeklySchedule),
-          appointments: JSON.stringify(appointments)
-        });
-      } catch (_) {}
-    }
-
-    const adminCloudChunks = {};
-    let adminExpectedChunks = 0;
-
-    function initSyncListeners() {
-      window.addEventListener("storage", () => {
-        appointments = JSON.parse(localStorage.getItem("ilay_appointments_clean_v1") || "[]");
-        renderCalendarBoard();
-        renderAdminStats();
-      });
-
-      if (!gunCloud) return;
-
-      gunCloud.get("portfolio_meta").on(meta => {
-        if (!meta || !meta.count) return;
-        adminExpectedChunks = Number(meta.count) || 0;
-        for (let i = 0; i < adminExpectedChunks; i++) {
-          gunCloud.get("portfolio_chunk_" + i).on(node => {
-            if (node && node.src) {
-              adminCloudChunks[i] = node.src;
-              const arr = [];
-              for (let j = 0; j < adminExpectedChunks; j++) {
-                if (adminCloudChunks[j]) arr.push(adminCloudChunks[j]);
-              }
-              if (arr.length === adminExpectedChunks && arr.length > 0) {
-                portfolioList = arr;
-                hasCustomUploadedPhotos = true;
-                localStorage.setItem("ilay_has_custom_photos", "1");
-                renderAdminPortfolioManager();
-              }
-            }
-          });
-        }
-      });
-
-      gunCloud.get("state").on(node => {
-        if (!node) return;
-        try {
-          if (node.appointments) {
-            appointments = JSON.parse(node.appointments);
-            localStorage.setItem("ilay_appointments_clean_v1", node.appointments);
-            renderCalendarBoard();
-            renderAdminStats();
-          }
-        } catch (_) {}
-      });
     }
 
     function verifyBarberLogin() {
@@ -956,7 +1017,7 @@
       container.innerHTML = "";
       document.getElementById("adminTabPhotoCount").textContent = portfolioList.length;
       portfolioList.forEach((src, idx) => {
-        const fallbackUrl = FALLBACK_BARBER_PHOTOS[idx % FALLBACK_BARBER_PHOTOS.length];
+        const fallbackUrl = DEFAULT_PORTFOLIO[idx % DEFAULT_PORTFOLIO.length];
         const box = document.createElement("div");
         box.className = "admin-photo-item";
         box.innerHTML = `
@@ -973,7 +1034,7 @@
     async function handlePortfolioUpload(ev, replaceAll) {
       const files = Array.from(ev.target.files || []);
       if (!files.length) return;
-      showToast(`מעלה ומכווץ ${files.length} תמונות...`);
+      showToast(`מעלה ומסנכרן ${files.length} תמונות לענן...`);
       const compressedList = [];
       for (const file of files) {
         compressedList.push(await compressImageFile(file));
@@ -985,10 +1046,11 @@
       } else {
         portfolioList.push(...compressedList);
       }
-      await savePortfolioToDB(portfolioList);
+      await savePortfolioLocally(portfolioList);
+      broadcastPortfolioToCloud(portfolioList);
       ev.target.value = "";
       renderAdminPortfolioManager();
-      showToast(`✅ ${compressedList.length} תמונות סונכרנו לענן ולאתר הלקוחות!`);
+      showToast(`✅ ${compressedList.length} תמונות עלו ומסונכרנות עכשיו בכל המכשירים!`);
     }
 
     async function deletePortfolioPhoto(idx) {
@@ -996,9 +1058,10 @@
       portfolioList.splice(idx, 1);
       hasCustomUploadedPhotos = true;
       localStorage.setItem("ilay_has_custom_photos", "1");
-      await savePortfolioToDB(portfolioList);
+      await savePortfolioLocally(portfolioList);
+      broadcastPortfolioToCloud(portfolioList);
       renderAdminPortfolioManager();
-      showToast("התמונה הוסרה.");
+      showToast("התמונה הוסרה ועודכנה בכל המכשירים.");
     }
 
     function syncEditedServicesFromDOM() {
@@ -1068,17 +1131,17 @@
       localStorage.setItem("ilay_services_v2", JSON.stringify(SERVICES));
       broadcastStateToCloud();
       renderAdminEditors();
-      showToast(`התספורת "${name}" נוספה!`);
+      showToast(`✅ התספורת "${name}" נוספה ועודכנה באתר!`);
     }
 
     function deleteServiceItem(idx) {
       syncEditedServicesFromDOM();
-      if (SERVICES.length <= 1) return showToast("חייבת להישאר לפחות תמונה אחת");
+      if (SERVICES.length <= 1) return showToast("חייבת להישאר לפחות תספורת אחת");
       SERVICES.splice(idx, 1);
       localStorage.setItem("ilay_services_v2", JSON.stringify(SERVICES));
       broadcastStateToCloud();
       renderAdminEditors();
-      showToast("התספורת הוסרה.");
+      showToast("התספורת הוסרה ועודכנה באתר.");
     }
 
     function saveSiteAndServicesChanges() {
@@ -1089,7 +1152,7 @@
       localStorage.setItem("ilay_services_v2", JSON.stringify(SERVICES));
       broadcastStateToCloud();
       renderAdminEditors();
-      showToast("השינויים נשמרו והתעדכנו באתר!");
+      showToast("✅ השינויים נשמרו והתעדכנו בזמן אמת בכל המכשירים!");
     }
 
     function saveWeeklyHours() {
@@ -1107,7 +1170,7 @@
       broadcastStateToCloud();
       renderCalendarBoard();
       renderAdminStats();
-      showToast("שעות הפתיחה עודכנו!");
+      showToast("✅ שעות הפתיחה והמרווחים עודכנו בכל המכשירים!");
     }
 
     function switchAdminSubTab(tab) {
@@ -1131,10 +1194,8 @@
       if (dbPhotos && Array.isArray(dbPhotos) && dbPhotos.length > 0) {
         portfolioList = dbPhotos;
         hasCustomUploadedPhotos = true;
-        // משדר אוטומטית את ה-13 תמונות שכבר שמורות במחשב שלך לענן של הטלפון!
-        setTimeout(() => pushPortfolioChunksToCloud(portfolioList), 1200);
       }
-      initSyncListeners();
+      initRealtimeCloudSync();
       const savedAdmin = localStorage.getItem("ilay_saved_admin_label");
       if (savedAdmin) unlockAdminApp(savedAdmin);
     });
