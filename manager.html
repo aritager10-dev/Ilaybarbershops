@@ -40,7 +40,6 @@
     .login-box { width: 100%; max-width: 400px; background: #101522; border: 2px solid var(--gold); border-radius: 22px; padding: 24px 20px; box-shadow: 0 24px 60px rgba(0,0,0,0.9); text-align: center; }
 
     .top-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; background: rgba(16, 21, 34, 0.96); border: 1px solid var(--border-gold); border-radius: 18px; padding: 14px 16px; }
-    .sync-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 0.75rem; font-weight: 800; color: #34d399; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.35); padding: 3px 10px; border-radius: 999px; }
 
     .btn-gold { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 11px 18px; border-radius: 12px; border: none; background: linear-gradient(135deg, var(--gold), #b8860b); color: #090b10; font-family: 'Heebo', sans-serif; font-weight: 900; font-size: 0.9rem; cursor: pointer; }
     .btn-outline { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 14px; border-radius: 12px; border: 1px solid var(--border-gold); background: rgba(255,255,255,0.04); color: var(--text-main); font-family: 'Heebo', sans-serif; font-weight: 700; font-size: 0.85rem; cursor: pointer; text-decoration: none; }
@@ -57,6 +56,16 @@
     .admin-tab-btn.active { background: linear-gradient(135deg, var(--gold), #b8860b); color: #090b10; border-color: var(--gold); }
 
     .panel-box { background: rgba(14, 18, 28, 0.96); border: 1px solid var(--border-gold); border-radius: 18px; padding: 15px; }
+
+    .live-booking-alert {
+      display: none;
+      background: linear-gradient(135deg, rgba(212, 175, 55, 0.24), rgba(16, 21, 34, 0.98));
+      border: 2px solid var(--gold); border-radius: 16px; padding: 14px 16px; margin-bottom: 14px;
+      box-shadow: 0 14px 36px rgba(0,0,0,0.75);
+      animation: pulseGold 2s infinite;
+    }
+    .live-booking-alert.show { display: block; }
+    @keyframes pulseGold { 0%, 100% { box-shadow: 0 0 0 0 rgba(212,175,55,0.4); } 50% { box-shadow: 0 0 0 8px rgba(212,175,55,0); } }
 
     .prepared-msg-banner {
       display: none;
@@ -149,8 +158,7 @@
   <div class="app-container" id="adminApp">
     <header class="top-header">
       <div>
-        <div class="sync-badge" id="cloudSyncBadge">● מתחבר לענן הסנכרון החי...</div>
-        <h1 style="font-size:1.28rem; font-weight:900; margin-top:4px;" id="adminHeaderTitle">אפליקציית ניהול - Ilay Barbershop</h1>
+        <h1 style="font-size:1.28rem; font-weight:900;" id="adminHeaderTitle">אפליקציית ניהול - Ilay Barbershop</h1>
       </div>
       <div style="display:flex; gap:8px; flex-wrap:wrap; width:100%;">
         <button type="button" class="btn-gold" style="flex:1;" onclick="openManualAddModal()">+ שבץ תור חדש</button>
@@ -159,6 +167,15 @@
         <button type="button" class="btn-outline" style="border-color:#ef4444; color:#fca5a5;" onclick="logoutBarber()">התנתק</button>
       </div>
     </header>
+
+    <div class="live-booking-alert" id="liveBookingAlert">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+        <strong style="color:var(--gold-light); font-size:0.96rem;">💈 תור חדש נקבע עכשיו באתר!</strong>
+        <button type="button" style="background:none; border:none; color:#94a3b8; font-weight:800; cursor:pointer;" onclick="document.getElementById('liveBookingAlert').classList.remove('show')">✕</button>
+      </div>
+      <div id="liveBookingDetails" style="font-size:0.9rem; color:#fff; margin:6px 0 10px; font-weight:700;"></div>
+      <button type="button" class="btn-gold" style="padding:8px 14px; font-size:0.82rem;" onclick="jumpToBookedDay()">📅 הצג ביומן עכשיו</button>
+    </div>
 
     <div class="stats-grid-4">
       <div class="stat-rev-card">
@@ -199,9 +216,9 @@
 
     <div class="admin-tabs-bar">
       <button type="button" class="admin-tab-btn active" id="subtab-btn-cal" onclick="switchAdminSubTab('cal')">📅 יומן משבצות</button>
-      <button type="button" class="admin-tab-btn" id="subtab-btn-portfolio" onclick="switchAdminSubTab('portfolio')">📸 תיק עבודות (<span id="adminTabPhotoCount">10</span>)</button>
+      <button type="button" class="admin-tab-btn" id="subtab-btn-portfolio" onclick="switchAdminSubTab('portfolio')">📸 תיק עבודות (<span id="adminTabPhotoCount">6</span>)</button>
       <button type="button" class="admin-tab-btn" id="subtab-btn-edit" onclick="switchAdminSubTab('edit')">✂️ תספורות וכותרת</button>
-      <button type="button" class="admin-tab-btn" id="subtab-btn-hours" onclick="switchAdminSubTab('hours')">⚙️ שעות ומרווחים</button>
+      <button type="button" class="admin-tab-btn" id="subtab-btn-hours" onclick="switchAdminSubTab('hours')">⚙️ שעות והתראות</button>
     </div>
 
     <div id="admin-sub-cal" class="panel-box">
@@ -239,10 +256,9 @@
 
     <div id="admin-sub-portfolio" class="panel-box" style="display:none;">
       <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
-        <h3 style="font-size:1.1rem; font-weight:900; color:var(--gold-light);">ניהול תיק עבודות (מסונכרן בזמן אמת לכל המכשירים)</h3>
-        <button type="button" class="btn-outline" style="border-color:#10b981; color:#34d399;" onclick="forceSyncAllToCloud()">☁️ שדר תמונות ונתונים לענן עכשיו</button>
+        <h3 style="font-size:1.1rem; font-weight:900; color:var(--gold-light);">ניהול תיק עבודות</h3>
       </div>
-      <p style="font-size:0.84rem; color:var(--text-muted); margin-bottom:12px;">בחר תמונות מהאייפון, מהטאבלט או מהמחשב והן יעלו מיד לאתר הלקוחות בכל המכשירים.</p>
+      <p style="font-size:0.84rem; color:var(--text-muted); margin-bottom:12px;">כל הוספה או מחיקה של תמונה מתעדכנת אוטומטית ובזמן אמת באתר הלקוחות בכל המכשירים.</p>
       <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px;">
         <label for="replaceAllPortfolioInput" class="btn-gold" style="flex:1; min-width:160px; cursor:pointer;">🔄 החלף את כל התמונות בתיק</label>
         <input type="file" id="replaceAllPortfolioInput" class="sr-file-input" multiple accept="image/*" onchange="handlePortfolioUpload(event, true)" />
@@ -276,6 +292,26 @@
     </div>
 
     <div id="admin-sub-hours" class="panel-box" style="display:none;">
+      <div style="background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.35); border-radius:14px; padding:14px; margin-bottom:18px;">
+        <h3 style="font-size:1.02rem; font-weight:900; color:#34d399; margin-bottom:6px;">📲 התראות וואטסאפ אוטומטיות על תור חדש (Green API)</h3>
+        <p style="font-size:0.8rem; color:#cbd5e1; margin-bottom:10px;">בכל פעם שלקוח קובע תור באתר, תישלח הודעת וואטסאפ אוטומטית למספר המוגדר כאן (כרגע <strong>0542223765</strong>) גם כשהאפליקציה סגורה:</p>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:10px;">
+          <div>
+            <label style="font-size:0.76rem; color:#94a3b8;">מספר טלפון לקבלת התראות:</label>
+            <input type="tel" id="notifyPhoneInput" class="input-field" value="0542223765" placeholder="0542223765" />
+          </div>
+          <div>
+            <label style="font-size:0.76rem; color:#94a3b8;">Green API - idInstance:</label>
+            <input type="text" id="greenIdInput" class="input-field" placeholder="לדוגמה: 71039..." />
+          </div>
+          <div>
+            <label style="font-size:0.76rem; color:#94a3b8;">Green API - apiTokenInstance:</label>
+            <input type="text" id="greenTokenInput" class="input-field" placeholder="הדבק Token מ-Green API..." />
+          </div>
+        </div>
+        <button type="button" class="btn-outline" style="border-color:#10b981; color:#34d399; margin-top:4px;" onclick="testWhatsAppNotification()">📨 שלח הודעת בדיקה ל-0542223765</button>
+      </div>
+
       <h3 style="font-size:1.05rem; font-weight:900; color:var(--gold-light); margin-bottom:10px;">זמן בין תספורת לתספורת</h3>
       <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:10px; margin-bottom:16px;">
         <div>
@@ -302,7 +338,7 @@
       </div>
       <h3 style="font-size:1.05rem; font-weight:900; color:var(--gold-light); margin-bottom:10px;">שעות פעילות שבועיות</h3>
       <div id="hoursEditorRows" style="display:flex; flex-direction:column; gap:8px; margin-bottom:14px;"></div>
-      <button type="button" class="btn-gold" style="width:100%; padding:14px;" onclick="saveWeeklyHours()">שמור שעות ומרווחים ועדכן באתר</button>
+      <button type="button" class="btn-gold" style="width:100%; padding:14px;" onclick="saveWeeklyHours()">שמור הגדרות, התראות ושעות פעילות</button>
     </div>
   </div>
 
@@ -409,7 +445,7 @@
     }
 
     async function savePortfolioLocally(list) {
-      try { localStorage.setItem("ilay_portfolio_list_v4", JSON.stringify(list)); } catch (_) {}
+      try { localStorage.setItem("ilay_portfolio_list_v5", JSON.stringify(list)); } catch (_) {}
       try {
         const db = await openPortfolioDB();
         await new Promise((resolve, reject) => {
@@ -423,7 +459,7 @@
 
     async function loadPortfolioFromDB() {
       try {
-        const savedLS = localStorage.getItem("ilay_portfolio_list_v4") || localStorage.getItem("ilay_portfolio_list_v3");
+        const savedLS = localStorage.getItem("ilay_portfolio_list_v5") || localStorage.getItem("ilay_portfolio_list_v4");
         if (savedLS) {
           const parsed = JSON.parse(savedLS);
           if (Array.isArray(parsed) && parsed.length > 0) return parsed;
@@ -444,8 +480,12 @@
       title: "ILAY BARBERSHOP",
       subtitle: "תספורת נקייה, אווירה טובה וסטייל שיושב בול.",
       slotInterval: 30,
-      slotBuffer: 0
+      slotBuffer: 0,
+      notifyPhone: "0542223765",
+      greenIdInstance: "",
+      greenApiToken: ""
     };
+    if (!siteConfig.notifyPhone) siteConfig.notifyPhone = "0542223765";
 
     let SERVICES = JSON.parse(localStorage.getItem("ilay_services_v2") || "null") || [
       { name: "תספורת קלאסי", price: 70, duration: "30 דק'", desc: "דירוג (מולט, טייפר, בארסט ועוד..) עם גזירות ואפשרות להוסיף פנס לבחירה." },
@@ -479,8 +519,8 @@
 
     let appointments = JSON.parse(localStorage.getItem("ilay_appointments_clean_v1") || "[]");
 
-    // --- מנוע סנכרון ענן בזמן אמת (MQTT Retained Cloud) ---
-    const CLOUD_TOPIC_BASE = "ilay_barbershop_gt_2026_live_v6";
+    // --- מנוע סנכרון ענן בזמן אמת ---
+    const CLOUD_TOPIC_BASE = "ilay_barbershop_gt_2026_live_v7";
     const CLOUD_BROKERS = [
       "wss://broker.emqx.io:8084/mqtt",
       "wss://test.mosquitto.org:8081/mqtt",
@@ -489,22 +529,68 @@
     const mqttClients = [];
     let lastStateTimestamp = Number(localStorage.getItem("ilay_state_ts") || 0);
     let lastPortfolioTimestamp = Number(localStorage.getItem("ilay_portfolio_ts") || 0);
-    let expectedCloudPhotos = 0;
-    let currentCloudBatchTs = 0;
-    const incomingPhotoChunks = {};
+    let lastPortfolioBatchId = localStorage.getItem("ilay_portfolio_batch") || "";
+    let lastNotifiedBookingId = localStorage.getItem("ilay_last_notified_appt") || "";
+    let latestBookedDayIdx = 0;
 
-    function checkAndAssembleAdminPhotos() {
-      if (expectedCloudPhotos <= 0) return;
+    const batchMetaMap = {};
+    const batchChunksMap = {};
+
+    function playNotificationSound() {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+        osc.frequency.setValueAtTime(880, ctx.currentTime + 0.14);
+        gain.gain.setValueAtTime(0.18, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.45);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.45);
+      } catch (_) {}
+    }
+
+    function showLiveBookingAlertOnAdmin(appt) {
+      if (!appt || !appt.id || appt.id === lastNotifiedBookingId) return;
+      lastNotifiedBookingId = appt.id;
+      localStorage.setItem("ilay_last_notified_appt", appt.id);
+      latestBookedDayIdx = Number(appt.dayIdx) || 0;
+
+      const dateStr = getFormattedDateForDayIdx(latestBookedDayIdx);
+      const dayName = DAYS[latestBookedDayIdx];
+      document.getElementById("liveBookingDetails").textContent =
+        `${appt.name} (${appt.phone}) קבע תור ל${appt.service} ביום ${dayName} (${dateStr}) בשעה ${appt.time}`;
+      document.getElementById("liveBookingAlert").classList.add("show");
+      playNotificationSound();
+    }
+
+    function jumpToBookedDay() {
+      switchAdminSubTab("cal");
+      boardFilterMode = latestBookedDayIdx;
+      renderCalendarBoard();
+      document.getElementById("liveBookingAlert").classList.remove("show");
+    }
+
+    function tryAssembleAdminPortfolioBatch(batchId) {
+      if (!batchId || batchId === lastPortfolioBatchId || !batchMetaMap[batchId]) return;
+      const meta = batchMetaMap[batchId];
+      if (meta.updatedAt <= lastPortfolioTimestamp) return;
+      const chunks = batchChunksMap[batchId] || {};
       const assembled = [];
-      for (let i = 0; i < expectedCloudPhotos; i++) {
-        if (incomingPhotoChunks[i]) assembled.push(incomingPhotoChunks[i]);
+      for (let i = 0; i < meta.count; i++) {
+        if (chunks[i]) assembled.push(chunks[i]);
       }
-      if (assembled.length === expectedCloudPhotos && assembled.length > 0) {
+      if (assembled.length === meta.count && assembled.length > 0) {
         portfolioList = assembled;
         hasCustomUploadedPhotos = true;
         localStorage.setItem("ilay_has_custom_photos", "1");
-        lastPortfolioTimestamp = currentCloudBatchTs;
+        lastPortfolioTimestamp = meta.updatedAt;
+        lastPortfolioBatchId = batchId;
         localStorage.setItem("ilay_portfolio_ts", String(lastPortfolioTimestamp));
+        localStorage.setItem("ilay_portfolio_batch", batchId);
         savePortfolioLocally(portfolioList);
         renderAdminPortfolioManager();
         renderAdminStats();
@@ -536,27 +622,28 @@
     function broadcastPortfolioToCloud(list) {
       if (!Array.isArray(list) || !list.length) return;
       const now = Date.now();
+      const batchId = "b_" + now + "_" + Math.random().toString(36).slice(2, 6);
       lastPortfolioTimestamp = now;
+      lastPortfolioBatchId = batchId;
       localStorage.setItem("ilay_portfolio_ts", String(now));
+      localStorage.setItem("ilay_portfolio_batch", batchId);
 
-      const metaPayload = JSON.stringify({ updatedAt: now, count: list.length });
+      const metaPayload = JSON.stringify({ batchId, updatedAt: now, count: list.length });
 
       mqttClients.forEach(c => {
         try {
           if (c.connected) {
             list.forEach((src, idx) => {
-              c.publish(`${CLOUD_TOPIC_BASE}/photo/${idx}`, JSON.stringify({ idx, src, updatedAt: now }), { qos: 1, retain: true });
+              c.publish(`${CLOUD_TOPIC_BASE}/photo/${idx}`, JSON.stringify({ batchId, idx, src, updatedAt: now }), { qos: 1, retain: true });
             });
+            // ניקוי שאריות של תמונות שנמחקו מהענן כדי שלא יחזרו לעולם
+            for (let oldIdx = list.length; oldIdx < 24; oldIdx++) {
+              c.publish(`${CLOUD_TOPIC_BASE}/photo/${oldIdx}`, "", { qos: 1, retain: true });
+            }
             c.publish(`${CLOUD_TOPIC_BASE}/portfolio_meta`, metaPayload, { qos: 1, retain: true });
           }
         } catch (_) {}
       });
-    }
-
-    function forceSyncAllToCloud() {
-      broadcastStateToCloud();
-      broadcastPortfolioToCloud(portfolioList);
-      showToast("☁️ כל התמונות, התספורות והתורים שודרו לענן ולכל המכשירים!");
     }
 
     function initRealtimeCloudSync() {
@@ -568,31 +655,16 @@
 
       if (!window.mqtt) return;
 
-      let didInitialAutoPush = false;
-
       CLOUD_BROKERS.forEach(brokerUrl => {
         try {
           const client = mqtt.connect(brokerUrl, {
             clientId: "ilay_admin_" + Math.random().toString(16).slice(2, 10),
             clean: true,
-            reconnectPeriod: 3000
+            reconnectPeriod: 2500
           });
 
           client.on("connect", () => {
-            const badge = document.getElementById("cloudSyncBadge");
-            if (badge) badge.textContent = "● מחובר לענן החי • מסונכרן בזמן אמת לכל מכשיר";
             client.subscribe(`${CLOUD_TOPIC_BASE}/#`, { qos: 1 });
-
-            // אם במכשיר הזה כבר יש תמונות מותאמות אישית, נשדר אותן לענן אוטומטית לאחר 1.5 שניות
-            if (!didInitialAutoPush && hasCustomUploadedPhotos && portfolioList.length > 0) {
-              didInitialAutoPush = true;
-              setTimeout(() => {
-                if (lastPortfolioTimestamp === 0) {
-                  broadcastPortfolioToCloud(portfolioList);
-                  broadcastStateToCloud();
-                }
-              }, 1500);
-            }
           });
 
           client.on("message", (topic, payload) => {
@@ -601,33 +673,45 @@
               if (!str) return;
               const data = JSON.parse(str);
 
-              if (topic === `${CLOUD_TOPIC_BASE}/state`) {
+              if (topic === `${CLOUD_TOPIC_BASE}/new_booking`) {
+                if (data && data.appt && data.appt.id) {
+                  const exists = appointments.some(a => a.id === data.appt.id);
+                  if (!exists) {
+                    appointments.push(data.appt);
+                    localStorage.setItem("ilay_appointments_clean_v1", JSON.stringify(appointments));
+                    renderCalendarBoard();
+                    renderAdminStats();
+                    showLiveBookingAlertOnAdmin(data.appt);
+                  }
+                }
+              } else if (topic === `${CLOUD_TOPIC_BASE}/state`) {
                 if (!data.updatedAt || data.updatedAt <= lastStateTimestamp) return;
+                const oldApptIds = new Set(appointments.map(a => a.id));
                 lastStateTimestamp = data.updatedAt;
                 localStorage.setItem("ilay_state_ts", String(lastStateTimestamp));
 
-                if (data.siteConfig) { siteConfig = data.siteConfig; localStorage.setItem("ilay_site_cfg", JSON.stringify(siteConfig)); }
+                if (data.siteConfig) { siteConfig = { ...siteConfig, ...data.siteConfig }; localStorage.setItem("ilay_site_cfg", JSON.stringify(siteConfig)); }
                 if (data.services) { SERVICES = data.services; localStorage.setItem("ilay_services_v2", JSON.stringify(SERVICES)); }
                 if (data.weeklySchedule) { weeklySchedule = data.weeklySchedule; localStorage.setItem("ilay_weekly_hours", JSON.stringify(weeklySchedule)); }
-                if (data.appointments) { appointments = data.appointments; localStorage.setItem("ilay_appointments_clean_v1", JSON.stringify(appointments)); }
+                if (Array.isArray(data.appointments)) {
+                  const newlyAdded = data.appointments.find(a => !oldApptIds.has(a.id));
+                  appointments = data.appointments;
+                  localStorage.setItem("ilay_appointments_clean_v1", JSON.stringify(appointments));
+                  if (newlyAdded) showLiveBookingAlertOnAdmin(newlyAdded);
+                }
 
                 renderCalendarBoard();
                 renderAdminStats();
                 renderAdminEditors();
               } else if (topic === `${CLOUD_TOPIC_BASE}/portfolio_meta`) {
-                if (!data.updatedAt || data.updatedAt <= lastPortfolioTimestamp) return;
-                currentCloudBatchTs = data.updatedAt;
-                expectedCloudPhotos = Number(data.count) || 0;
-                checkAndAssembleAdminPhotos();
+                if (!data.batchId || data.batchId === lastPortfolioBatchId || !data.updatedAt || data.updatedAt <= lastPortfolioTimestamp) return;
+                batchMetaMap[data.batchId] = { count: Number(data.count) || 0, updatedAt: data.updatedAt };
+                tryAssembleAdminPortfolioBatch(data.batchId);
               } else if (topic.startsWith(`${CLOUD_TOPIC_BASE}/photo/`)) {
-                const idx = Number(topic.split("/").pop());
-                if (!isNaN(idx) && data && data.src) {
-                  if (data.updatedAt && data.updatedAt >= currentCloudBatchTs) {
-                    currentCloudBatchTs = data.updatedAt;
-                  }
-                  incomingPhotoChunks[idx] = data.src;
-                  checkAndAssembleAdminPhotos();
-                }
+                if (!data || !data.batchId || data.batchId === lastPortfolioBatchId || !data.src) return;
+                if (!batchChunksMap[data.batchId]) batchChunksMap[data.batchId] = {};
+                batchChunksMap[data.batchId][Number(data.idx)] = data.src;
+                tryAssembleAdminPortfolioBatch(data.batchId);
               }
             } catch (_) {}
           });
@@ -635,6 +719,36 @@
           mqttClients.push(client);
         } catch (_) {}
       });
+    }
+
+    async function testWhatsAppNotification() {
+      const notifyPhone = document.getElementById("notifyPhoneInput").value.trim() || "0542223765";
+      const greenId = document.getElementById("greenIdInput").value.trim();
+      const greenToken = document.getElementById("greenTokenInput").value.trim();
+
+      siteConfig.notifyPhone = notifyPhone;
+      siteConfig.greenIdInstance = greenId;
+      siteConfig.greenApiToken = greenToken;
+      localStorage.setItem("ilay_site_cfg", JSON.stringify(siteConfig));
+      broadcastStateToCloud();
+
+      const formattedPhone = notifyPhone.replace(/[^0-9]/g, "").replace(/^0/, "972");
+      const adminUrl = window.location.href.split("?")[0];
+      const msg = `💈 *בדיקת מערכת התראות - Ilay Barbershop!*\nהחיבור למספר ${notifyPhone} עובד מצוין. כל תור חדש שייקבע באתר יישלח לכאן אוטומטית.\n\n📲 *כניסה ליומן:*\n${adminUrl}`;
+
+      if (greenId && greenToken) {
+        try {
+          const res = await fetch(`https://api.green-api.com/waInstance${greenId}/sendMessage/${greenToken}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ chatId: `${formattedPhone}@c.us`, message: msg })
+          });
+          if (res.ok) {
+            return showToast(`✅ הודעת וואטסאפ נשלחה אוטומטית ל-${notifyPhone}!`);
+          }
+        } catch (_) {}
+      }
+      showToast("⚠️ שמור מזהה ו-Token של Green API כדי לשלוח אוטומטית ברקע");
     }
 
     function getFormattedDateForDayIdx(dayIdx) {
@@ -855,8 +969,8 @@
         <div class="appt-top">
           <span class="appt-drag-handle">✋ ${sanitizeStr(appt.time, 10)}</span>
           <div class="appt-actions">
-            <button type="button" class="appt-btn-mini appt-btn-move" onclick="startTapMoveMode('${sanitizeStr(appt.id, 30)}', event)">הזז</button>
-            <button type="button" class="appt-btn-mini appt-btn-cancel" onclick="cancelAppointment('${sanitizeStr(appt.id, 30)}', event)">✕</button>
+            <button type="button" class="appt-btn-mini appt-btn-move" onclick="startTapMoveMode('${sanitizeStr(appt.id, 40)}', event)">הזז</button>
+            <button type="button" class="appt-btn-mini appt-btn-cancel" onclick="cancelAppointment('${sanitizeStr(appt.id, 40)}', event)">✕</button>
           </div>
         </div>
         <div class="appt-client-name">👤 ${sanitizeStr(appt.name, 35)}</div>
@@ -1034,7 +1148,7 @@
     async function handlePortfolioUpload(ev, replaceAll) {
       const files = Array.from(ev.target.files || []);
       if (!files.length) return;
-      showToast(`מעלה ומסנכרן ${files.length} תמונות לענן...`);
+      showToast(`מעלה ומסנכרן ${files.length} תמונות...`);
       const compressedList = [];
       for (const file of files) {
         compressedList.push(await compressImageFile(file));
@@ -1050,18 +1164,20 @@
       broadcastPortfolioToCloud(portfolioList);
       ev.target.value = "";
       renderAdminPortfolioManager();
-      showToast(`✅ ${compressedList.length} תמונות עלו ומסונכרנות עכשיו בכל המכשירים!`);
+      renderAdminStats();
+      showToast(`✅ ${compressedList.length} תמונות עלו והתעדכנו בכל המכשירים!`);
     }
 
     async function deletePortfolioPhoto(idx) {
-      if (portfolioList.length <= 1) return showToast("חייבת להישאר לפחות תמונה אחת");
+      if (portfolioList.length <= 1) return showToast("חייבת להישאר לפחות תמונה אחת בתיק העבודות");
       portfolioList.splice(idx, 1);
       hasCustomUploadedPhotos = true;
       localStorage.setItem("ilay_has_custom_photos", "1");
       await savePortfolioLocally(portfolioList);
       broadcastPortfolioToCloud(portfolioList);
       renderAdminPortfolioManager();
-      showToast("התמונה הוסרה ועודכנה בכל המכשירים.");
+      renderAdminStats();
+      showToast("🗑️ התמונה נמחקה לצמיתות ועודכנה בכל המכשירים.");
     }
 
     function syncEditedServicesFromDOM() {
@@ -1080,6 +1196,10 @@
     function renderAdminEditors() {
       document.getElementById("editSiteTitle").value = siteConfig.title;
       document.getElementById("editSiteSubtitle").value = siteConfig.subtitle;
+      document.getElementById("notifyPhoneInput").value = siteConfig.notifyPhone || "0542223765";
+      document.getElementById("greenIdInput").value = siteConfig.greenIdInstance || "";
+      document.getElementById("greenTokenInput").value = siteConfig.greenApiToken || "";
+
       const container = document.getElementById("servicesEditorContainer");
       container.innerHTML = "";
       SERVICES.forEach((srv, idx) => {
@@ -1158,6 +1278,9 @@
     function saveWeeklyHours() {
       siteConfig.slotInterval = Number(document.getElementById("slotIntervalSelect").value) || 30;
       siteConfig.slotBuffer = Number(document.getElementById("slotBufferSelect").value) || 0;
+      siteConfig.notifyPhone = document.getElementById("notifyPhoneInput").value.trim() || "0542223765";
+      siteConfig.greenIdInstance = document.getElementById("greenIdInput").value.trim();
+      siteConfig.greenApiToken = document.getElementById("greenTokenInput").value.trim();
       localStorage.setItem("ilay_site_cfg", JSON.stringify(siteConfig));
       DAYS.forEach((_, idx) => {
         weeklySchedule[idx] = {
@@ -1170,7 +1293,7 @@
       broadcastStateToCloud();
       renderCalendarBoard();
       renderAdminStats();
-      showToast("✅ שעות הפתיחה והמרווחים עודכנו בכל המכשירים!");
+      showToast("✅ שעות הפתיחה והגדרות הוואטסאפ ל-0542223765 נשמרו!");
     }
 
     function switchAdminSubTab(tab) {
