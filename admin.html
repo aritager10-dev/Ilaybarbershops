@@ -224,12 +224,12 @@
     <div id="admin-sub-cal" class="panel-box">
       <div class="prepared-msg-banner" id="preparedMsgBanner">
         <div style="display:flex; align-items:center; justify-content:space-between;">
-          <strong id="preparedMsgTitle" style="color:#34d399; font-size:0.9rem;">✅ ההודעה נשלחה ב-SMS! (אפשר גם לשלוח בוואטסאפ):</strong>
+          <strong id="preparedMsgTitle" style="color:#34d399; font-size:0.9rem;">✅ ההודעה מוכנה לשליחה ללקוח:</strong>
           <button type="button" style="background:none; border:none; color:#94a3b8; font-weight:800; cursor:pointer;" onclick="document.getElementById('preparedMsgBanner').classList.remove('show')">✕</button>
         </div>
         <div class="prepared-msg-text" id="preparedMsgText"></div>
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
-          <a id="preparedWhatsappBtn" href="#" target="_blank" class="btn-gold" style="text-decoration:none; flex:1;">📲 שלח גם בוואטסאפ</a>
+          <a id="preparedWhatsappBtn" href="#" target="_blank" class="btn-gold" style="text-decoration:none; flex:1;">📲 שלח בוואטסאפ ללקוח</a>
           <button type="button" class="btn-outline" onclick="copyPreparedMessage()">📋 העתק הודעה</button>
         </div>
       </div>
@@ -240,10 +240,10 @@
       </div>
 
       <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
-        <span style="font-size:0.84rem; color:var(--gold-light); font-weight:800;">✋ גרור תור להזזה או לחץ ✕ לביטול – הלקוח יקבל אוטומטית SMS מאת <strong>Ilay</strong>!</span>
+        <span style="font-size:0.84rem; color:var(--gold-light); font-weight:800;">✋ גרור תור להזזה, או לחץ ✕ לביטול תור ושליחת הודעה ללקוח:</span>
         <label style="display:flex; align-items:center; gap:6px; font-size:0.8rem; color:#cbd5e1; cursor:pointer;">
-          <input type="checkbox" id="autoOpenWhatsapp" />
-          פתח גם וואטסאפ במקביל ל-SMS
+          <input type="checkbox" id="autoOpenWhatsapp" checked />
+          פתח וואטסאפ אוטומטית בהזזה או ביטול תור
         </label>
       </div>
 
@@ -292,45 +292,16 @@
     </div>
 
     <div id="admin-sub-hours" class="panel-box" style="display:none;">
-      <div style="background:rgba(212,175,55,0.09); border:1px solid var(--border-gold); border-radius:14px; padding:14px; margin-bottom:16px;">
-        <h3 style="font-size:1.04rem; font-weight:900; color:var(--gold-light); margin-bottom:6px;">📩 שליחת SMS אוטומטי ללקוחות תחת השם "Ilay"</h3>
-        <p style="font-size:0.81rem; color:#cbd5e1; line-height:1.6; margin-bottom:10px;">
-          ברגע שמזיזים תור, מבטלים תור או כשלקוח קובע תור – נשלח SMS אוטומטי לנייד של הלקוח כשהשולח שמופיע אצלו הוא <strong><code>Ilay</code></strong>.<br>
-          הירשם בחינם ל-<strong>ClickSend.com</strong> (או <strong>Twilio.com</strong>), העתק את ה-Username וה-API Key והדבק כאן:
-        </p>
-        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(185px, 1fr)); gap:10px;">
-          <div>
-            <label style="font-size:0.75rem; color:#94a3b8;">ספק SMS:</label>
-            <select id="smsProviderSelect" class="input-field">
-              <option value="clicksend">ClickSend (מומלץ ומהיר)</option>
-              <option value="twilio">Twilio</option>
-            </select>
-          </div>
-          <div>
-            <label style="font-size:0.75rem; color:#94a3b8;">שם השולח שיופיע ללקוח (באנגלית):</label>
-            <input type="text" id="smsSenderIdInput" class="input-field" maxlength="11" value="Ilay" placeholder="Ilay" />
-          </div>
-          <div>
-            <label style="font-size:0.75rem; color:#94a3b8;">API Username / Account SID:</label>
-            <input type="text" id="smsApiUserInput" class="input-field" placeholder="הדבק Username או SID..." />
-          </div>
-          <div>
-            <label style="font-size:0.75rem; color:#94a3b8;">API Key / Auth Token:</label>
-            <input type="password" id="smsApiKeyInput" class="input-field" placeholder="הדבק API Key או Token..." />
-          </div>
-          <div>
-            <label style="font-size:0.75rem; color:#94a3b8;">מספר הטלפון של עילי לבדיקה/התראות:</label>
-            <input type="tel" id="barberPhoneInput" class="input-field" value="0542223765" placeholder="0542223765" />
-          </div>
-        </div>
-        <button type="button" class="btn-gold" style="padding:9px 16px; font-size:0.84rem;" onclick="testDirectSms()">📨 שלח SMS בדיקה מאת "Ilay" ל-0542223765</button>
-      </div>
-
       <div style="background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.35); border-radius:14px; padding:14px; margin-bottom:18px;">
-        <h3 style="font-size:1.02rem; font-weight:900; color:#34d399; margin-bottom:6px;">🔔 התראות פוש לטלפון של עילי (ntfy)</h3>
+        <h3 style="font-size:1.02rem; font-weight:900; color:#34d399; margin-bottom:6px;">🔔 התראות פוש אוטומטיות לטלפון על תור חדש (ntfy)</h3>
+        <p style="font-size:0.82rem; color:#cbd5e1; line-height:1.6; margin-bottom:10px;">
+          כדי לקבל התראה קופצת לטלפון גם כשהאפליקציה סגורה לגמרי:<br>
+          1. הורד לאייפון/אנדרואיד את האפליקציה החינמית <strong>ntfy</strong>.<br>
+          2. לחץ על <strong>+</strong> באפליקציה והקלד את שם הערוץ: <strong><code>ilay_barbershop_alerts</code></strong> (ובאייפון רשום ב-Server כתובת <code>https://ntfy.sh</code>).
+        </p>
         <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
           <input type="text" id="ntfyTopicInput" class="input-field" value="ilay_barbershop_alerts" style="max-width:280px; margin:0;" placeholder="ilay_barbershop_alerts" />
-          <button type="button" class="btn-outline" style="border-color:#10b981; color:#34d399;" onclick="testNtfyNotification()">🔔 שלח התראת פוש לבדיקה</button>
+          <button type="button" class="btn-outline" style="border-color:#10b981; color:#34d399;" onclick="testNtfyNotification()">🔔 שלח התראת בדיקה לטלפון עכשיו</button>
         </div>
       </div>
 
@@ -360,7 +331,7 @@
       </div>
       <h3 style="font-size:1.05rem; font-weight:900; color:var(--gold-light); margin-bottom:10px;">שעות פעילות שבועיות</h3>
       <div id="hoursEditorRows" style="display:flex; flex-direction:column; gap:8px; margin-bottom:14px;"></div>
-      <button type="button" class="btn-gold" style="width:100%; padding:14px;" onclick="saveWeeklyHours()">שמור הגדרות, SMS ושעות פעילות</button>
+      <button type="button" class="btn-gold" style="width:100%; padding:14px;" onclick="saveWeeklyHours()">שמור הגדרות, התראות ושעות פעילות</button>
     </div>
   </div>
 
@@ -405,14 +376,6 @@
 
     function encodeShift(str) {
       return Array.from(str).map(ch => ch.charCodeAt(0) + 7).join("-");
-    }
-
-    function toE164Phone(rawPhone) {
-      const digits = String(rawPhone || "").replace(/[^0-9]/g, "");
-      if (!digits) return "";
-      if (digits.startsWith("972")) return "+" + digits;
-      if (digits.startsWith("0")) return "+972" + digits.slice(1);
-      return "+972" + digits;
     }
 
     const SECURE_ADMINS = [
@@ -511,16 +474,9 @@
       subtitle: "תספורת נקייה, אווירה טובה וסטייל שיושב בול.",
       slotInterval: 30,
       slotBuffer: 0,
-      ntfyTopic: "ilay_barbershop_alerts",
-      barberPhone: "0542223765",
-      smsProvider: "clicksend",
-      smsSenderId: "Ilay",
-      smsApiUser: "",
-      smsApiKey: ""
+      ntfyTopic: "ilay_barbershop_alerts"
     };
     if (!siteConfig.ntfyTopic) siteConfig.ntfyTopic = "ilay_barbershop_alerts";
-    if (!siteConfig.smsSenderId) siteConfig.smsSenderId = "Ilay";
-    if (!siteConfig.barberPhone) siteConfig.barberPhone = "0542223765";
 
     let SERVICES = JSON.parse(localStorage.getItem("ilay_services_v2") || "null") || [
       { name: "תספורת קלאסי", price: 70, duration: "30 דק'", desc: "דירוג (מולט, טייפר, בארסט ועוד..) עם גזירות ואפשרות להוסיף פנס לבחירה." },
@@ -553,76 +509,6 @@
     ];
 
     let appointments = JSON.parse(localStorage.getItem("ilay_appointments_clean_v1") || "[]");
-
-    // --- מנוע שליחת SMS אוטומטי מאת השם "Ilay" ---
-    async function sendDirectSmsWithIlaySender(toPhoneRaw, messageText) {
-      const toPhone = toE164Phone(toPhoneRaw);
-      const sender = (siteConfig.smsSenderId || "Ilay").trim().slice(0, 11);
-      const user = (siteConfig.smsApiUser || "").trim();
-      const key = (siteConfig.smsApiKey || "").trim();
-      const provider = siteConfig.smsProvider || "clicksend";
-
-      if (!toPhone || !user || !key) return false;
-
-      try {
-        if (provider === "clicksend") {
-          const authHeader = "Basic " + btoa(`${user}:${key}`);
-          const res = await fetch("https://rest.clicksend.com/v3/sms/send", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": authHeader
-            },
-            body: JSON.stringify({
-              messages: [{ source: "javascript", from: sender, body: messageText, to: toPhone }]
-            })
-          });
-          return res.ok;
-        } else if (provider === "twilio") {
-          const authHeader = "Basic " + btoa(`${user}:${key}`);
-          const formBody = new URLSearchParams();
-          formBody.append("To", toPhone);
-          formBody.append("From", sender);
-          formBody.append("Body", messageText);
-
-          const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(user)}/Messages.json`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/x-www-form-urlencoded",
-              "Authorization": authHeader
-            },
-            body: formBody.toString()
-          });
-          return res.ok;
-        }
-      } catch (_) {}
-      return false;
-    }
-
-    async function testDirectSms() {
-      siteConfig.smsProvider = document.getElementById("smsProviderSelect").value;
-      siteConfig.smsSenderId = document.getElementById("smsSenderIdInput").value.trim() || "Ilay";
-      siteConfig.smsApiUser = document.getElementById("smsApiUserInput").value.trim();
-      siteConfig.smsApiKey = document.getElementById("smsApiKeyInput").value.trim();
-      siteConfig.barberPhone = document.getElementById("barberPhoneInput").value.trim() || "0542223765";
-      localStorage.setItem("ilay_site_cfg", JSON.stringify(siteConfig));
-      broadcastStateToCloud();
-
-      if (!siteConfig.smsApiUser || !siteConfig.smsApiKey) {
-        return showToast("⚠️ נא להזין API Username ו-API Key של ספק ה-SMS תחילה");
-      }
-
-      showToast("שולח SMS בדיקה מאת " + siteConfig.smsSenderId + "...");
-      const ok = await sendDirectSmsWithIlaySender(
-        siteConfig.barberPhone,
-        `הודעת בדיקה מאת ${siteConfig.smsSenderId} - מערכת ה-SMS האוטומטית של Ilay Barbershop מחוברת ומוכנה!`
-      );
-      if (ok) {
-        showToast(`✅ הודעת SMS נשלחה בהצלחה ל-${siteConfig.barberPhone} מאת "${siteConfig.smsSenderId}"!`);
-      } else {
-        showToast("⚠️ לא ניתן היה לשלוח – בדוק שהמפתחות שהזנת תקינים");
-      }
-    }
 
     // --- מנוע סנכרון ענן בזמן אמת ---
     const CLOUD_TOPIC_BASE = "ilay_barbershop_gt_2026_live_v7";
@@ -1141,7 +1027,7 @@
       renderCalendarBoard();
     }
 
-    async function moveAppointmentToSlot(apptId, newDayIdx, newTime) {
+    function moveAppointmentToSlot(apptId, newDayIdx, newTime) {
       const appt = appointments.find(a => a.id === apptId);
       if (!appt || (Number(appt.dayIdx) === Number(newDayIdx) && appt.time === newTime)) return;
 
@@ -1155,24 +1041,17 @@
 
       const dateStr = getFormattedDateForDayIdx(Number(newDayIdx));
       const dayName = DAYS[Number(newDayIdx)];
-      const preparedMsg = `אהלן ${appt.name}, הודעה מ-Ilay Barbershop: התור שלך הוזז ליום ${dayName} (${dateStr}) בשעה ${newTime}.`;
+      const preparedMsg = `אהלן ${appt.name}, הודעה מהמספרה של עיליי: התור שלך הוזז לשעה ${newTime} בתאריך ${dateStr} (יום ${dayName}).`;
 
       const cleanPhone = appt.phone.replace(/[^0-9]/g, "").replace(/^0/, "972");
       const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(preparedMsg)}`;
 
-      document.getElementById("preparedMsgTitle").textContent = `📩 שולח SMS אוטומטי ל-${appt.name} מאת "${siteConfig.smsSenderId || 'Ilay'}"...`;
+      document.getElementById("preparedMsgTitle").textContent = "✅ התור הוזז! הנה ההודעה המוכנה ללקוח:";
       document.getElementById("preparedMsgText").textContent = preparedMsg;
       document.getElementById("preparedWhatsappBtn").href = waUrl;
       document.getElementById("preparedMsgBanner").classList.add("show");
 
-      const smsSent = await sendDirectSmsWithIlaySender(appt.phone, preparedMsg);
-      if (smsSent) {
-        document.getElementById("preparedMsgTitle").textContent = `✅ נשלחה הודעת SMS אוטומטית ל-${appt.name} מאת "${siteConfig.smsSenderId || 'Ilay'}"!`;
-        showToast(`📩 SMS נשלח אוטומטית ל-${appt.name} מאת ${siteConfig.smsSenderId || 'Ilay'}!`);
-      } else {
-        document.getElementById("preparedMsgTitle").textContent = "✅ התור הוזז! (לחץ לשליחה בוואטסאפ או הגדר מפתח SMS בלשונית הגדרות):";
-        showToast(`✅ התור של ${appt.name} הוזז ליום ${dayName} בשעה ${newTime}!`);
-      }
+      showToast(`✅ התור של ${appt.name} הוזז ליום ${dayName} (${dateStr}) בשעה ${newTime}!`);
 
       if (document.getElementById("autoOpenWhatsapp").checked && cleanPhone.length >= 9) {
         window.open(waUrl, "_blank");
@@ -1187,7 +1066,7 @@
       }
     }
 
-    async function cancelAppointment(apptId, ev) {
+    function cancelAppointment(apptId, ev) {
       if (ev) ev.stopPropagation();
       const idx = appointments.findIndex(a => a.id === apptId);
       if (idx === -1) return;
@@ -1197,24 +1076,17 @@
 
       const dateStr = getFormattedDateForDayIdx(Number(appt.dayIdx));
       const dayName = DAYS[Number(appt.dayIdx)];
-      const cancelMsg = `אהלן ${appt.name}, הודעה מ-Ilay Barbershop: התור שלך ליום ${dayName} (${dateStr}) בשעה ${appt.time} בוטל. לקביעת מועד חדש ניתן להיכנס לאתר המספרה.`;
+      const cancelMsg = `אהלן ${appt.name}, הודעה מהמספרה של עיליי: התור שלך ליום ${dayName} (${dateStr}) בשעה ${appt.time} בוטל. לקביעת מועד חדש ניתן להיכנס לאתר המספרה.`;
 
       const cleanPhone = (appt.phone || "").replace(/[^0-9]/g, "").replace(/^0/, "972");
       const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(cancelMsg)}`;
 
-      document.getElementById("preparedMsgTitle").textContent = `📩 שולח SMS ביטול אוטומטי ל-${appt.name} מאת "${siteConfig.smsSenderId || 'Ilay'}"...`;
+      document.getElementById("preparedMsgTitle").textContent = "🗑️ התור בוטל! הנה הודעת הביטול המוכנה ללקוח:";
       document.getElementById("preparedMsgText").textContent = cancelMsg;
       document.getElementById("preparedWhatsappBtn").href = waUrl;
       document.getElementById("preparedMsgBanner").classList.add("show");
 
-      const smsSent = await sendDirectSmsWithIlaySender(appt.phone, cancelMsg);
-      if (smsSent) {
-        document.getElementById("preparedMsgTitle").textContent = `✅ נשלח SMS ביטול אוטומטי ל-${appt.name} מאת "${siteConfig.smsSenderId || 'Ilay'}"!`;
-        showToast(`📩 SMS ביטול נשלח אוטומטית ל-${appt.name} מאת ${siteConfig.smsSenderId || 'Ilay'}!`);
-      } else {
-        document.getElementById("preparedMsgTitle").textContent = "🗑️ התור בוטל! הנה הודעת הביטול ללקוח:";
-        showToast(`🗑️ התור של ${appt.name} בוטל.`);
-      }
+      showToast(`🗑️ התור של ${appt.name} בוטל והודעת וואטסאפ הוכנה.`);
 
       if (document.getElementById("autoOpenWhatsapp").checked && cleanPhone.length >= 9) {
         window.open(waUrl, "_blank");
@@ -1238,7 +1110,7 @@
       document.getElementById("manualHourSelect").value = hourStr;
     }
 
-    async function saveManualAppointment() {
+    function saveManualAppointment() {
       const dayIdx = Number(document.getElementById("manualDaySelect").value);
       const time = document.getElementById("manualHourSelect").value;
       const srvIdx = Number(document.getElementById("manualServiceSelect").value);
@@ -1254,11 +1126,7 @@
       saveAppointments();
       renderCalendarBoard();
       document.getElementById("manualAddModal").classList.remove("open");
-
-      const dateStr = getFormattedDateForDayIdx(dayIdx);
-      const dayName = DAYS[dayIdx];
-      sendDirectSmsWithIlaySender(phone, `היי ${name}, נקבע לך תור ב-Ilay Barbershop ליום ${dayName} (${dateStr}) בשעה ${time}. נתראה!`);
-      showToast(`✅ התור של ${name} שובץ ביומן!`);
+      showToast(`✅ התור של ${name} שובץ בהצלחה!`);
     }
 
     function renderAdminPortfolioManager() {
@@ -1332,11 +1200,6 @@
       document.getElementById("editSiteTitle").value = siteConfig.title;
       document.getElementById("editSiteSubtitle").value = siteConfig.subtitle;
       document.getElementById("ntfyTopicInput").value = siteConfig.ntfyTopic || "ilay_barbershop_alerts";
-      document.getElementById("smsProviderSelect").value = siteConfig.smsProvider || "clicksend";
-      document.getElementById("smsSenderIdInput").value = siteConfig.smsSenderId || "Ilay";
-      document.getElementById("smsApiUserInput").value = siteConfig.smsApiUser || "";
-      document.getElementById("smsApiKeyInput").value = siteConfig.smsApiKey || "";
-      document.getElementById("barberPhoneInput").value = siteConfig.barberPhone || "0542223765";
 
       const container = document.getElementById("servicesEditorContainer");
       container.innerHTML = "";
@@ -1417,12 +1280,6 @@
       siteConfig.slotInterval = Number(document.getElementById("slotIntervalSelect").value) || 30;
       siteConfig.slotBuffer = Number(document.getElementById("slotBufferSelect").value) || 0;
       siteConfig.ntfyTopic = document.getElementById("ntfyTopicInput").value.trim() || "ilay_barbershop_alerts";
-      siteConfig.smsProvider = document.getElementById("smsProviderSelect").value;
-      siteConfig.smsSenderId = document.getElementById("smsSenderIdInput").value.trim() || "Ilay";
-      siteConfig.smsApiUser = document.getElementById("smsApiUserInput").value.trim();
-      siteConfig.smsApiKey = document.getElementById("smsApiKeyInput").value.trim();
-      siteConfig.barberPhone = document.getElementById("barberPhoneInput").value.trim() || "0542223765";
-
       localStorage.setItem("ilay_site_cfg", JSON.stringify(siteConfig));
       DAYS.forEach((_, idx) => {
         weeklySchedule[idx] = {
@@ -1435,7 +1292,7 @@
       broadcastStateToCloud();
       renderCalendarBoard();
       renderAdminStats();
-      showToast(`✅ הגדרות ה-SMS (מאת "${siteConfig.smsSenderId}") ושעות הפעילות נשמרו!`);
+      showToast("✅ שעות הפתיחה וערוץ ההתראות נשמרו!");
     }
 
     function switchAdminSubTab(tab) {
