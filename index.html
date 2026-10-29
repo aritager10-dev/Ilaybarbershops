@@ -352,7 +352,7 @@
 
       <div style="margin-bottom:6px; font-size:0.84rem; font-weight:700; color:#cbd5e1;">4. פרטי הלקוח והערות לספר:</div>
       <input type="text" id="clientNameInput" class="input-field" maxlength="35" placeholder="השם המלא שלך (לפחות 2 אותיות)" />
-      <input type="tel" id="clientPhoneInput" class="input-field" inputmode="numeric" oninput="this.value = this.value.replace(/[^0-9]/g, '')" maxlength="12" placeholder="מספר טלפון (ספרות בלבד)" />
+      <input type="tel" id="clientPhoneInput" class="input-field" inputmode="numeric" oninput="this.value = this.value.replace(/[^0-9]/g, '')" maxlength="12" placeholder="מספר טלפון לקבלת SMS (ספרות בלבד)" />
       <textarea id="clientNoteInput" class="input-field" maxlength="120" placeholder="הערות לתור (למשל: בארסט פייד, להוסיף פנס, גזירות וכו'...)"></textarea>
 
       <button type="button" class="btn-gold" style="width:100%; margin-top:8px; padding:14px;" onclick="confirmClientBooking()">✅ אשר ושבץ תור ביומן</button>
@@ -408,6 +408,14 @@
       return `${String(target.getDate()).padStart(2, "0")}/${String(target.getMonth() + 1).padStart(2, "0")}`;
     }
 
+    function toE164Phone(rawPhone) {
+      const digits = String(rawPhone || "").replace(/[^0-9]/g, "");
+      if (!digits) return "";
+      if (digits.startsWith("972")) return "+" + digits;
+      if (digits.startsWith("0")) return "+972" + digits.slice(1);
+      return "+972" + digits;
+    }
+
     const DB_NAME = "IlayBarbershopPortfolioDB";
     const STORE_NAME = "portfolioStore";
 
@@ -457,9 +465,16 @@
       subtitle: "תספורת נקייה, אווירה טובה וסטייל שיושב בול.",
       slotInterval: 30,
       slotBuffer: 0,
-      ntfyTopic: "ilay_barbershop_alerts"
+      ntfyTopic: "ilay_barbershop_alerts",
+      barberPhone: "0542223765",
+      smsProvider: "clicksend",
+      smsSenderId: "Ilay",
+      smsApiUser: "",
+      smsApiKey: ""
     };
     if (!siteConfig.ntfyTopic) siteConfig.ntfyTopic = "ilay_barbershop_alerts";
+    if (!siteConfig.smsSenderId) siteConfig.smsSenderId = "Ilay";
+    if (!siteConfig.barberPhone) siteConfig.barberPhone = "0542223765";
 
     let SERVICES = JSON.parse(localStorage.getItem("ilay_services_v2") || "null") || [
       { name: "תספורת קלאסי", price: 70, duration: "30 דק'", desc: "דירוג (מולט, טייפר, בארסט ועוד..) עם גזירות ואפשרות להוסיף פנס לבחירה." },
@@ -489,6 +504,51 @@
       { active: false, start: "19:30", end: "22:00" }
     ];
     let appointments = JSON.parse(localStorage.getItem("ilay_appointments_clean_v1") || "[]");
+
+    // --- מנוע שליחת SMS אוטומטי מאת השם "Ilay" ---
+    async function sendDirectSmsWithIlaySender(toPhoneRaw, messageText) {
+      const toPhone = toE164Phone(toPhoneRaw);
+      const sender = (siteConfig.smsSenderId || "Ilay").trim().slice(0, 11);
+      const user = (siteConfig.smsApiUser || "").trim();
+      const key = (siteConfig.smsApiKey || "").trim();
+      const provider = siteConfig.smsProvider || "clicksend";
+
+      if (!toPhone || !user || !key) return false;
+
+      try {
+        if (provider === "clicksend") {
+          const authHeader = "Basic " + btoa(`${user}:${key}`);
+          const res = await fetch("https://rest.clicksend.com/v3/sms/send", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": authHeader
+            },
+            body: JSON.stringify({
+              messages: [{ source: "javascript", from: sender, body: messageText, to: toPhone }]
+            })
+          });
+          return res.ok;
+        } else if (provider === "twilio") {
+          const authHeader = "Basic " + btoa(`${user}:${key}`);
+          const formBody = new URLSearchParams();
+          formBody.append("To", toPhone);
+          formBody.append("From", sender);
+          formBody.append("Body", messageText);
+
+          const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(user)}/Messages.json`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded",
+              "Authorization": authHeader
+            },
+            body: formBody.toString()
+          });
+          return res.ok;
+        }
+      } catch (_) {}
+      return false;
+    }
 
     // --- מנוע סנכרון ענן בזמן אמת ---
     const CLOUD_TOPIC_BASE = "ilay_barbershop_gt_2026_live_v7";
@@ -628,33 +688,36 @@
       });
     }
 
-    // שליחת התראת פוש אמיתית לטלפון דרך ntfy (עובד גם כשהאפליקציה סגורה לגמרי)
-    async function sendNtfyPushNotification(appt) {
+    async function notifyAllChannelsOnNewBooking(appt) {
       const topic = (siteConfig.ntfyTopic || "ilay_barbershop_alerts").trim();
       const dateStr = getFormattedDateForDayIdx(appt.dayIdx);
       const dayName = DAYS[appt.dayIdx];
       const adminUrl = `${window.location.origin}/admin.html`;
 
-      const payload = {
-        topic: topic,
-        title: "💈 תור חדש נקבע - Ilay Barbershop!",
-        message:
-          `👤 לקוח: ${appt.name} (${appt.phone})\n` +
-          `✂️ שירות: ${appt.service}\n` +
-          `📅 מועד: יום ${dayName} (${dateStr}) בשעה ${appt.time}` +
-          (appt.note ? `\n📝 הערה: ${appt.note}` : ``) +
-          `\n\nלחץ על ההתראה לפתיחת היומן`,
-        priority: 5,
-        tags: ["barber", "calendar"],
-        click: adminUrl
-      };
-
+      // 1. התראת פוש לטלפון של עילי דרך ntfy
       try {
-        await fetch("https://ntfy.sh", {
+        fetch("https://ntfy.sh", {
           method: "POST",
-          body: JSON.stringify(payload)
+          body: JSON.stringify({
+            topic: topic,
+            title: "💈 תור חדש נקבע - Ilay Barbershop!",
+            message: `👤 לקוח: ${appt.name} (${appt.phone})\n✂️ שירות: ${appt.service}\n📅 מועד: יום ${dayName} (${dateStr}) בשעה ${appt.time}\n\nלחץ לפתיחת היומן`,
+            priority: 5,
+            tags: ["barber", "calendar"],
+            click: adminUrl
+          })
         });
       } catch (_) {}
+
+      // 2. שליחת SMS אוטומטי ללקוח מאת השם "Ilay"
+      const clientSmsText = `היי ${appt.name}, התור שלך ל-Ilay Barbershop נקבע ליום ${dayName} (${dateStr}) בשעה ${appt.time}. כתובת: דרך הים 11 גני תקווה. נתראה!`;
+      sendDirectSmsWithIlaySender(appt.phone, clientSmsText);
+
+      // 3. שליחת SMS אוטומטי גם למספר של עילי (0542223765)
+      if (siteConfig.barberPhone) {
+        const barberSmsText = `תור חדש נקבע! לקוח: ${appt.name} (${appt.phone}), ליום ${dayName} (${dateStr}) בשעה ${appt.time}.`;
+        sendDirectSmsWithIlaySender(siteConfig.barberPhone, barberSmsText);
+      }
     }
 
     function getEffectiveStepMinutes() {
@@ -817,7 +880,7 @@
 
       appointments.push(newAppt);
       broadcastNewBookingFromClient(newAppt);
-      sendNtfyPushNotification(newAppt);
+      notifyAllChannelsOnNewBooking(newAppt);
 
       closeBookingModal();
       document.getElementById("clientNameInput").value = "";
