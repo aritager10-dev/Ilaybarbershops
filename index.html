@@ -3,756 +3,602 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>Ilay Barbershop | עילי בן הרוש</title>
+  <meta name="theme-color" content="#07090e" />
+  <title>Ilay Barbershop | המספרה של עיליי</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;800;900&family=Cinzel:wght@600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;800;900&family=Cinzel:wght@600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.3.4/mqtt.min.js"></script>
-  <style>
-    :root {
-      color-scheme: dark;
-      --bg-dark: #06080d;
-      --gold: #d4af37;
-      --gold-light: #f7df8b;
-      --text-main: #f8fafc;
-      --text-muted: #94a3b8;
-      --border-gold: rgba(212, 175, 55, 0.32);
-      --sidebar-w: 250px;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
-    button, a, select, .service-card, .photo-card-clean, .day-chip, .hour-chip, .mob-nav-item, .side-btn { touch-action: manipulation; }
-    html { scroll-behavior: smooth; overflow-x: hidden; width: 100%; }
-    body { font-family: 'Heebo', sans-serif; background: var(--bg-dark); color: var(--text-main); overflow-x: hidden; width: 100%; max-width: 100vw; min-height: 100vh; }
-    body.modal-open { overflow: hidden; }
-    body.modal-open .mobile-bottom-nav { display: none !important; }
-    body.acc-large-text { font-size: 112%; }
-    body.acc-high-contrast { filter: contrast(1.25); }
-    body.acc-no-anim *, body.acc-no-anim *::before, body.acc-no-anim *::after { animation: none !important; transition: none !important; }
-
-    select, select.input-field { background-color: #111520 !important; color: #f8fafc !important; color-scheme: dark; }
-    select option { background-color: #111520 !important; color: #f8fafc !important; padding: 10px; font-weight: 700; }
-
-    .barber-stripe-top {
-      position: fixed; top: 0; left: 0; right: 0; height: 4px; z-index: 2200;
-      background: repeating-linear-gradient(45deg, #d62828, #d62828 16px, #f8fafc 16px, #f8fafc 32px, #1d4ed8 32px, #1d4ed8 48px, #f8fafc 48px, #f8fafc 64px);
-      background-size: 90px 90px; animation: stripeMove 4s linear infinite;
-    }
-    @keyframes stripeMove { 0% { background-position: 0 0; } 100% { background-position: 90px 0; } }
-
-    #bg-canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 0; pointer-events: none; }
-    .kinetic-bg { position: fixed; inset: 0; z-index: 1; pointer-events: none; display: flex; flex-direction: column; justify-content: space-evenly; overflow: hidden; opacity: 0.045; }
-    .marquee-line { display: flex; white-space: nowrap; font-family: 'Cinzel', 'Heebo', sans-serif; font-weight: 900; font-size: clamp(2rem, 4.8vw, 5rem); letter-spacing: 4px; color: transparent; -webkit-text-stroke: 1.3px var(--gold); }
-    .marquee-line.move-left { animation: moveLeft 36s linear infinite; }
-    .marquee-line.move-right { animation: moveRight 36s linear infinite; }
-    @keyframes moveLeft { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
-    @keyframes moveRight { 0% { transform: translateX(-50%); } 100% { transform: translateX(0); } }
-
-    .left-sidebar {
-      position: fixed; top: 4px; left: 0; bottom: 0; width: var(--sidebar-w);
-      background: rgba(9, 12, 19, 0.96); backdrop-filter: blur(22px); border-right: 1px solid var(--border-gold);
-      z-index: 1200; display: flex; flex-direction: column; justify-content: space-between; padding: 18px 14px; box-shadow: 10px 0 38px rgba(0,0,0,0.85);
-    }
-    .brand-box { display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: 16px; background: rgba(255,255,255,0.035); border: 1px solid rgba(212,175,55,0.3); margin-bottom: 18px; }
-    .brand-pole-icon { width: 42px; height: 42px; border-radius: 50%; border: 2px solid var(--gold); display: flex; align-items: center; justify-content: center; font-size: 1.35rem; background: radial-gradient(circle, rgba(212,175,55,0.25), rgba(10,12,18,0.95)); }
-    .brand-title { font-family: 'Cinzel', serif; font-size: 0.98rem; font-weight: 800; color: var(--text-main); }
-    .brand-sub { font-size: 0.76rem; color: var(--gold-light); margin-top: 2px; }
-    .sidebar-label { font-size: 0.72rem; font-weight: 700; color: var(--text-muted); padding: 0 6px; margin-bottom: 8px; }
-    .sidebar-nav { display: flex; flex-direction: column; gap: 8px; flex: 1; }
-    .side-btn {
-      width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px;
-      padding: 12px 14px; border-radius: 13px; border: 1px solid rgba(255,255,255,0.07);
-      background: rgba(255,255,255,0.025); color: var(--text-main); font-family: 'Heebo', sans-serif;
-      font-size: 0.92rem; font-weight: 700; cursor: pointer; transition: all 0.2s ease; text-align: right;
-    }
-    .side-btn .btn-right { display: flex; align-items: center; gap: 9px; }
-    .side-btn.active { background: linear-gradient(135deg, rgba(212,175,55,0.26), rgba(212,175,55,0.08)); border-color: var(--gold); color: var(--gold-light); }
-    .side-btn.quick-book-side { background: linear-gradient(135deg, rgba(212,175,55,0.28), rgba(184,134,11,0.15)); border-color: var(--gold); color: var(--gold-light); }
-
-    .mobile-top-bar {
-      display: none; position: fixed; top: 4px; left: 0; right: 0; height: 52px;
-      background: rgba(9, 12, 19, 0.96); backdrop-filter: blur(18px); border-bottom: 1px solid var(--border-gold);
-      z-index: 1500; align-items: center; justify-content: space-between; padding: 0 14px; box-shadow: 0 4px 16px rgba(0,0,0,0.8);
-    }
-    .mobile-top-book-btn { padding: 6px 13px; border-radius: 10px; background: linear-gradient(135deg, var(--gold), #b8860b); border: none; color: #090b10; font-family: 'Heebo', sans-serif; font-size: 0.82rem; font-weight: 900; cursor: pointer; }
-
-    .mobile-bottom-nav {
-      display: none; position: fixed; bottom: 0; left: 0; right: 0; height: 62px;
-      background: rgba(9, 12, 19, 0.98); backdrop-filter: blur(20px); border-top: 1px solid rgba(212,175,55,0.28);
-      z-index: 1600; justify-content: space-around; align-items: center; padding: 0 6px; box-shadow: 0 -6px 24px rgba(0,0,0,0.9);
-    }
-    .mob-nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; background: none; border: none; color: var(--text-muted); font-family: 'Heebo', sans-serif; font-size: 0.72rem; font-weight: 700; cursor: pointer; padding: 6px 2px; border-radius: 10px; }
-    .mob-nav-item span.icon { font-size: 1.15rem; line-height: 1; }
-    .mob-nav-item.active { color: var(--gold-light); background: rgba(212,175,55,0.14); }
-    .mob-nav-item.cta-mob { background: linear-gradient(135deg, var(--gold), #b8860b); color: #090b10; font-weight: 900; margin: 0 4px; padding: 7px 4px; border-radius: 12px; }
-
-    .main-wrapper { position: relative; z-index: 5; margin-left: var(--sidebar-w); width: calc(100% - var(--sidebar-w)); max-width: 100%; padding: 20px 26px 48px; overflow-x: hidden; }
-    .main-container { width: 100%; max-width: 1150px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
-
-    .hero-card { position: relative; overflow: hidden; background: linear-gradient(145deg, rgba(16,20,30,0.88), rgba(9,12,18,0.94)); backdrop-filter: blur(14px); border: 1px solid var(--border-gold); border-radius: 24px; padding: 28px 24px; text-align: center; box-shadow: 0 18px 45px rgba(0,0,0,0.7); width: 100%; }
-    .hero-ribbon { display: inline-flex; align-items: center; gap: 7px; padding: 5px 14px; border-radius: 999px; background: rgba(212,175,55,0.14); border: 1px solid var(--border-gold); color: var(--gold-light); font-size: 0.82rem; font-weight: 700; margin-bottom: 10px; }
-    .hero-title { font-family: 'Cinzel', serif; font-size: clamp(2rem, 4.4vw, 3.5rem); font-weight: 800; letter-spacing: 2px; background: linear-gradient(90deg, #fff3c4, var(--gold), #ffffff, var(--gold)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; line-height: 1.1; margin-bottom: 8px; }
-    .hero-subtitle { font-size: clamp(1.08rem, 2vw, 1.55rem); font-weight: 800; color: #ffffff; margin-bottom: 10px; }
-    .hero-desc { max-width: 660px; margin: 0 auto 14px; color: #cbd5e1; font-size: 0.95rem; line-height: 1.65; }
-    .hero-address-pill { display: inline-flex; align-items: center; gap: 6px; background: rgba(212,175,55,0.1); border: 1px solid rgba(212,175,55,0.3); padding: 6px 14px; border-radius: 12px; color: var(--gold-light); font-weight: 700; font-size: 0.86rem; margin-bottom: 14px; }
-    .hero-ticker-wrap { overflow: hidden; border-top: 1px solid rgba(212,175,55,0.2); border-bottom: 1px solid rgba(212,175,55,0.2); background: rgba(0,0,0,0.38); padding: 7px 0; margin: 0 auto 16px; max-width: 760px; border-radius: 10px; }
-    .hero-ticker { display: flex; white-space: nowrap; animation: moveLeft 22s linear infinite; font-weight: 800; font-size: 0.82rem; color: var(--gold-light); letter-spacing: 1.5px; }
-    .hero-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; max-width: 680px; margin: 0 auto 18px; }
-    .stat-pill { padding: 12px 10px; border-radius: 14px; background: rgba(255,255,255,0.035); border: 1px solid rgba(212,175,55,0.26); text-align: center; }
-    .stat-pill strong { display: block; font-size: 1.12rem; font-weight: 900; color: var(--gold-light); margin-bottom: 2px; }
-    .stat-pill span { font-size: 0.76rem; color: var(--text-muted); }
-    .hero-btns { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
-
-    .btn-gold { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 12px 22px; border-radius: 12px; border: none; background: linear-gradient(135deg, var(--gold), #b8860b); color: #090b10; font-family: 'Heebo', sans-serif; font-weight: 900; font-size: 0.94rem; cursor: pointer; }
-    .btn-outline { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 12px 20px; border-radius: 12px; border: 1px solid var(--border-gold); background: rgba(255,255,255,0.04); color: var(--text-main); font-family: 'Heebo', sans-serif; font-weight: 700; font-size: 0.94rem; cursor: pointer; }
-
-    .content-section {
-      width: 100%; max-width: 100%; overflow: hidden; scroll-margin-top: 68px;
-      background: rgba(12, 15, 23, 0.84); backdrop-filter: blur(14px);
-      border: 1px solid rgba(212,175,55,0.24); border-radius: 24px; padding: 22px; box-shadow: 0 16px 40px rgba(0,0,0,0.6);
-    }
-    .sec-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.08); }
-    .sec-tag { display: inline-flex; align-items: center; gap: 6px; font-size: 0.74rem; font-weight: 700; color: var(--gold-light); background: rgba(212,175,55,0.12); border: 1px solid var(--border-gold); padding: 3px 10px; border-radius: 999px; margin-bottom: 4px; }
-    .sec-title { font-size: clamp(1.3rem, 2.2vw, 1.8rem); font-weight: 900; color: #ffffff; }
-
-    .services-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; width: 100%; }
-    .service-card { background: rgba(18, 23, 35, 0.94); border: 1px solid var(--border-gold); border-radius: 18px; padding: 18px; display: flex; flex-direction: column; justify-content: space-between; gap: 12px; cursor: pointer; transition: transform 0.2s ease, border-color 0.2s ease; min-width: 0; }
-    .service-card:hover { transform: translateY(-2px); border-color: var(--gold); }
-    .srv-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-    .srv-title-group { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-    .srv-name { font-size: 1.15rem; font-weight: 800; color: #ffffff; }
-    .srv-time { display: inline-flex; align-items: center; gap: 4px; width: fit-content; font-size: 0.76rem; color: #cbd5e1; background: rgba(255,255,255,0.06); padding: 2px 9px; border-radius: 999px; }
-    .srv-price { font-size: 1.22rem; font-weight: 900; color: var(--gold-light); background: rgba(212,175,55,0.14); border: 1px solid rgba(212,175,55,0.4); padding: 6px 13px; border-radius: 12px; white-space: nowrap; }
-    .srv-desc { color: var(--text-muted); font-size: 0.88rem; line-height: 1.5; }
-    .srv-book-btn { width: 100%; padding: 11px 14px; border-radius: 12px; border: 1px solid rgba(212,175,55,0.5); background: linear-gradient(135deg, rgba(212,175,55,0.22), rgba(212,175,55,0.1)); color: var(--gold-light); font-family: 'Heebo', sans-serif; font-weight: 800; font-size: 0.9rem; cursor: pointer; }
-    .srv-book-btn:active, .srv-book-btn:hover { background: var(--gold); color: #090b10; }
-
-    .portfolio-grid-clean {
-      display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 14px; width: 100%; max-width: 100%; padding: 2px 0;
-    }
-    .photo-card-clean {
-      position: relative; width: 100%; max-width: 100%; min-width: 0;
-      aspect-ratio: 3 / 4; border-radius: 15px; padding: 2.5px;
-      background: linear-gradient(145deg, rgba(212,175,55,0.65), rgba(18,22,32,0.95));
-      box-shadow: 0 8px 20px rgba(0,0,0,0.6); cursor: pointer; overflow: hidden;
-      transition: transform 0.2s ease;
-    }
-    .photo-card-clean:hover { transform: translateY(-3px); }
-    .photo-inner { width: 100%; height: 100%; border-radius: 12.5px; overflow: hidden; background: #0d1017; position: relative; }
-    .photo-inner img { width: 100%; height: 100%; max-width: 100%; object-fit: cover; object-position: center; display: block; pointer-events: none; }
-    .photo-clean-badge {
-      position: absolute; bottom: 6px; right: 6px; left: 6px; padding: 4px 8px; border-radius: 8px;
-      background: rgba(8, 11, 18, 0.84); backdrop-filter: blur(5px); border: 1px solid rgba(212, 175, 55, 0.32);
-      color: var(--gold-light); font-size: 0.7rem; font-weight: 800;
-      display: flex; align-items: center; justify-content: space-between; gap: 4px;
-      white-space: nowrap; overflow: hidden; pointer-events: none;
-    }
-
-    .legal-mini-footer { text-align: center; padding: 12px 8px 6px; font-size: 0.72rem; color: #64748b; display: flex; justify-content: center; align-items: center; gap: 10px; flex-wrap: wrap; }
-    .legal-mini-link { background: none; border: none; color: #94a3b8; font-family: 'Heebo', sans-serif; font-size: 0.72rem; text-decoration: underline; cursor: pointer; padding: 2px 4px; }
-
-    .modal-backdrop { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; background: rgba(4, 6, 11, 0.88); backdrop-filter: blur(12px); z-index: 3500; display: none; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 16px 14px 120px; }
-    .modal-backdrop.open { display: block; }
-    .square-modal { width: 100%; max-width: 460px; background: #111520; border: 2px solid var(--gold); border-radius: 22px; padding: 20px 18px 26px; box-shadow: 0 25px 75px rgba(0,0,0,0.95); margin: 12px auto 60px; }
-    .modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.08); }
-    .modal-close { width: 36px; height: 36px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.16); background: rgba(255,255,255,0.05); color: #fff; cursor: pointer; font-weight: 800; }
-
-    .days-row, .hours-matrix { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; margin-bottom: 14px; }
-    .day-chip, .hour-chip { min-height: 42px; padding: 8px 6px; border-radius: 9px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.04); color: #fff; font-family: 'Heebo', sans-serif; font-weight: 800; font-size: 0.85rem; cursor: pointer; text-align: center; }
-    .day-chip.active { border-color: var(--gold); background: rgba(212,175,55,0.22); color: var(--gold-light); }
-    .hour-chip.active { background: var(--gold); color: #090b10; border-color: var(--gold); }
-    .hour-chip.taken { opacity: 0.32; cursor: not-allowed; text-decoration: line-through; }
-
-    .input-field { width: 100%; padding: 11px 13px; border-radius: 11px; border: 1px solid rgba(255,255,255,0.15); background: #141926; color: #fff; font-family: 'Heebo', sans-serif; font-size: 16px; margin-bottom: 10px; -webkit-user-select: text; user-select: text; }
-    textarea.input-field { resize: vertical; min-height: 68px; }
-
-    .toast-popup { position: fixed; bottom: 24px; right: 20px; z-index: 4000; background: rgba(15,20,30,0.98); border: 2px solid var(--gold); border-radius: 14px; padding: 12px 16px; color: #fff; box-shadow: 0 16px 36px rgba(0,0,0,0.9); max-width: min(380px, 90vw); display: none; opacity: 0; pointer-events: none; }
-    .toast-popup.show { display: block; opacity: 1; pointer-events: auto; }
-
-    .lightbox-modal { position: fixed; inset: 0; width: 100vw; height: 100dvh; background: rgba(4,6,10,0.94); z-index: 3600; display: none; flex-direction: column; align-items: center; justify-content: center; padding: 64px 16px 84px; }
-    .lightbox-modal.open { display: flex; }
-    .lightbox-modal img { max-width: 90vw; max-height: 74dvh; width: auto; height: auto; object-fit: contain; border-radius: 16px; border: 2px solid var(--gold); box-shadow: 0 20px 50px rgba(0,0,0,0.9); }
-    .lightbox-close-hint { margin-top: 12px; padding: 6px 16px; border-radius: 999px; background: rgba(212,175,55,0.2); border: 1px solid var(--gold); color: var(--gold-light); font-size: 0.82rem; font-weight: 800; }
-
-    @media (max-width: 1120px) { .portfolio-grid-clean { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-    @media (max-width: 980px) {
-      .left-sidebar { display: none; }
-      .mobile-top-bar { display: flex; }
-      .main-wrapper { margin-left: 0; width: 100%; padding: 64px 10px 92px; }
-    }
-    @media (max-width: 680px) {
-      .mobile-bottom-nav { display: flex; }
-      .toast-popup { bottom: 74px; right: 12px; left: 12px; max-width: none; text-align: center; }
-      .main-container { gap: 14px; }
-      .hero-card { padding: 18px 12px; border-radius: 18px; }
-      .hero-title { font-size: 1.85rem; }
-      .hero-subtitle { font-size: 1.02rem; }
-      .hero-desc { font-size: 0.88rem; margin-bottom: 12px; }
-      .hero-stats { gap: 8px; margin-bottom: 14px; }
-      .stat-pill { padding: 9px 6px; border-radius: 12px; }
-      .stat-pill strong { font-size: 0.92rem; }
-      .stat-pill span { font-size: 0.68rem; }
-      .hero-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-      .hero-btns .btn-gold, .hero-btns .btn-outline { width: 100%; padding: 11px 10px; font-size: 0.86rem; }
-      .content-section { padding: 14px 10px; border-radius: 18px; background: rgba(11,14,22,0.88); }
-      .services-grid { grid-template-columns: 1fr; gap: 10px; }
-      .service-card { padding: 14px; border-radius: 15px; gap: 10px; }
-      .portfolio-grid-clean { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-      .photo-clean-badge { font-size: 0.64rem; padding: 3px 6px; bottom: 5px; right: 5px; left: 5px; }
-      .days-row, .hours-matrix { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-    }
-  </style>
 </head>
 <body>
 
-  <div class="barber-stripe-top"></div>
-  <canvas id="bg-canvas"></canvas>
-
-  <div class="kinetic-bg" aria-hidden="true">
-    <div class="marquee-line move-left">
-      <span>ILAY BARBERSHOP &nbsp;•&nbsp; עילי בן הרוש &nbsp;•&nbsp; ILAY BARBERSHOP &nbsp;•&nbsp; עילי בן הרוש &nbsp;•&nbsp; </span>
-      <span>ILAY BARBERSHOP &nbsp;•&nbsp; עילי בן הרוש &nbsp;•&nbsp; ILAY BARBERSHOP &nbsp;•&nbsp; עילי בן הרוש &nbsp;•&nbsp; </span>
+  <!-- מסך פתיחה ממותג -->
+  <div class="welcome-splash" id="welcomeSplash" onclick="this.classList.add('hide')">
+    <div class="splash-crest">
+      <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#fae19c" stroke-width="1.8"><circle cx="6" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><line x1="20" y1="4" x2="8.12" y2="15.88"></line><line x1="14.47" y1="14.48" x2="20" y2="20"></line></svg>
     </div>
-    <div class="marquee-line move-right">
-      <span>ILAY BARBERSHOP &nbsp;•&nbsp; BARBER STUDIO &nbsp;•&nbsp; ILAY BARBERSHOP &nbsp;•&nbsp; BARBER STUDIO &nbsp;•&nbsp; </span>
-      <span>ILAY BARBERSHOP &nbsp;•&nbsp; BARBER STUDIO &nbsp;•&nbsp; ILAY BARBERSHOP &nbsp;•&nbsp; BARBER STUDIO &nbsp;•&nbsp; </span>
-    </div>
+    <div class="splash-badge">ILAY BARBERSHOP • STUDIO</div>
+    <h1 class="splash-welcome-heb">ברוכים הבאים למספרה של עיליי</h1>
+    <div class="splash-sub">עילי בן הרוש • דיוק, סטייל וחוויית תספורת ברמה הגבוהה ביותר</div>
+    <div class="splash-loader-track"><div class="splash-loader-bar"></div></div>
   </div>
 
-  <header class="mobile-top-bar">
-    <div style="display:flex; align-items:center; gap:8px;" onclick="switchCategory('all')">
-      <span style="font-size:1.2rem;">💈</span>
-      <strong style="font-family:'Cinzel', serif; font-size:0.95rem; color:#fff; letter-spacing:1px;">ILAY BARBERSHOP</strong>
+  <div class="barber-pole-strip"></div>
+  <canvas id="bg-canvas"></canvas>
+
+  <!-- כפתור נגישות צף -->
+  <button type="button" class="floating-acc-btn" onclick="document.getElementById('accSidePanel').classList.toggle('open')" aria-label="תפריט נגישות">♿</button>
+  <div class="acc-side-panel" id="accSidePanel">
+    <div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:8px;">
+      <strong style="color:var(--gold-bright); font-size:0.88rem;">♿ כלי נגישות (ת"י 5568)</strong>
+      <button type="button" style="background:none; border:none; color:#fff; cursor:pointer;" onclick="document.getElementById('accSidePanel').classList.remove('open')">✕</button>
     </div>
-    <button type="button" class="mobile-top-book-btn" onclick="openBookingModal(0)">📅 קבע תור</button>
+    <div class="acc-grid-btns">
+      <button type="button" class="acc-opt-btn" onclick="document.body.classList.toggle('acc-large-text'); this.classList.toggle('active')">הגדלת טקסט</button>
+      <button type="button" class="acc-opt-btn" onclick="document.body.classList.toggle('acc-high-contrast'); this.classList.toggle('active')">ניגודיות גבוהה</button>
+      <button type="button" class="acc-opt-btn" onclick="document.body.classList.toggle('acc-grayscale'); this.classList.toggle('active')">גווני אפור</button>
+      <button type="button" class="acc-opt-btn" onclick="document.body.classList.toggle('acc-highlight-links'); this.classList.toggle('active')">הדגשת קישורים</button>
+      <button type="button" class="acc-opt-btn" onclick="document.body.classList.toggle('acc-readable-font'); this.classList.toggle('active')">גופן קריא</button>
+      <button type="button" class="acc-opt-btn" onclick="document.body.classList.toggle('acc-no-anim'); this.classList.toggle('active')">עצירת תנועה</button>
+    </div>
+    <button type="button" class="btn-gold-3d" style="width:100%; padding:8px; font-size:0.78rem;" onclick="document.getElementById('accSidePanel').classList.remove('open'); openLegalModal();">תקנון והצהרת נגישות</button>
+  </div>
+
+  <!-- באנר עוגיות -->
+  <div class="cookie-banner" id="cookieBanner">
+    <div style="font-size:0.8rem; color:#cbd5e1; flex:1;">
+      אתר <strong>Ilay Barbershop</strong> משתמש בעוגיות (Cookies) לשמירת חיבור לאזור האישי (ניתוק אוטומטי לאחר 60 ימי אי-פעילות) וניהול תורים בכפוף ל<button type="button" style="background:none; border:none; color:var(--gold-bright); text-decoration:underline; cursor:pointer;" onclick="openLegalModal()">תקנון ומדיניות הפרטיות</button>.
+    </div>
+    <button type="button" class="btn-gold-3d" style="padding:8px 16px; font-size:0.8rem;" onclick="localStorage.setItem('ilay_cookie_ok','1'); document.getElementById('cookieBanner').classList.remove('show');">אני מאשר/ת</button>
+  </div>
+
+  <!-- סרגל עליון למובייל -->
+  <header class="mobile-top-bar">
+    <div style="display:flex; align-items:center; gap:8px; cursor:pointer;" onclick="switchCategory('all')">
+      <strong style="font-family:'Cinzel',serif; font-size:0.95rem; color:#fff;">ILAY BARBERSHOP</strong>
+    </div>
+    <div style="display:flex; gap:7px;">
+      <button type="button" class="btn-glass" style="padding:6px 11px; font-size:0.76rem;" id="mobPersonalBtn" onclick="openPersonalAreaOrAuth()">אזור אישי</button>
+      <button type="button" class="btn-gold-3d" style="padding:6px 12px; font-size:0.78rem;" onclick="openBookingModal(0)">קבע תור</button>
+    </div>
   </header>
 
+  <!-- סרגל צד למחשב -->
   <aside class="left-sidebar">
     <div>
-      <div class="brand-box">
-        <div class="brand-pole-icon">💈</div>
+      <div class="brand-card">
         <div>
           <div class="brand-title">ILAY BARBERSHOP</div>
-          <div class="brand-sub">עילי בן הרוש</div>
+          <div class="brand-sub">המספרה של עיליי</div>
         </div>
       </div>
 
-      <div class="sidebar-label">תפריט האתר</div>
+      <div class="club-member-card">
+        <div style="font-size:0.75rem; color:var(--text-muted);" id="sidebarUserStatus">אזור אישי ללקוחות</div>
+        <div style="font-size:0.95rem; font-weight:900; color:var(--gold-bright); margin:4px 0 8px; display:none;" id="sidebarUserName"></div>
+        <button type="button" class="btn-glass" id="sidebarAuthBtn" style="width:100%; padding:9px; font-size:0.82rem;" onclick="openPersonalAreaOrAuth()">כניסה / הרשמה לאזור האישי</button>
+      </div>
+
       <nav class="sidebar-nav">
-        <button type="button" class="side-btn active" id="nav-all" onclick="switchCategory('all')">
-          <span class="btn-right"><span>💈</span> <span>Ilay Barbershop (הכל)</span></span>
-          <span>✦</span>
-        </button>
-        <button type="button" class="side-btn quick-book-side" onclick="openBookingModal(0)">
-          <span class="btn-right"><span>📅</span> <span>קביעת תור מהירה</span></span>
-          <span>⚡</span>
-        </button>
-        <button type="button" class="side-btn" id="nav-services" onclick="switchCategory('services')">
-          <span class="btn-right"><span>✂️</span> <span>סוגי תספורות ומחירון</span></span>
-          <span id="sideServicesCount">4</span>
-        </button>
-        <button type="button" class="side-btn" id="nav-portfolio" onclick="switchCategory('portfolio')">
-          <span class="btn-right"><span>📸</span> <span>תיק העבודות של עילי</span></span>
-          <span id="sidePortfolioCount">6</span>
-        </button>
+        <button type="button" class="side-btn active" id="nav-all" onclick="switchCategory('all')"><span>דף הבית (הכל)</span><span>✦</span></button>
+        <button type="button" class="side-btn cta-side" onclick="openBookingModal(0)"><span>קביעת תור חדש</span><span>←</span></button>
+        <button type="button" class="side-btn" id="nav-personal" onclick="openPersonalAreaOrAuth()"><span>👤 האזור האישי שלי</span><span id="sideMyApptsCount">0</span></button>
+        <button type="button" class="side-btn" id="nav-services" onclick="switchCategory('services')"><span>סוגי תספורות ומחירון</span><span id="sideServicesCount">4</span></button>
+        <button type="button" class="side-btn" id="nav-portfolio" onclick="switchCategory('portfolio')"><span>תיק העבודות</span><span id="sidePortfolioCount">6</span></button>
       </nav>
     </div>
-    <div style="font-size:0.74rem; color:var(--text-muted); text-align:center; padding-top:10px; border-top:1px solid rgba(255,255,255,0.08);">
-      Ilay Barbershop © 2026
+    <div style="font-size:0.73rem; color:var(--text-muted); text-align:center; padding-top:10px; border-top:1px solid rgba(255,255,255,0.08);">
+      <button type="button" style="background:none; border:none; color:#cbd5e1; text-decoration:underline; cursor:pointer;" onclick="openLegalModal()">תקנון, פרטיות והצהרת נגישות</button>
+      <div style="margin-top:4px;">Ilay Barbershop © 2026</div>
     </div>
   </aside>
 
-  <nav class="mobile-bottom-nav" aria-label="ניווט ראשי בנייד">
-    <button type="button" class="mob-nav-item active" id="mob-nav-all" onclick="switchCategory('all')"><span class="icon">💈</span><span>ראשי</span></button>
-    <button type="button" class="mob-nav-item" id="mob-nav-services" onclick="switchCategory('services')"><span class="icon">✂️</span><span>מחירון</span></button>
-    <button type="button" class="mob-nav-item cta-mob" onclick="openBookingModal(0)"><span class="icon">📅</span><span>קבע תור</span></button>
-    <button type="button" class="mob-nav-item" id="mob-nav-portfolio" onclick="switchCategory('portfolio')"><span class="icon">📸</span><span>עבודות</span></button>
+  <!-- דוק תחתון למובייל -->
+  <nav class="mobile-bottom-dock">
+    <button type="button" class="dock-item active" id="mob-nav-all" onclick="switchCategory('all')"><span>ראשי</span></button>
+    <button type="button" class="dock-item" id="mob-nav-services" onclick="switchCategory('services')"><span>מחירון</span></button>
+    <button type="button" class="dock-item dock-cta" onclick="openBookingModal(0)"><span>+ קבע תור</span></button>
+    <button type="button" class="dock-item" id="mob-nav-portfolio" onclick="switchCategory('portfolio')"><span>עבודות</span></button>
+    <button type="button" class="dock-item" id="mob-nav-personal" onclick="openPersonalAreaOrAuth()"><span>אזור אישי</span></button>
   </nav>
 
   <main class="main-wrapper">
     <div class="main-container">
 
-      <section id="sec-hero" class="hero-card">
-        <div class="hero-ribbon">💈 ILAY BARBERSHOP • עילי בן הרוש</div>
-        <h1 class="hero-title" id="heroMainTitle">ILAY BARBERSHOP</h1>
-        <div class="hero-subtitle" id="heroMainSubtitle">תספורת נקייה, אווירה טובה וסטייל שיושב בול.</div>
-        <div class="hero-address-pill">📍 דרך הים 11, קומה 10 דירה 36, גני תקווה</div>
-        <p class="hero-desc">
-          נעים להכיר, אני <strong>עילי בן הרוש</strong> – כבר מעל שנתיים כספר בתחום, ועברתי <strong>מעל 5 התמחויות וקורסים אצל הספרים הכי גדולים בארץ</strong>. המטרה שלי היא שתיכנס למספרה בראש שקט, תיהנה מאווירה טובה ורגועה, ותצא עם תספורת שיושבת עליך בול.
+      <!-- אזור פתיחה -->
+      <section id="sec-hero" class="hero-showcase">
+        <div style="display:inline-flex; gap:8px; padding:5px 14px; border-radius:999px; background:rgba(212,175,55,0.15); border:1px solid var(--border-gold); color:var(--gold-bright); font-size:0.8rem; font-weight:800; margin-bottom:12px;">
+          ברוכים הבאים למספרה של עיליי
+        </div>
+        <h1 class="hero-brand-title" id="heroMainTitle">ILAY BARBERSHOP</h1>
+        <div style="font-size:clamp(1.1rem, 2.3vw, 1.55rem); font-weight:900; margin-bottom:10px;" id="heroMainSubtitle">תספורת נקייה, אווירה טובה וסטייל שיושב בול.</div>
+        <div style="display:inline-block; padding:6px 14px; border-radius:12px; background:rgba(255,255,255,0.04); border:1px solid var(--border-gold); color:var(--gold-bright); font-size:0.85rem; font-weight:700; margin-bottom:14px;">
+          📍 דרך הים 11, קומה 10 דירה 36, גני תקווה
+        </div>
+        <p style="max-width:650px; margin:0 auto; color:#cbd5e1; font-size:0.94rem; line-height:1.68;">
+          נעים להכיר, אני <strong>עילי בן הרוש</strong> – מעל שנתיים כספר בתחום ובוגר <strong>מעל 5 התמחויות אצל הספרים המובילים בישראל</strong>. באזור האישי שלך באתר תוכל לקבוע תור, לצפות בתורים עתידיים וקודמים, ולאשר הגעה בלחיצת כפתור.
         </p>
 
-        <div class="hero-ticker-wrap">
-          <div class="hero-ticker">
-            <span>ILAY BARBERSHOP &nbsp;✦&nbsp; עילי בן הרוש &nbsp;✦&nbsp; ILAY BARBERSHOP &nbsp;✦&nbsp; עילי בן הרוש &nbsp;✦&nbsp; ILAY BARBERSHOP &nbsp;✦&nbsp; עילי בן הרוש &nbsp;✦&nbsp;</span>
-            <span>ILAY BARBERSHOP &nbsp;✦&nbsp; עילי בן הרוש &nbsp;✦&nbsp; ILAY BARBERSHOP &nbsp;✦&nbsp; עילי בן הרוש &nbsp;✦&nbsp; ILAY BARBERSHOP &nbsp;✦&nbsp; עילי בן הרוש &nbsp;✦&nbsp;</span>
-          </div>
+        <div class="hero-stats-row">
+          <div class="stat-glass-box"><strong>שנתיים+</strong><span>ניסיון בתחום</span></div>
+          <div class="stat-glass-box"><strong>+5 התמחויות</strong><span>אצל גדולי הספרים</span></div>
+          <div class="stat-glass-box"><strong id="heroPriceRange">70₪ – 100₪</strong><span>מחירים הוגנים</span></div>
         </div>
 
-        <div class="hero-stats">
-          <div class="stat-pill"><strong>שנתיים כספר</strong><span>ניסיון בתחום</span></div>
-          <div class="stat-pill"><strong>+5 התמחויות</strong><span>אצל גדולי הספרים</span></div>
-          <div class="stat-pill"><strong id="heroPriceRange">70₪ – 100₪</strong><span>מחירים הוגנים</span></div>
-        </div>
-
-        <div class="hero-btns">
-          <button type="button" class="btn-gold" onclick="openBookingModal(0)">✂️ קבע תור עכשיו</button>
-          <button type="button" class="btn-outline" onclick="switchCategory('portfolio')">📸 תיק עבודות</button>
+        <div style="display:flex; justify-content:center; gap:10px; flex-wrap:wrap;">
+          <button type="button" class="btn-gold-3d" onclick="openBookingModal(0)">קבע תור עכשיו</button>
+          <button type="button" class="btn-glass" id="heroPersonalBtn" onclick="openPersonalAreaOrAuth()">👤 כניסה לאזור האישי</button>
         </div>
       </section>
 
-      <section id="sec-services" class="content-section">
-        <div class="sec-head">
+      <!-- אזור אישי ללקוח (מוצג למשתמש רשום ומחובר) -->
+      <section id="sec-personal" class="glass-section" style="display:none;">
+        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid rgba(255,255,255,0.08);">
           <div>
-            <div class="sec-tag">✂️ מחירון וקביעת תור</div>
-            <h2 class="sec-title">סוגי תספורות</h2>
+            <span style="font-size:0.75rem; color:var(--gold); font-weight:800;">CLIENT PERSONAL AREA</span>
+            <h2 style="font-size:1.5rem; font-weight:900;" id="personalWelcomeTitle">האזור האישי שלי</h2>
           </div>
+          <div style="display:flex; gap:8px;">
+            <button type="button" class="btn-gold-3d" style="padding:9px 16px; font-size:0.84rem;" onclick="openBookingModal(0)">+ קבע תור חדש</button>
+            <button type="button" class="btn-glass" style="padding:9px 14px; font-size:0.82rem; border-color:#ef4444; color:#fca5a5;" onclick="logoutClientUser()">התנתק מהחשבון</button>
+          </div>
+        </div>
+
+        <div class="personal-area-grid">
+          <!-- תורים עתידיים + כפתור אישור הגעה -->
+          <div>
+            <h3 style="font-size:1.08rem; font-weight:900; color:var(--gold-bright); margin-bottom:10px;">📅 התורים העתידיים שלי (לחץ לאישור הגעה)</h3>
+            <div id="personalFutureApptsList"></div>
+
+            <h3 style="font-size:1.05rem; font-weight:900; color:#cbd5e1; margin:20px 0 10px;">🕓 היסטוריית תורים קודמים וביטולים</h3>
+            <div id="personalPastApptsList"></div>
+          </div>
+
+          <!-- מידע חשוב ללקוח ופרטי חשבון -->
+          <div>
+            <div class="hub-card" style="margin-bottom:12px;">
+              <h3 style="font-size:1.02rem; font-weight:900; color:var(--gold-bright); margin-bottom:8px;">📌 מידע חשוב לפני הגעה לתור</h3>
+              <ul style="font-size:0.85rem; color:#cbd5e1; line-height:1.75; padding-right:18px;">
+                <li><strong>כתובת המספרה:</strong> דרך הים 11, קומה 10, דירה 36, גני תקווה.</li>
+                <li><strong>אישור הגעה:</strong> מספר שעות לפני התור תישלח אליך הודעת SMS תזכורת. יש להיכנס לכאן וללחוץ על כפתור <strong>"אשר הגעה לתור"</strong> כדי שהסטטוס ביומן של עילי יהפוך לירוק (אושר).</li>
+                <li><strong>דיוק בזמנים:</strong> מומלץ להגיע כ-5 דקות לפני השעה שנקבעה.</li>
+                <li><strong>שינוי או ביטול:</strong> במידה ואינך יכול להגיע, ניתן לעדכן מראש דרך האזור האישי או מול המספרה.</li>
+              </ul>
+            </div>
+
+            <div class="hub-card">
+              <h3 style="font-size:0.98rem; font-weight:900; color:#fff; margin-bottom:6px;">🔐 פרטי החשבון המחובר</h3>
+              <div style="font-size:0.86rem; color:#cbd5e1; line-height:1.7;">
+                <div><strong>שם מלא:</strong> <span id="personalCardName"></span></div>
+                <div><strong>טלפון נייד:</strong> <span id="personalCardPhone" style="direction:ltr;"></span></div>
+                <div style="font-size:0.75rem; color:var(--text-muted); margin-top:6px;">החשבון מאובטח ומתנתק אוטומטית לאחר 60 ימים של אי-פעילות.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- מחירון תספורות -->
+      <section id="sec-services" class="glass-section">
+        <div style="margin-bottom:16px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.08);">
+          <span style="font-size:0.72rem; color:var(--gold); font-weight:800; letter-spacing:1.5px;">SERVICE MENU</span>
+          <h2 style="font-size:1.55rem; font-weight:900;">סוגי תספורות ומחירון</h2>
         </div>
         <div class="services-grid" id="publicServicesGrid"></div>
       </section>
 
-      <section id="sec-portfolio" class="content-section">
-        <div class="sec-head">
-          <div>
-            <h2 class="sec-title">תיק העבודות של עילי</h2>
-          </div>
+      <!-- תיק עבודות -->
+      <section id="sec-portfolio" class="glass-section">
+        <div style="margin-bottom:16px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.08);">
+          <span style="font-size:0.72rem; color:var(--gold); font-weight:800; letter-spacing:1.5px;">PORTFOLIO</span>
+          <h2 style="font-size:1.55rem; font-weight:900;">תיק העבודות של עיליי</h2>
         </div>
-        <div class="portfolio-grid-clean" id="portfolioGrid"></div>
+        <div class="portfolio-grid" id="portfolioGrid"></div>
       </section>
 
-      <footer class="legal-mini-footer">
-        <span>© 2026 Ilay Barbershop • כל הזכויות שמורות</span>
-        <span>•</span>
-        <button type="button" class="legal-mini-link" onclick="openAccessibilityModal()">♿ הצהרת נגישות</button>
+      <footer style="text-align:center; padding:14px 8px; font-size:0.76rem; color:#64748b;">
+        <span>© 2026 Ilay Barbershop • כל הזכויות שמורות</span> •
+        <button type="button" style="background:none; border:none; color:#cbd5e1; text-decoration:underline; cursor:pointer;" onclick="openLegalModal()">תקנון תנאי שימוש, מדיניות פרטיות והצהרת נגישות</button>
       </footer>
 
     </div>
   </main>
 
-  <div class="modal-backdrop" id="bookingModal" onclick="if(event.target===this) closeBookingModal()">
-    <div class="square-modal">
+  <!-- מודאל הרשמה והתחברות (חוסם כפילות שם מלא + מספר טלפון) -->
+  <div class="modal-backdrop" id="authModal" onclick="if(event.target===this) this.classList.remove('open')">
+    <div class="luxury-modal">
       <div class="modal-head">
         <div>
-          <div style="font-size:0.76rem; color:var(--gold-light); font-weight:700;">קביעת תור • Ilay Barbershop</div>
-          <h3 id="modalServiceTitle" style="font-size:1.15rem; font-weight:900;">תספורת קלאסי (70 ₪)</h3>
+          <div style="font-size:0.74rem; color:var(--gold); font-weight:800;">ILAY BARBERSHOP • PERSONAL AREA</div>
+          <h3 style="font-size:1.15rem; font-weight:900;">כניסה והרשמה לאזור האישי</h3>
         </div>
-        <button type="button" class="modal-close" onclick="closeBookingModal()">✕</button>
+        <button type="button" class="modal-close" onclick="document.getElementById('authModal').classList.remove('open')">✕</button>
       </div>
 
-      <input type="text" id="hpBotCheck" style="display:none !important;" tabindex="-1" autocomplete="off" />
+      <div id="authNoticeBanner" style="background:rgba(212,175,55,0.14); border:1px solid var(--gold); border-radius:11px; padding:9px 12px; margin-bottom:12px; font-size:0.82rem; font-weight:800; color:var(--gold-bright);">
+        לכניסה לאזור האישי, צפייה בתורים, אישור הגעה או קביעת תור – יש להתחבר או להירשם עם שם מלא ומספר טלפון ייחודי.
+      </div>
 
-      <div style="margin-bottom:6px; font-size:0.84rem; font-weight:700; color:#cbd5e1;">1. בחר סוג תספורת:</div>
-      <select id="bookingServiceSelect" class="input-field" onchange="changeBookingModalService(this.value)"></select>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:14px;">
+        <button type="button" class="acc-opt-btn active" id="tabBtnReg" style="padding:10px; font-size:0.86rem;" onclick="switchAuthTab('reg')">הרשמה חדשה</button>
+        <button type="button" class="acc-opt-btn" id="tabBtnLog" style="padding:10px; font-size:0.86rem;" onclick="switchAuthTab('log')">התחברות</button>
+      </div>
 
-      <div style="margin-bottom:6px; font-size:0.84rem; font-weight:700; color:#cbd5e1;">2. בחר יום בשבוע:</div>
+      <div id="regBox">
+        <label style="font-size:0.8rem; font-weight:800; color:#cbd5e1;">שם מלא (ייחודי - לא ניתן לפתוח פעמיים):</label>
+        <input type="text" id="regFullName" class="input-field" maxlength="40" placeholder="לדוגמה: דניאל כהן" />
+        <label style="font-size:0.8rem; font-weight:800; color:#cbd5e1;">מספר טלפון נייד (ייחודי):</label>
+        <input type="tel" id="regPhone" class="input-field" inputmode="numeric" oninput="this.value=this.value.replace(/[^0-9]/g,'')" maxlength="12" placeholder="0500000000" />
+        <label style="font-size:0.8rem; font-weight:800; color:#cbd5e1;">סיסמה אישית:</label>
+        <input type="password" id="regPass" class="input-field" maxlength="30" placeholder="לפחות 4 תווים" />
+
+        <label style="display:flex; align-items:flex-start; gap:8px; font-size:0.76rem; color:#cbd5e1; margin:6px 0 12px; cursor:pointer;">
+          <input type="checkbox" id="regConsent" checked style="margin-top:3px;" />
+          <span>אני מאשר/ת את <button type="button" style="background:none; border:none; color:var(--gold-bright); text-decoration:underline;" onclick="openLegalModal()">תקנון האתר</button> ומסכים/ה לקבלת הודעות SMS ותזכורות תורים.</span>
+        </label>
+        <button type="button" class="btn-gold-3d" style="width:100%; padding:13px;" onclick="registerClient()">הירשם וכנס לאזור האישי</button>
+      </div>
+
+      <div id="logBox" style="display:none;">
+        <label style="font-size:0.8rem; font-weight:800; color:#cbd5e1;">מספר טלפון נייד או שם מלא:</label>
+        <input type="text" id="logIdent" class="input-field" placeholder="הזן טלפון או שם מלא" />
+        <label style="font-size:0.8rem; font-weight:800; color:#cbd5e1;">סיסמה:</label>
+        <input type="password" id="logPass" class="input-field" placeholder="הסיסמה שלך" onkeydown="if(event.key==='Enter') loginClient()" />
+        <button type="button" class="btn-gold-3d" style="width:100%; padding:13px;" onclick="loginClient()">התחבר לאזור האישי</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- מודאל קביעת תור -->
+  <div class="modal-backdrop" id="bookingModal" onclick="if(event.target===this) this.classList.remove('open')">
+    <div class="luxury-modal">
+      <div class="modal-head">
+        <div>
+          <div style="font-size:0.74rem; color:var(--gold); font-weight:800;">קביעת תור • Ilay Barbershop</div>
+          <h3 id="modalServiceTitle" style="font-size:1.12rem; font-weight:900;">תספורת קלאסי</h3>
+        </div>
+        <button type="button" class="modal-close" onclick="document.getElementById('bookingModal').classList.remove('open')">✕</button>
+      </div>
+
+      <div style="font-size:0.82rem; font-weight:800; margin-bottom:5px;">1. בחר תספורת:</div>
+      <select id="bookingServiceSelect" class="input-field" onchange="selectedServiceIdx=Number(this.value); updateModalHeaderTitle();"></select>
+
+      <div style="font-size:0.82rem; font-weight:800; margin-bottom:5px;">2. בחר יום:</div>
       <div class="days-row" id="bookingDaysRow"></div>
 
-      <div style="margin-bottom:6px; font-size:0.84rem; font-weight:700; color:#cbd5e1;">3. בחר שעה פנויה:</div>
+      <div style="font-size:0.82rem; font-weight:800; margin-bottom:5px;">3. בחר שעה פנויה:</div>
       <div class="hours-matrix" id="bookingHoursGrid"></div>
 
-      <div style="margin-bottom:6px; font-size:0.84rem; font-weight:700; color:#cbd5e1;">4. פרטי הלקוח והערות לספר:</div>
-      <input type="text" id="clientNameInput" class="input-field" maxlength="35" placeholder="השם המלא שלך (לפחות 2 אותיות)" />
-      <input type="tel" id="clientPhoneInput" class="input-field" inputmode="numeric" oninput="this.value = this.value.replace(/[^0-9]/g, '')" maxlength="12" placeholder="מספר טלפון (ספרות בלבד)" />
-      <textarea id="clientNoteInput" class="input-field" maxlength="120" placeholder="הערות לתור (למשל: בארסט פייד, להוסיף פנס, גזירות וכו'...)"></textarea>
+      <div style="font-size:0.82rem; font-weight:800; margin-bottom:5px;">4. פרטי הלקוח (מחובר):</div>
+      <input type="text" id="clientNameInput" class="input-field" readonly />
+      <input type="tel" id="clientPhoneInput" class="input-field" readonly />
+      <textarea id="clientNoteInput" class="input-field" maxlength="120" placeholder="הערות לתור (אופציונלי)"></textarea>
 
-      <button type="button" class="btn-gold" style="width:100%; margin-top:8px; padding:14px;" onclick="confirmClientBooking()">✅ אשר ושבץ תור ביומן</button>
+      <button type="button" class="btn-gold-3d" style="width:100%; padding:14px;" onclick="confirmClientBooking()">אשר ושבץ תור ביומן</button>
     </div>
   </div>
 
-  <div class="modal-backdrop" id="accessibilityModal" onclick="if(event.target===this) closeAccessibilityModal()">
-    <div class="square-modal" style="max-width:460px;">
+  <!-- מודאל תקנון משפטי מלא -->
+  <div class="modal-backdrop" id="legalTermsModal" onclick="if(event.target===this) this.classList.remove('open')">
+    <div class="luxury-modal" style="max-width:550px;">
       <div class="modal-head">
-        <div>
-          <div style="font-size:0.74rem; color:var(--gold-light); font-weight:700;">נגישות ותנאי שימוש</div>
-          <h3 style="font-size:1.12rem; font-weight:900;">הצהרת נגישות - Ilay Barbershop</h3>
-        </div>
-        <button type="button" class="modal-close" onclick="closeAccessibilityModal()">✕</button>
+        <h3 style="font-size:1.08rem; font-weight:900;">תקנון האתר, מדיניות פרטיות והצהרת נגישות</h3>
+        <button type="button" class="modal-close" onclick="document.getElementById('legalTermsModal').classList.remove('open')">✕</button>
       </div>
-      <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin-bottom:14px;">
-        <button type="button" class="btn-outline" style="padding:8px 6px; font-size:0.78rem;" onclick="document.body.classList.toggle('acc-large-text')">הגדל טקסט</button>
-        <button type="button" class="btn-outline" style="padding:8px 6px; font-size:0.78rem;" onclick="document.body.classList.toggle('acc-high-contrast')">ניגודיות</button>
-        <button type="button" class="btn-outline" style="padding:8px 6px; font-size:0.78rem;" onclick="document.body.classList.toggle('acc-no-anim')">עצור תנועה</button>
+      <div style="max-height:58vh; overflow-y:auto; font-size:0.82rem; color:#cbd5e1; line-height:1.7;">
+        <p><strong>1. כללי:</strong> השימוש באתר <strong>Ilay Barbershop (עילי בן הרוש, דרך הים 11 גני תקווה)</strong> כפוף לתנאים שלהלן.</p>
+        <p><strong>2. אזור אישי, מניעת כפילויות וניתוק אוטומטי:</strong> קביעת תור וכניסה לאזור האישי מותנות ברישום חד-פעמי עם שם מלא ומספר טלפון ייחודי. המערכת אוכפת איסור פתיחת חשבון כפול על אותו שם מלא או מספר טלפון. מטעמי אבטחת מידע, חשבון שלא בוצעה בו פעילות במשך <strong>60 ימים (חודשיים)</strong> מתנתק אוטומטית.</p>
+        <p><strong>3. תזכורות SMS ואישור הגעה (סעיף 30א לחוק התקשורת):</strong> הלקוח מאשר קבלת הודעות SMS בגין קביעת תור, שינוי/ביטול ותזכורת מספר שעות לפני התור הכוללת קישור לאישור הגעה באזור האישי.</p>
+        <p><strong>4. פרטיות ועוגיות (תיקון 13):</strong> המידע נשמר לצורך ניהול יומן המספרה בלבד ואינו מועבר לצד שלישי.</p>
+        <p><strong>5. הצהרת נגישות (ת"י 5568 AA):</strong> האתר כולל תפריט נגישות צף מלא, והמספרה ממוקמת בבניין עם כניסה ומעלית נגישה.</p>
       </div>
-      <div style="font-size:0.8rem; color:#cbd5e1; line-height:1.65;">
-        <p style="margin-bottom:8px;"><strong>כללי:</strong> אתר <strong>Ilay Barbershop (עילי בן הרוש)</strong> פועל להנגשת שירותיו עבור כלל הציבור בהתאם לחוק שוויון זכויות לאנשים עם מוגבלות ותקן ישראלי ת"י 5568 (רמה AA).</p>
-        <p style="margin-bottom:8px;"><strong>התאמות באתר:</strong> ניווט מקלדת ומגע, ניגודיות צבעים ברורה, התאמה מלאה למסכי סלולר וטאבלט, תגיות תיאור לתמונות ואפשרות להגדלת גופן ועצירת אנימציות.</p>
-        <p><strong>נגישות המיקום הפיזי:</strong> דרך הים 11, קומה 10 דירה 36, גני תקווה (בניין עם מעלית נגישה). תאריך עדכון: אוקטובר 2026.</p>
-      </div>
+      <button type="button" class="btn-gold-3d" style="width:100%; margin-top:12px;" onclick="document.getElementById('legalTermsModal').classList.remove('open')">קראתי והבנתי</button>
     </div>
-  </div>
-
-  <div class="lightbox-modal" id="lightboxModal" onclick="this.classList.remove('open')">
-    <img id="lightboxImg" src="" alt="תספורת" />
-    <div class="lightbox-close-hint">✕ לחץ בכל מקום לסגירה</div>
   </div>
 
   <div class="toast-popup" id="toastPopup"></div>
 
+  <script src="core.js"></script>
   <script>
-    function sanitizeStr(str, maxLen = 120) {
-      if (typeof str !== "string") return "";
-      return str.slice(0, maxLen).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;").trim();
+    let currentClientUser = JSON.parse(localStorage.getItem("ilay_logged_client_v1") || "null");
+    let selectedServiceIdx = 0, selectedBookDay = 0, selectedBookHour = null;
+    let pendingActionAfterLogin = null;
+
+    setTimeout(() => document.getElementById("welcomeSplash")?.classList.add("hide"), 2200);
+
+    function showToast(msg) {
+      const t = document.getElementById("toastPopup");
+      t.textContent = msg; t.classList.add("show");
+      clearTimeout(window._tTimer);
+      window._tTimer = setTimeout(() => t.classList.remove("show"), 3800);
     }
 
-    function syncModalBodyClass() {
-      document.body.classList.toggle("modal-open", Boolean(document.querySelector(".modal-backdrop.open")));
-    }
+    function openLegalModal() { document.getElementById("legalTermsModal").classList.add("open"); }
 
-    function getFormattedDateForDayIdx(dayIdx) {
-      const now = new Date();
-      const currentDay = now.getDay();
-      let diff = dayIdx - currentDay;
-      if (diff < 0) diff += 7;
-      const target = new Date(now);
-      target.setDate(now.getDate() + diff);
-      return `${String(target.getDate()).padStart(2, "0")}/${String(target.getMonth() + 1).padStart(2, "0")}`;
-    }
-
-    const DB_NAME = "IlayBarbershopPortfolioDB";
-    const STORE_NAME = "portfolioStore";
-
-    function openPortfolioDB() {
-      return new Promise((resolve, reject) => {
-        if (!window.indexedDB) return reject("No IndexedDB");
-        const req = indexedDB.open(DB_NAME, 1);
-        req.onupgradeneeded = e => {
-          const db = e.target.result;
-          if (!db.objectStoreNames.contains(STORE_NAME)) db.createObjectStore(STORE_NAME);
-        };
-        req.onsuccess = e => resolve(e.target.result);
-        req.onerror = e => reject(e.target.error);
-      });
-    }
-
-    async function savePortfolioLocally(list) {
-      try { localStorage.setItem("ilay_portfolio_list_v5", JSON.stringify(list)); } catch (_) {}
-      try {
-        const db = await openPortfolioDB();
-        const tx = db.transaction(STORE_NAME, "readwrite");
-        tx.objectStore(STORE_NAME).put(list, "custom_photos");
-      } catch (_) {}
-    }
-
-    async function loadPortfolioFromDB() {
-      try {
-        const savedLS = localStorage.getItem("ilay_portfolio_list_v5") || localStorage.getItem("ilay_portfolio_list_v4");
-        if (savedLS) {
-          const parsed = JSON.parse(savedLS);
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-        }
-      } catch (_) {}
-      try {
-        const db = await openPortfolioDB();
-        return await new Promise(resolve => {
-          const tx = db.transaction(STORE_NAME, "readonly");
-          const req = tx.objectStore(STORE_NAME).get("custom_photos");
-          req.onsuccess = () => resolve(req.result || null);
-          req.onerror = () => resolve(null);
-        });
-      } catch (_) { return null; }
-    }
-
-    let siteConfig = JSON.parse(localStorage.getItem("ilay_site_cfg") || "null") || {
-      title: "ILAY BARBERSHOP",
-      subtitle: "תספורת נקייה, אווירה טובה וסטייל שיושב בול.",
-      slotInterval: 30,
-      slotBuffer: 0,
-      ntfyTopic: "ilay_barbershop_alerts"
-    };
-    if (!siteConfig.ntfyTopic) siteConfig.ntfyTopic = "ilay_barbershop_alerts";
-
-    let SERVICES = JSON.parse(localStorage.getItem("ilay_services_v2") || "null") || [
-      { name: "תספורת קלאסי", price: 70, duration: "30 דק'", desc: "דירוג (מולט, טייפר, בארסט ועוד..) עם גזירות ואפשרות להוסיף פנס לבחירה." },
-      { name: "תספורת מוגזם", price: 90, duration: "45 דק'", desc: "לא הסתפרת הרבה זמן ורוצה לעשות שינוי, תספורת גזירות מלאה." },
-      { name: "תספורת קלאסי + זקן", price: 80, duration: "35 דק'", desc: "דירוג נקי (מולט, טייפר, בארסט ועוד) עם גזירות, פנס לבחירה וסידור זקן מדויק." },
-      { name: "תספורת מוגזם + זקן", price: 100, duration: "50 דק'", desc: "שינוי לוק מלא בגזירות ודירוג למי שלא הסתפר הרבה זמן, כולל עיצוב וסידור זקן." }
-    ];
-
-    const DAYS = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "מוצ״ש"];
-    const DEFAULT_PORTFOLIO = [
-      "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=600&q=80",
-      "https://images.unsplash.com/photo-1599351431202-1e0f0137899a?auto=format&fit=crop&w=600&q=80",
-      "https://images.unsplash.com/photo-1621607512214-68297480165e?auto=format&fit=crop&w=600&q=80",
-      "https://images.unsplash.com/photo-1585747860715-2ba37e788b70?auto=format&fit=crop&w=600&q=80",
-      "https://images.unsplash.com/photo-1622286342621-4bd786c2447c?auto=format&fit=crop&w=600&q=80",
-      "https://images.unsplash.com/photo-1517832607067-4db24a2ae47c?auto=format&fit=crop&w=600&q=80"
-    ];
-
-    let portfolioList = [...DEFAULT_PORTFOLIO];
-    let weeklySchedule = JSON.parse(localStorage.getItem("ilay_weekly_hours") || "null") || [
-      { active: true, start: "10:00", end: "20:00" },
-      { active: true, start: "10:00", end: "20:00" },
-      { active: true, start: "10:00", end: "20:00" },
-      { active: true, start: "10:00", end: "20:00" },
-      { active: true, start: "10:00", end: "21:00" },
-      { active: true, start: "09:00", end: "15:00" },
-      { active: false, start: "19:30", end: "22:00" }
-    ];
-    let appointments = JSON.parse(localStorage.getItem("ilay_appointments_clean_v1") || "[]");
-
-    // --- מנוע סנכרון ענן בזמן אמת ---
-    const CLOUD_TOPIC_BASE = "ilay_barbershop_gt_2026_live_v7";
-    const CLOUD_BROKERS = [
-      "wss://broker.emqx.io:8084/mqtt",
-      "wss://test.mosquitto.org:8081/mqtt",
-      "wss://broker.hivemq.com:8884/mqtt"
-    ];
-    const mqttClients = [];
-    let lastStateTimestamp = Number(localStorage.getItem("ilay_state_ts") || 0);
-    let lastPortfolioTimestamp = Number(localStorage.getItem("ilay_portfolio_ts") || 0);
-    let lastPortfolioBatchId = localStorage.getItem("ilay_portfolio_batch") || "";
-    const batchMetaMap = {};
-    const batchChunksMap = {};
-
-    function tryAssemblePortfolioBatch(batchId) {
-      if (!batchId || !batchMetaMap[batchId]) return;
-      const meta = batchMetaMap[batchId];
-      if (meta.updatedAt < lastPortfolioTimestamp) return;
-      const chunks = batchChunksMap[batchId] || {};
-      const assembled = [];
-      for (let i = 0; i < meta.count; i++) {
-        if (chunks[i]) assembled.push(chunks[i]);
-      }
-      if (assembled.length === meta.count && assembled.length > 0) {
-        portfolioList = assembled;
-        lastPortfolioTimestamp = meta.updatedAt;
-        lastPortfolioBatchId = batchId;
-        localStorage.setItem("ilay_portfolio_ts", String(lastPortfolioTimestamp));
-        localStorage.setItem("ilay_portfolio_batch", batchId);
-        savePortfolioLocally(portfolioList);
-        renderPortfolio();
-      }
-    }
-
-    function initRealtimeCloudSync() {
-      window.addEventListener("storage", async () => {
-        siteConfig = JSON.parse(localStorage.getItem("ilay_site_cfg") || JSON.stringify(siteConfig));
-        SERVICES = JSON.parse(localStorage.getItem("ilay_services_v2") || JSON.stringify(SERVICES));
-        weeklySchedule = JSON.parse(localStorage.getItem("ilay_weekly_hours") || JSON.stringify(weeklySchedule));
-        appointments = JSON.parse(localStorage.getItem("ilay_appointments_clean_v1") || "[]");
-        const dbPhotos = await loadPortfolioFromDB();
-        if (dbPhotos && dbPhotos.length) portfolioList = dbPhotos;
-        renderPublicSiteContent();
-        renderPortfolio();
-        if (document.getElementById("bookingModal").classList.contains("open")) renderBookingHours();
-      });
-
-      if (!window.mqtt) return;
-
-      CLOUD_BROKERS.forEach(brokerUrl => {
-        try {
-          const client = mqtt.connect(brokerUrl, {
-            clientId: "ilay_client_" + Math.random().toString(16).slice(2, 10),
-            clean: true,
-            reconnectPeriod: 2500
-          });
-
-          client.on("connect", () => {
-            client.subscribe(`${CLOUD_TOPIC_BASE}/#`, { qos: 1 });
-          });
-
-          client.on("message", (topic, payload) => {
-            try {
-              const str = payload.toString();
-              if (!str) return;
-              const data = JSON.parse(str);
-
-              if (topic === `${CLOUD_TOPIC_BASE}/state`) {
-                if (!data.updatedAt || data.updatedAt < lastStateTimestamp) return;
-                lastStateTimestamp = data.updatedAt;
-                localStorage.setItem("ilay_state_ts", String(lastStateTimestamp));
-
-                if (data.siteConfig) { siteConfig = { ...siteConfig, ...data.siteConfig }; localStorage.setItem("ilay_site_cfg", JSON.stringify(siteConfig)); }
-                if (data.services) { SERVICES = data.services; localStorage.setItem("ilay_services_v2", JSON.stringify(SERVICES)); }
-                if (data.weeklySchedule) { weeklySchedule = data.weeklySchedule; localStorage.setItem("ilay_weekly_hours", JSON.stringify(weeklySchedule)); }
-                if (Array.isArray(data.appointments)) {
-                  appointments = data.appointments;
-                  localStorage.setItem("ilay_appointments_clean_v1", JSON.stringify(appointments));
-                }
-
-                renderPublicSiteContent();
-                if (document.getElementById("bookingModal").classList.contains("open")) renderBookingHours();
-              } else if (topic === `${CLOUD_TOPIC_BASE}/new_booking`) {
-                if (data && data.appt && data.appt.id) {
-                  const exists = appointments.some(a => a.id === data.appt.id);
-                  if (!exists) {
-                    appointments.push(data.appt);
-                    localStorage.setItem("ilay_appointments_clean_v1", JSON.stringify(appointments));
-                    if (document.getElementById("bookingModal").classList.contains("open")) renderBookingHours();
-                  }
-                }
-              } else if (topic === `${CLOUD_TOPIC_BASE}/portfolio_meta`) {
-                if (!data.batchId || !data.updatedAt || data.updatedAt < lastPortfolioTimestamp) return;
-                batchMetaMap[data.batchId] = { count: Number(data.count) || 0, updatedAt: data.updatedAt };
-                tryAssemblePortfolioBatch(data.batchId);
-              } else if (topic.startsWith(`${CLOUD_TOPIC_BASE}/photo/`)) {
-                if (!data || !data.batchId || !data.src) return;
-                if (!batchChunksMap[data.batchId]) batchChunksMap[data.batchId] = {};
-                batchChunksMap[data.batchId][Number(data.idx)] = data.src;
-                tryAssemblePortfolioBatch(data.batchId);
-              }
-            } catch (_) {}
-          });
-
-          mqttClients.push(client);
-        } catch (_) {}
-      });
-    }
-
-    function broadcastNewBookingFromClient(newAppt) {
+    // בדיקת ניתוק אוטומטי לאחר 60 ימי אי-פעילות
+    function verifyClientSession() {
+      if (!currentClientUser || !currentClientUser.phone) { currentClientUser = null; return false; }
       const now = Date.now();
-      lastStateTimestamp = now;
-      localStorage.setItem("ilay_state_ts", String(now));
-      localStorage.setItem("ilay_appointments_clean_v1", JSON.stringify(appointments));
-
-      const statePayload = JSON.stringify({
-        updatedAt: now,
-        siteConfig,
-        services: SERVICES,
-        weeklySchedule,
-        appointments
-      });
-
-      const bookingEventPayload = JSON.stringify({
-        updatedAt: now,
-        appt: newAppt
-      });
-
-      mqttClients.forEach(c => {
-        try {
-          if (c.connected) {
-            c.publish(`${CLOUD_TOPIC_BASE}/state`, statePayload, { qos: 1, retain: true });
-            c.publish(`${CLOUD_TOPIC_BASE}/new_booking`, bookingEventPayload, { qos: 1, retain: true });
-          }
-        } catch (_) {}
-      });
+      if (currentClientUser.lastActiveAt && (now - Number(currentClientUser.lastActiveAt) > TWO_MONTHS_MS)) {
+        currentClientUser = null;
+        localStorage.removeItem("ilay_logged_client_v1");
+        showToast("נותקת אוטומטית מהחשבון עקב חודשיים של אי-פעילות.");
+        return false;
+      }
+      currentClientUser.lastActiveAt = now;
+      localStorage.setItem("ilay_logged_client_v1", JSON.stringify(currentClientUser));
+      return true;
     }
 
-    // שליחת התראת פוש אמיתית לטלפון דרך ntfy (עובד גם כשהאפליקציה סגורה לגמרי)
-    async function sendNtfyPushNotification(appt) {
-      const topic = (siteConfig.ntfyTopic || "ilay_barbershop_alerts").trim();
-      const dateStr = getFormattedDateForDayIdx(appt.dayIdx);
-      const dayName = DAYS[appt.dayIdx];
-      const adminUrl = `${window.location.origin}/admin.html`;
+    function switchAuthTab(mode) {
+      document.getElementById("tabBtnReg").classList.toggle("active", mode === "reg");
+      document.getElementById("tabBtnLog").classList.toggle("active", mode === "log");
+      document.getElementById("regBox").style.display = mode === "reg" ? "block" : "none";
+      document.getElementById("logBox").style.display = mode === "log" ? "block" : "none";
+    }
 
-      const payload = {
-        topic: topic,
-        title: "💈 תור חדש נקבע - Ilay Barbershop!",
-        message:
-          `👤 לקוח: ${appt.name} (${appt.phone})\n` +
-          `✂️ שירות: ${appt.service}\n` +
-          `📅 מועד: יום ${dayName} (${dateStr}) בשעה ${appt.time}` +
-          (appt.note ? `\n📝 הערה: ${appt.note}` : ``) +
-          `\n\nלחץ על ההתראה לפתיחת היומן`,
-        priority: 5,
-        tags: ["barber", "calendar"],
-        click: adminUrl
-      };
+    function registerClient() {
+      const fullName = sanitizeStr(document.getElementById("regFullName").value, 40);
+      const phone = toIsraeliLocalPhone(document.getElementById("regPhone").value);
+      const pass = document.getElementById("regPass").value.trim();
+      const consent = document.getElementById("regConsent").checked;
 
-      try {
-        await fetch("https://ntfy.sh", {
-          method: "POST",
-          body: JSON.stringify(payload)
+      if (fullName.replace(/[^a-zA-Zא-ת]/g, "").length < 2) return showToast("נא להזין שם מלא תקין");
+      if (phone.length < 9) return showToast("נא להזין מספר טלפון נייד תקין");
+      if (pass.length < 4) return showToast("נא לבחור סיסמה בת 4 תווים לפחות");
+      if (!consent) return showToast("חובה לאשר את תקנון האתר");
+
+      if (registeredUsers.some(u => u.phone === phone)) {
+        switchAuthTab("log");
+        document.getElementById("logIdent").value = phone;
+        return showToast("מספר טלפון זה כבר רשום! לא ניתן לפתוח חשבון כפול – נא להתחבר.");
+      }
+      if (registeredUsers.some(u => (u.username || "").toLowerCase() === fullName.toLowerCase())) {
+        return showToast("השם המלא הזה כבר רשום במערכת! לא ניתן לפתוח פעמיים על אותו שם.");
+      }
+
+      const now = Date.now();
+      const newUser = { id: "usr_" + now, username: fullName, phone, password: pass, createdAt: new Date().toLocaleDateString("he-IL"), lastActiveAt: now };
+      registeredUsers.push(newUser);
+      currentClientUser = { username: fullName, phone, lastActiveAt: now };
+      localStorage.setItem("ilay_logged_client_v1", JSON.stringify(currentClientUser));
+      broadcastCloudState("new_user", { user: newUser });
+
+      document.getElementById("authModal").classList.remove("open");
+      updateAuthAndPersonalUI();
+      showToast(`ברוך הבא ${fullName}! נכנסת לאזור האישי.`);
+      runPendingAction();
+    }
+
+    function loginClient() {
+      const ident = document.getElementById("logIdent").value.trim();
+      const pass = document.getElementById("logPass").value.trim();
+      const cleanPhone = toIsraeliLocalPhone(ident);
+
+      const found = registeredUsers.find(u => (u.phone === cleanPhone || (u.username || "").toLowerCase() === ident.toLowerCase()) && u.password === pass);
+      if (!found) return showToast("פרטי ההתחברות שגויים או שהמשתמש אינו רשום");
+
+      const now = Date.now();
+      found.lastActiveAt = now;
+      currentClientUser = { username: found.username, phone: found.phone, lastActiveAt: now };
+      localStorage.setItem("ilay_logged_client_v1", JSON.stringify(currentClientUser));
+      saveAllStateLocally();
+
+      document.getElementById("authModal").classList.remove("open");
+      updateAuthAndPersonalUI();
+      showToast(`שלום ${found.username}, התחברת לאזור האישי!`);
+      runPendingAction();
+    }
+
+    function logoutClientUser() {
+      currentClientUser = null;
+      localStorage.removeItem("ilay_logged_client_v1");
+      updateAuthAndPersonalUI();
+      switchCategory("all");
+      showToast("התנתקת מהאזור האישי");
+    }
+
+    function openPersonalAreaOrAuth() {
+      if (!verifyClientSession()) {
+        pendingActionAfterLogin = () => switchCategory("personal");
+        document.getElementById("authModal").classList.add("open");
+        return;
+      }
+      switchCategory("personal");
+    }
+
+    function runPendingAction() {
+      if (typeof pendingActionAfterLogin === "function") {
+        const fn = pendingActionAfterLogin;
+        pendingActionAfterLogin = null;
+        fn();
+      } else {
+        switchCategory("personal");
+      }
+    }
+
+    // אישור הגעה לתור ע"י הלקוח מתוך האזור האישי -> הופך לירוק ביומן הניהול!
+    function confirmMyAppointmentArrival(apptId) {
+      const appt = appointments.find(a => a.id === apptId);
+      if (!appt) return;
+      appt.status = "confirmed";
+      appt.confirmedAt = new Date().toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
+      broadcastCloudState();
+      renderPersonalArea();
+      showToast("✅ הגעתך לתור אושרה! הסטטוס ביומן של עילי עודכן לירוק (אושר).");
+    }
+
+    function renderPersonalArea() {
+      if (!verifyClientSession()) return;
+      const myPhone = toIsraeliLocalPhone(currentClientUser.phone);
+      const myAppts = appointments.filter(a => toIsraeliLocalPhone(a.phone) === myPhone || (a.name || "").toLowerCase() === currentClientUser.username.toLowerCase());
+
+      document.getElementById("sideMyApptsCount").textContent = myAppts.filter(a => a.status !== "canceled").length;
+      document.getElementById("personalWelcomeTitle").textContent = `האזור האישי • ${currentClientUser.username}`;
+      document.getElementById("personalCardName").textContent = currentClientUser.username;
+      document.getElementById("personalCardPhone").textContent = currentClientUser.phone;
+
+      const now = Date.now();
+      const futureList = document.getElementById("personalFutureApptsList");
+      const pastList = document.getElementById("personalPastApptsList");
+      futureList.innerHTML = "";
+      pastList.innerHTML = "";
+
+      const futureAppts = [];
+      const pastAppts = [];
+
+      myAppts.forEach(a => {
+        const ts = a.startsAtMs || getTargetTimestamp(a.dayIdx, a.time);
+        if (a.status !== "canceled" && ts >= now - 2 * 3600 * 1000) futureAppts.push(a);
+        else pastAppts.push(a);
+      });
+
+      if (!futureAppts.length) {
+        futureList.innerHTML = `<div style="padding:18px; border-radius:14px; background:rgba(255,255,255,0.03); color:var(--text-muted); font-size:0.86rem;">אין לך תורים עתידיים כרגע. לחץ על "+ קבע תור חדש" לתיאום.</div>`;
+      } else {
+        futureAppts.forEach(a => {
+          const st = a.status || "pending";
+          const dateStr = a.dateStr || getFormattedDateForDayIdx(a.dayIdx);
+          const isConfirmed = st === "confirmed";
+          const card = document.createElement("div");
+          card.className = `client-appt-card status-${st}`;
+          card.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+              <strong style="font-size:1.02rem; color:#fff;">יום ${DAYS_HEB[a.dayIdx]} (${dateStr}) • שעה ${a.time}</strong>
+              <span class="status-pill ${st}">${isConfirmed ? "🟢 הגעה אושרה" : "⚪ ממתין לאישור הגעה"}</span>
+            </div>
+            <div style="font-size:0.86rem; color:var(--gold-bright); font-weight:700;">✂️ ${sanitizeStr(a.service, 50)}</div>
+            <div style="font-size:0.78rem; color:#94a3b8; margin-top:3px;">📍 דרך הים 11, קומה 10 דירה 36, גני תקווה</div>
+            ${!isConfirmed ? `<button type="button" class="btn-confirm-arrival" onclick="confirmMyAppointmentArrival('${a.id}')">✅ אני מאשר/ת הגעה לתור</button>` : `<div style="margin-top:8px; font-size:0.8rem; color:#34d399; font-weight:800;">✓ אישרת הגעה לתור זה. נתראה במספרה!</div>`}
+          `;
+          futureList.appendChild(card);
         });
-      } catch (_) {}
+      }
+
+      if (!pastAppts.length) {
+        pastList.innerHTML = `<div style="padding:14px; border-radius:14px; background:rgba(255,255,255,0.02); color:var(--text-muted); font-size:0.82rem;">עדיין אין היסטוריית תורים קודמים.</div>`;
+      } else {
+        pastAppts.forEach(a => {
+          const st = a.status || "pending";
+          const dateStr = a.dateStr || getFormattedDateForDayIdx(a.dayIdx);
+          const card = document.createElement("div");
+          card.className = `client-appt-card status-${st}`;
+          card.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <strong style="font-size:0.92rem;">יום ${DAYS_HEB[a.dayIdx]} (${dateStr}) • ${a.time}</strong>
+              <span class="status-pill ${st}">${st === "canceled" ? "🔴 בוטל" : st === "confirmed" ? "🟢 הושלם / אושר" : "⚪ עבר"}</span>
+            </div>
+            <div style="font-size:0.8rem; color:#cbd5e1; margin-top:4px;">${sanitizeStr(a.service, 50)}</div>
+          `;
+          pastList.appendChild(card);
+        });
+      }
     }
 
-    function getEffectiveStepMinutes() {
-      return Math.max(10, (Number(siteConfig.slotInterval) || 30) + (Number(siteConfig.slotBuffer) || 0));
+    function updateAuthAndPersonalUI() {
+      const logged = verifyClientSession();
+      const sideName = document.getElementById("sidebarUserName");
+      const sideBtn = document.getElementById("sidebarAuthBtn");
+      const mobBtn = document.getElementById("mobPersonalBtn");
+      const heroBtn = document.getElementById("heroPersonalBtn");
+
+      if (logged) {
+        sideName.textContent = currentClientUser.username;
+        sideName.style.display = "block";
+        sideBtn.textContent = "לאזור האישי שלי";
+        mobBtn.textContent = `👤 ${currentClientUser.username.split(" ")[0]}`;
+        if (heroBtn) heroBtn.textContent = `👤 האזור האישי (${currentClientUser.username})`;
+        renderPersonalArea();
+      } else {
+        sideName.style.display = "none";
+        sideBtn.textContent = "כניסה / הרשמה לאזור האישי";
+        mobBtn.textContent = "אזור אישי";
+        if (heroBtn) heroBtn.textContent = "👤 כניסה לאזור האישי";
+        document.getElementById("sideMyApptsCount").textContent = "0";
+      }
     }
 
-    function renderPublicSiteContent() {
+    function switchCategory(cat) {
+      if (cat === "personal" && !verifyClientSession()) {
+        openPersonalAreaOrAuth();
+        return;
+      }
+      document.querySelectorAll(".side-btn, .dock-item").forEach(b => b.classList.remove("active"));
+      document.getElementById("nav-" + cat)?.classList.add("active");
+      document.getElementById("mob-nav-" + cat)?.classList.add("active");
+
+      document.getElementById("sec-hero").style.display = cat === "all" ? "block" : "none";
+      document.getElementById("sec-personal").style.display = cat === "personal" ? "block" : "none";
+      document.getElementById("sec-services").style.display = (cat === "all" || cat === "services") ? "block" : "none";
+      document.getElementById("sec-portfolio").style.display = (cat === "all" || cat === "portfolio") ? "block" : "none";
+      if (cat === "personal") renderPersonalArea();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function renderSiteContent() {
       document.getElementById("heroMainTitle").textContent = siteConfig.title;
       document.getElementById("heroMainSubtitle").textContent = siteConfig.subtitle;
-      const prices = SERVICES.map(s => Number(s.price) || 0);
-      document.getElementById("heroPriceRange").textContent = `${prices.length ? Math.min(...prices) : 0}₪ – ${prices.length ? Math.max(...prices) : 0}₪`;
       document.getElementById("sideServicesCount").textContent = SERVICES.length;
       document.getElementById("sidePortfolioCount").textContent = portfolioList.length;
 
-      const grid = document.getElementById("publicServicesGrid");
-      grid.innerHTML = "";
+      const sGrid = document.getElementById("publicServicesGrid");
+      sGrid.innerHTML = "";
       SERVICES.forEach((srv, idx) => {
         const card = document.createElement("div");
         card.className = "service-card";
         card.onclick = () => openBookingModal(idx);
         card.innerHTML = `
-          <div>
-            <div class="srv-top">
-              <div class="srv-title-group">
-                <div class="srv-name">${sanitizeStr(srv.name, 45)}</div>
-                <div class="srv-time">⏱️ ${sanitizeStr(srv.duration, 25)}</div>
-              </div>
-              <div class="srv-price">${Number(srv.price) || 0} ₪</div>
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
+            <div>
+              <div style="font-size:1.15rem; font-weight:900; color:#fff;">${sanitizeStr(srv.name, 45)}</div>
+              <div style="font-size:0.76rem; color:#cbd5e1; margin-top:3px;">⏱️ ${sanitizeStr(srv.duration, 25)}</div>
             </div>
-            <p class="srv-desc" style="margin-top:8px;">${sanitizeStr(srv.desc, 140)}</p>
+            <div class="srv-price-badge">${Number(srv.price) || 0} ₪</div>
           </div>
-          <button type="button" class="srv-book-btn" onclick="event.stopPropagation(); openBookingModal(${idx})">📅 קבע תור ל${sanitizeStr(srv.name, 35)}</button>
+          <p style="font-size:0.86rem; color:var(--text-muted); line-height:1.5;">${sanitizeStr(srv.desc, 140)}</p>
+          <button type="button" class="btn-gold-3d" style="width:100%; padding:10px;" onclick="event.stopPropagation(); openBookingModal(${idx})">קבע תור ל${sanitizeStr(srv.name, 30)}</button>
         `;
-        grid.appendChild(card);
+        sGrid.appendChild(card);
       });
-    }
 
-    function renderPortfolio() {
-      const grid = document.getElementById("portfolioGrid");
-      grid.innerHTML = "";
-      document.getElementById("sidePortfolioCount").textContent = portfolioList.length;
-
-      portfolioList.forEach((src, idx) => {
-        const fallbackUrl = DEFAULT_PORTFOLIO[idx % DEFAULT_PORTFOLIO.length];
+      const pGrid = document.getElementById("portfolioGrid");
+      pGrid.innerHTML = "";
+      portfolioList.forEach((src, i) => {
         const card = document.createElement("div");
-        card.className = "photo-card-clean";
-        card.innerHTML = `
-          <div class="photo-inner">
-            <img src="${src}" alt="תיק עבודות ${idx + 1}" onerror="this.onerror=null; this.src='${fallbackUrl}';" />
-          </div>
-          <div class="photo-clean-badge"><span>💈 Ilay Barbershop</span><span>הגדל 🔍</span></div>
-        `;
-        card.addEventListener("click", () => {
-          const imgEl = card.querySelector("img");
-          document.getElementById("lightboxImg").src = imgEl.src;
-          document.getElementById("lightboxModal").classList.add("open");
-        });
-        grid.appendChild(card);
+        card.className = "photo-card";
+        card.innerHTML = `<div class="photo-inner"><img src="${src}" alt="תספורת ${i + 1}" /></div><div class="photo-tag"><span>Ilay Barbershop</span><span>🔍</span></div>`;
+        pGrid.appendChild(card);
       });
     }
-
-    function switchCategory(cat) {
-      document.querySelectorAll(".side-btn, .mob-nav-item").forEach(b => b.classList.remove("active"));
-      document.getElementById("nav-" + cat)?.classList.add("active");
-      document.getElementById("mob-nav-" + cat)?.classList.add("active");
-      document.getElementById("sec-hero").style.display = cat === "all" ? "block" : "none";
-      document.getElementById("sec-services").style.display = (cat === "all" || cat === "services") ? "block" : "none";
-      document.getElementById("sec-portfolio").style.display = (cat === "all" || cat === "portfolio") ? "block" : "none";
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    }
-
-    let selectedServiceIdx = 0, selectedBookDay = 0, selectedBookHour = null;
 
     function openBookingModal(srvIdx) {
+      if (!verifyClientSession()) {
+        pendingActionAfterLogin = () => openBookingModal(srvIdx);
+        document.getElementById("authModal").classList.add("open");
+        showToast("לקביעת תור חובה להתחבר או להירשם עם שם מלא ומספר טלפון");
+        return;
+      }
       selectedServiceIdx = srvIdx < SERVICES.length ? srvIdx : 0;
-      document.getElementById("bookingServiceSelect").innerHTML = SERVICES.map((s, i) => `<option value="${i}" ${i === selectedServiceIdx ? "selected" : ""}>${sanitizeStr(s.name, 40)} — ${s.price} ₪ (${sanitizeStr(s.duration, 20)})</option>`).join("");
+      document.getElementById("bookingServiceSelect").innerHTML = SERVICES.map((s, i) => `<option value="${i}" ${i === selectedServiceIdx ? "selected" : ""}>${sanitizeStr(s.name, 40)} — ${s.price} ₪</option>`).join("");
       updateModalHeaderTitle();
       renderBookingDays();
       renderBookingHours();
-      const modal = document.getElementById("bookingModal");
-      modal.classList.add("open");
-      modal.scrollTop = 0;
-      syncModalBodyClass();
+      document.getElementById("clientNameInput").value = currentClientUser.username;
+      document.getElementById("clientPhoneInput").value = currentClientUser.phone;
+      document.getElementById("bookingModal").classList.add("open");
     }
 
-    function changeBookingModalService(val) { selectedServiceIdx = Number(val); updateModalHeaderTitle(); }
     function updateModalHeaderTitle() {
       const srv = SERVICES[selectedServiceIdx] || SERVICES[0];
-      document.getElementById("modalServiceTitle").textContent = `${srv.name} (${srv.price} ₪ • ${srv.duration})`;
+      document.getElementById("modalServiceTitle").textContent = `${srv.name} (${srv.price} ₪)`;
     }
-    function closeBookingModal() { document.getElementById("bookingModal").classList.remove("open"); syncModalBodyClass(); }
-    function openAccessibilityModal() { const m = document.getElementById("accessibilityModal"); m.classList.add("open"); m.scrollTop = 0; syncModalBodyClass(); }
-    function closeAccessibilityModal() { document.getElementById("accessibilityModal").classList.remove("open"); syncModalBodyClass(); }
 
     function renderBookingDays() {
       const row = document.getElementById("bookingDaysRow");
       row.innerHTML = "";
-      DAYS.forEach((d, idx) => {
+      DAYS_HEB.forEach((d, idx) => {
         const btn = document.createElement("button");
         btn.type = "button";
         btn.className = "day-chip" + (idx === selectedBookDay ? " active" : "");
@@ -762,162 +608,78 @@
       });
     }
 
-    function buildDaySlots(startStr, endStr) {
-      const step = getEffectiveStepMinutes();
-      const [sh, sm] = startStr.split(":").map(Number);
-      const [eh, em] = endStr.split(":").map(Number);
-      const out = [];
-      for (let cur = sh * 60 + sm; cur < eh * 60 + em; cur += step) {
-        out.push(`${String(Math.floor(cur / 60)).padStart(2, "0")}:${String(cur % 60).padStart(2, "0")}`);
-      }
-      return out;
-    }
-
     function renderBookingHours() {
       const grid = document.getElementById("bookingHoursGrid");
       grid.innerHTML = "";
       const cfg = weeklySchedule[selectedBookDay];
       if (!cfg || !cfg.active) {
-        grid.innerHTML = `<div style="grid-column:1/-1; text-align:center; color:#fca5a5; padding:12px;">המספרה סגורה ביום זה. בחר יום אחר.</div>`;
+        grid.innerHTML = `<div style="grid-column:1/-1; text-align:center; color:#fca5a5; padding:10px;">המספרה סגורה ביום זה.</div>`;
         return;
       }
-      buildDaySlots(cfg.start, cfg.end).forEach(timeStr => {
-        const isTaken = appointments.some(a => Number(a.dayIdx) === selectedBookDay && a.time === timeStr);
+      const step = Math.max(10, (Number(siteConfig.slotInterval) || 30) + (Number(siteConfig.slotBuffer) || 0));
+      const [sh, sm] = cfg.start.split(":").map(Number);
+      const [eh, em] = cfg.end.split(":").map(Number);
+
+      for (let cur = sh * 60 + sm; cur < eh * 60 + em; cur += step) {
+        const tStr = `${String(Math.floor(cur / 60)).padStart(2, "0")}:${String(cur % 60).padStart(2, "0")}`;
+        const taken = appointments.some(a => Number(a.dayIdx) === selectedBookDay && a.time === tStr && a.status !== "canceled");
         const btn = document.createElement("button");
         btn.type = "button";
-        btn.className = "hour-chip" + (isTaken ? " taken" : "") + (selectedBookHour === timeStr ? " active" : "");
-        btn.textContent = timeStr;
-        if (!isTaken) btn.onclick = () => { selectedBookHour = timeStr; renderBookingHours(); };
+        btn.className = "hour-chip" + (taken ? " taken" : "") + (selectedBookHour === tStr ? " active" : "");
+        btn.textContent = tStr;
+        if (!taken) btn.onclick = () => { selectedBookHour = tStr; renderBookingHours(); };
         grid.appendChild(btn);
-      });
+      }
     }
 
-    function confirmClientBooking() {
-      if (document.getElementById("hpBotCheck")?.value) return;
-      const name = sanitizeStr(document.getElementById("clientNameInput").value, 35);
-      const phone = document.getElementById("clientPhoneInput").value.replace(/[^0-9]/g, "").slice(0, 12);
-      const note = sanitizeStr(document.getElementById("clientNoteInput").value, 120);
-
-      if (!selectedBookHour) return showToast("⚠️ בחר שעה פנויה מתוך החלונית");
-      if (name.replace(/[^a-zA-Zא-ת]/g, "").length < 2) return showToast("⚠️ נא להזין שם תקין עם לפחות 2 אותיות");
-      if (phone.length < 9) return showToast("⚠️ נא להזין מספר טלפון תקין (ספרות בלבד)");
+    async function confirmClientBooking() {
+      if (!verifyClientSession()) return;
+      if (!selectedBookHour) return showToast("נא לבחור שעה פנויה");
 
       const srv = SERVICES[selectedServiceIdx] || SERVICES[0];
+      const dateStr = getFormattedDateForDayIdx(selectedBookDay);
+      const dayName = DAYS_HEB[selectedBookDay];
       const newAppt = {
-        id: "ap_" + Date.now() + "_" + Math.random().toString(36).slice(2, 5),
+        id: "ap_" + Date.now(),
         dayIdx: selectedBookDay,
+        dateStr,
         time: selectedBookHour,
-        name,
-        phone,
-        srvIdx: selectedServiceIdx,
+        startsAtMs: getTargetTimestamp(selectedBookDay, selectedBookHour),
+        name: currentClientUser.username,
+        phone: currentClientUser.phone,
         price: srv.price,
         service: `${srv.name} • ${srv.price} ₪`,
-        note
+        note: sanitizeStr(document.getElementById("clientNoteInput").value, 120),
+        status: "pending", // ממתין לאישור הגעה (אפור ביומן הניהול עד שיאשר באזור האישי)
+        reminderSent: false
       };
 
       appointments.push(newAppt);
-      broadcastNewBookingFromClient(newAppt);
-      sendNtfyPushNotification(newAppt);
+      broadcastCloudState("new_booking", { appt: newAppt });
 
-      closeBookingModal();
-      document.getElementById("clientNameInput").value = "";
-      document.getElementById("clientPhoneInput").value = "";
+      const publicUrl = `${window.location.origin}/ilay.html#personal-area`;
+      const smsMsg = `היי ${newAppt.name}, התור שלך ל-Ilay Barbershop נקבע ליום ${dayName} (${dateStr}) בשעה ${newAppt.time}. לצפייה בתור ואישור הגעה באזור האישי: ${publicUrl}`;
+      sendTrackedSms(newAppt.phone, newAppt.name, smsMsg, "booking", newAppt.id);
+
+      document.getElementById("bookingModal").classList.remove("open");
       document.getElementById("clientNoteInput").value = "";
-      showToast(`💈 התור שלך (${name}) נקבע ליום ${DAYS[selectedBookDay]} בשעה ${selectedBookHour}!`);
+      updateAuthAndPersonalUI();
+      switchCategory("personal");
+      showToast("התור נקבע בהצלחה! תוכל לאשר הגעה כאן באזור האישי.");
     }
 
-    function showToast(msg) {
-      const t = document.getElementById("toastPopup");
-      t.textContent = msg; t.classList.add("show");
-      clearTimeout(window._toastTimer);
-      window._toastTimer = setTimeout(() => t.classList.remove("show"), 3800);
-    }
+    window.onCoreDataUpdated = () => {
+      renderSiteContent();
+      updateAuthAndPersonalUI();
+    };
 
-    function init3DBarberBackground() {
-      const canvas = document.getElementById("bg-canvas");
-      const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-      const scene = new THREE.Scene();
-      const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
-      scene.add(new THREE.AmbientLight(0xffffff, 0.8));
-      const dirLight = new THREE.DirectionalLight(0xf5d97e, 1.45);
-      dirLight.position.set(8, 12, 10);
-      scene.add(dirLight);
-
-      const stripeCanvas = document.createElement("canvas");
-      stripeCanvas.width = 512; stripeCanvas.height = 512;
-      const ctx = stripeCanvas.getContext("2d");
-      ctx.fillStyle = "#f8fafc"; ctx.fillRect(0, 0, 512, 512);
-      const drawBand = (offset, color) => {
-        ctx.fillStyle = color;
-        for (let y = -512; y < 1024; y += 256) {
-          ctx.beginPath(); ctx.moveTo(0, y + offset); ctx.lineTo(512, y + 512 + offset);
-          ctx.lineTo(512, y + 512 + offset + 64); ctx.lineTo(0, y + offset + 64); ctx.closePath(); ctx.fill();
-        }
-      };
-      drawBand(0, "#d62828"); drawBand(128, "#1d4ed8");
-      const poleTexture = new THREE.CanvasTexture(stripeCanvas);
-      poleTexture.wrapS = THREE.RepeatWrapping; poleTexture.wrapT = THREE.RepeatWrapping; poleTexture.repeat.set(1, 1.8);
-
-      const innerMat = new THREE.MeshStandardMaterial({ map: poleTexture, roughness: 0.22, metalness: 0.08 });
-      const glassMat = new THREE.MeshPhongMaterial({ color: 0xffffff, transparent: true, opacity: 0.18, shininess: 140 });
-      const goldCapMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.88, roughness: 0.2 });
-
-      function createPole() {
-        const g = new THREE.Group();
-        const core = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.46, 3.0, 40), innerMat);
-        const glass = new THREE.Mesh(new THREE.CylinderGeometry(0.53, 0.53, 3.04, 40), glassMat);
-        const topDome = new THREE.Mesh(new THREE.SphereGeometry(0.48, 28, 20), goldCapMat); topDome.position.y = 1.65;
-        const botDome = new THREE.Mesh(new THREE.SphereGeometry(0.48, 28, 20), goldCapMat); botDome.position.y = -1.65;
-        g.add(core, glass, topDome, botDome); g.userData = { core }; return g;
-      }
-
-      const poles = [];
-      const baseConfigs = [
-        { x: -5.4, y: 2.1, z: -1.8, scale: 0.88, rotZ: 0.22 },
-        { x: 5.5, y: -1.6, z: -1.2, scale: 0.96, rotZ: -0.2 },
-        { x: -1.8, y: -3.2, z: -3.6, scale: 0.72, rotZ: 0.16 },
-        { x: 3.1, y: 3.0, z: -2.9, scale: 0.78, rotZ: -0.18 }
-      ];
-      baseConfigs.forEach(cfg => { const p = createPole(); scene.add(p); poles.push({ group: p, ...cfg, curX: cfg.x, curY: cfg.y }); });
-
-      function updateLayout() {
-        const w = window.innerWidth, isMob = w < 680;
-        camera.aspect = w / window.innerHeight; camera.position.z = isMob ? 16.5 : 14;
-        camera.updateProjectionMatrix(); renderer.setSize(w, window.innerHeight);
-        const xFactor = isMob ? 0.36 : (w < 1024 ? 0.65 : 1), sFactor = isMob ? 0.78 : 1;
-        poles.forEach((item, i) => {
-          item.curX = baseConfigs[i].x * xFactor; item.curY = baseConfigs[i].y;
-          item.group.position.set(item.curX, item.curY, item.z);
-          item.group.scale.setScalar(item.scale * sFactor); item.group.rotation.z = item.rotZ;
-        });
-      }
-      updateLayout(); window.addEventListener("resize", updateLayout);
-
-      function animate() {
-        requestAnimationFrame(animate);
-        if (document.body.classList.contains("acc-no-anim")) return;
-        const t = performance.now() * 0.001;
-        poleTexture.offset.y -= 0.0038;
-        poles.forEach((item, i) => {
-          item.group.userData.core.rotation.y += 0.015;
-          item.group.position.y = item.curY + Math.sin(t * 1.2 + i) * 0.22;
-        });
-        renderer.render(scene, camera);
-      }
-      animate();
-    }
-
-    window.addEventListener("DOMContentLoaded", async () => {
-      const dbPhotos = await loadPortfolioFromDB();
-      if (dbPhotos && Array.isArray(dbPhotos) && dbPhotos.length > 0) {
-        portfolioList = dbPhotos;
-      }
-      renderPublicSiteContent();
-      renderPortfolio();
-      initRealtimeCloudSync();
-      init3DBarberBackground();
+    window.addEventListener("DOMContentLoaded", () => {
+      if (!localStorage.getItem("ilay_cookie_ok")) document.getElementById("cookieBanner").classList.add("show");
+      renderSiteContent();
+      updateAuthAndPersonalUI();
+      initCloudSyncEngine();
+      initRealistic3DBarberScene();
+      if (window.location.hash === "#personal-area") openPersonalAreaOrAuth();
     });
   </script>
 </body>
