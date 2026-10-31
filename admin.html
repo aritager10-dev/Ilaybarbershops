@@ -10,6 +10,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;800;900&family=Cinzel:wght@700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.3.4/mqtt.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
@@ -32,23 +33,38 @@
 
   <!-- אפליקציית הניהול -->
   <div class="app-container" id="adminApp">
-    <header class="panel-box" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+    <header class="panel-box" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; position:relative; z-index:2000;">
       <div>
-        <div style="font-size:0.72rem; color:var(--gold); font-weight:800; letter-spacing:1.5px; font-family:'Cinzel',serif;">ILAY BARBERSHOP • ADMIN</div>
-        <h1 style="font-size:1.25rem; font-weight:900;" id="adminHeaderTitle">יומן וניהול • עילי בן הרוש</h1>
+        <div style="font-size:0.72rem; color:var(--gold); font-weight:800; letter-spacing:1.5px; font-family:'Cinzel',serif;">ILAY BARBERSHOP • REALTIME ADMIN</div>
+        <h1 style="font-size:1.22rem; font-weight:900;" id="adminHeaderTitle">יומן וניהול • עילי בן הרוש</h1>
       </div>
-      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+
+      <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        <!-- פעמון התראות בזמן אמת -->
+        <div class="notif-bell-wrap">
+          <button type="button" class="notif-bell-btn" onclick="toggleNotifDrawer()" title="התראות בזמן אמת">
+            🔔
+            <span class="notif-badge" id="notifUnreadBadge">0</span>
+          </button>
+          <div class="notif-drawer" id="notifDrawer">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; padding-bottom:8px; border-bottom:1px solid rgba(255,255,255,0.1);">
+              <strong style="color:var(--gold-bright); font-size:0.9rem;">🔔 התראות מערכת בזמן אמת</strong>
+              <button type="button" class="appt-btn-mini" onclick="markAllNotifsRead()">סמן הכל כנקרא</button>
+            </div>
+            <div id="notifListContainer"></div>
+          </div>
+        </div>
+
         <button type="button" class="btn-gold" onclick="openManualAddModal()">+ שבץ תור חדש</button>
-        <button type="button" class="btn-outline" onclick="switchTab('sms')">📩 סטטיסטיקות SMS ותפוצה</button>
-        <button type="button" class="btn-outline" style="border-color:#f59e0b; color:#fde68a;" onclick="if(confirm('לאפס את כל התורים ביומן?')){appointments=[];broadcastCloudState();renderAllAdmin();}">איפוס יומן</button>
+        <button type="button" class="btn-outline" onclick="switchTab('analytics')">📊 דוחות וגרפים</button>
         <button type="button" class="btn-outline" style="border-color:#ef4444; color:#fca5a5;" onclick="localStorage.removeItem('ilay_saved_admin_label'); location.reload();">התנתק</button>
       </div>
     </header>
 
-    <!-- 4 כרטיסי על: הכנסות, אישורי הגעה ויתרת SMS בחבילה -->
+    <!-- 4 כרטיסי סיכום מהיר -->
     <div class="stats-grid-4">
       <div class="stat-rev-card">
-        <div style="font-size:0.75rem; color:var(--text-muted); font-weight:700;">הכנסה שבועית פעילה</div>
+        <div style="font-size:0.75rem; color:var(--text-muted); font-weight:700;">הכנסה מתורים פעילים</div>
         <div class="stat-rev-value" id="statWeeklyMoney">0 ₪</div>
         <div class="stat-rev-sub" id="statWeeklyCount">0 תורים פעילים</div>
       </div>
@@ -60,35 +76,37 @@
       <div class="stat-rev-card">
         <div style="font-size:0.75rem; color:var(--text-muted); font-weight:700;">יתרת הודעות SMS בחבילה</div>
         <div class="stat-rev-value" id="statSmsRemaining">1,000</div>
-        <div class="stat-rev-sub" id="statSmsSentSub">נשלחו: 0 | נכשלו: 0</div>
+        <div class="stat-rev-sub" id="statSmsSentSub">נמסרו: 0 | נכשלו: 0</div>
       </div>
       <div class="stat-rev-card">
         <div style="font-size:0.75rem; color:var(--text-muted); font-weight:700;">לקוחות רשומים במועדון</div>
         <div class="stat-rev-value" id="statClubCount">0</div>
-        <div class="stat-rev-sub">זמינים לקבלת תפוצה ותזכורות</div>
+        <div class="stat-rev-sub" id="statAvgVisitsSub">ממוצע 0.0 תורים ללקוח</div>
       </div>
     </div>
 
-    <!-- לשוניות -->
+    <!-- 6 לשוניות מסודרות ונקיות -->
     <div class="admin-tabs-bar">
-      <button type="button" class="admin-tab-btn active" id="tabbtn-cal" onclick="switchTab('cal')">📅 יומן וסטטוס הגעה</button>
-      <button type="button" class="admin-tab-btn" id="tabbtn-sms" onclick="switchTab('sms')">📩 מערכת SMS, תזכורות וסטטיסטיקות</button>
-      <button type="button" class="admin-tab-btn" id="tabbtn-portfolio" onclick="switchTab('portfolio')">📸 תיק עבודות</button>
+      <button type="button" class="admin-tab-btn active" id="tabbtn-cal" onclick="switchTab('cal')">📅 יומן תורים חי</button>
+      <button type="button" class="admin-tab-btn" id="tabbtn-analytics" onclick="switchTab('analytics')">📊 סטטיסטיקות ודוחות</button>
+      <button type="button" class="admin-tab-btn" id="tabbtn-sms" onclick="switchTab('sms')">📩 מערכת SMS ותזכורות</button>
+      <button type="button" class="admin-tab-btn" id="tabbtn-portfolio" onclick="switchTab('portfolio')">📸 העלאת תמונות (<span id="tabPhotoCount">6</span>)</button>
       <button type="button" class="admin-tab-btn" id="tabbtn-edit" onclick="switchTab('edit')">✂️ מחירון וכותרת</button>
       <button type="button" class="admin-tab-btn" id="tabbtn-hours" onclick="switchTab('hours')">🕒 שעות פעילות</button>
     </div>
 
-    <!-- לשונית 1: יומן תורים עם סטטוסים (ירוק = אושר, אפור = ממתין, אדום = בוטל) -->
+    <!-- לשונית 1: יומן תורים חי -->
     <div id="tab-cal" class="panel-box">
       <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
-        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-          <span class="status-pill confirmed">🟢 אושר ע"י הלקוח</span>
-          <span class="status-pill pending">⚪ ממתין לאישור הגעה</span>
+        <div style="display:flex; gap:7px; align-items:center; flex-wrap:wrap;">
+          <span class="status-pill confirmed">🟢 אושר</span>
+          <span class="status-pill pending">⚪ ממתין לאישור</span>
           <span class="status-pill canceled">🔴 בוטל</span>
+          <span class="status-pill noshow">🟠 לא הגיע</span>
         </div>
-        <div style="display:flex; gap:10px; align-items:center;">
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
           <label style="font-size:0.8rem; color:#cbd5e1; cursor:pointer;">
-            <input type="checkbox" id="showCanceledInCal" checked onchange="renderCalendarBoard()" /> הצג תורים שבוטלו (באדום)
+            <input type="checkbox" id="showCanceledInCal" checked onchange="renderCalendarBoard()" /> הצג תורים שבוטלו
           </label>
           <button type="button" class="btn-outline" style="padding:6px 12px; font-size:0.78rem; border-color:#10b981; color:#34d399;" onclick="triggerManualRemindersNow()">⏰ שלח תזכורת SMS לתורים הקרובים</button>
         </div>
@@ -98,37 +116,56 @@
       <div class="cal-grid-scroll"><div class="cal-board cols-7" id="calendarBoard"></div></div>
     </div>
 
-    <!-- לשונית 2: מערכת SMS חכמה, מונה הודעות לפי הזזות/תזכורות, תפוצה והיסטוריה -->
-    <div id="tab-sms" class="panel-box" style="display:none;">
-      <!-- לוח מונה הודעות וסטטיסטיקות חכם -->
-      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:10px; margin-bottom:16px;">
-        <div class="hub-card" style="text-align:center;">
-          <div style="font-size:0.74rem; color:var(--text-muted);">מכסת חבילת SMS</div>
-          <div style="font-size:1.3rem; font-weight:900; color:#fff;" id="smsBoxQuota">1,000</div>
+    <!-- לשונית 2: מערכת סטטיסטיקות מלאה, גרפים וייצוא ל-Excel/CSV -->
+    <div id="tab-analytics" class="panel-box" style="display:none;">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.08);">
+        <div>
+          <h3 style="font-size:1.15rem; font-weight:900; color:var(--gold-bright);">📊 מרכז סטטיסטיקות, גרפים ודוחות אמת</h3>
+          <p style="font-size:0.78rem; color:var(--text-muted);">כל הנתונים מחושבים בזמן אמת מתוך מסד הנתונים של היומן, הלקוחות והודעות ה-SMS/WhatsApp</p>
         </div>
-        <div class="hub-card" style="text-align:center; border-color:#10b981;">
-          <div style="font-size:0.74rem; color:#34d399;">נותרו בחבילה</div>
-          <div style="font-size:1.3rem; font-weight:900; color:#34d399;" id="smsBoxRemaining">1,000</div>
-        </div>
-        <div class="hub-card" style="text-align:center;">
-          <div style="font-size:0.74rem; color:var(--gold-bright);">סה"כ נשלחו בהצלחה</div>
-          <div style="font-size:1.3rem; font-weight:900; color:var(--gold-bright);" id="smsBoxSent">0</div>
-        </div>
-        <div class="hub-card" style="text-align:center; border-color:#ef4444;">
-          <div style="font-size:0.74rem; color:#fca5a5;">הודעות שנכשלו</div>
-          <div style="font-size:1.3rem; font-weight:900; color:#fca5a5;" id="smsBoxFailed">0</div>
-        </div>
-        <div class="hub-card" style="text-align:center;">
-          <div style="font-size:0.72rem; color:#cbd5e1;">לפי שימוש (יח' SMS)</div>
-          <div style="font-size:0.75rem; font-weight:800; color:var(--gold-bright); margin-top:4px;" id="smsBoxBreakdown">הזזות: 0 | תזכורות: 0 | תפוצה: 0</div>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <select id="analyticsPeriodSelect" class="input-field" style="width:auto; margin:0; padding:7px 12px;" onchange="renderAnalyticsDashboard()">
+            <option value="all">כל התקופות</option>
+            <option value="day">היום (24 שעות)</option>
+            <option value="week">השבוע האחרון</option>
+            <option value="month">החודש האחרון</option>
+            <option value="year">השנה האחרונה</option>
+          </select>
+          <button type="button" class="btn-gold" style="padding:8px 14px; font-size:0.82rem;" onclick="exportFullReportToCSV()">📥 ייצוא דוח ל-Excel / CSV</button>
         </div>
       </div>
 
+      <!-- א. סטטיסטיקות תורים -->
+      <h4 style="font-size:0.92rem; font-weight:900; color:#fff; margin-bottom:8px;">📅 סטטיסטיקות תורים</h4>
+      <div class="kpi-mini-grid" id="kpiAppointmentsGrid"></div>
+
+      <!-- ב. סטטיסטיקות לקוחות -->
+      <h4 style="font-size:0.92rem; font-weight:900; color:#fff; margin-bottom:8px;">👥 סטטיסטיקות לקוחות</h4>
+      <div class="kpi-mini-grid" id="kpiClientsGrid"></div>
+
+      <!-- ג. סטטיסטיקות SMS ו-WhatsApp -->
+      <h4 style="font-size:0.92rem; font-weight:900; color:#fff; margin-bottom:8px;">💬 סטטיסטיקות SMS ו-WhatsApp</h4>
+      <div class="kpi-mini-grid" id="kpiMessagesGrid"></div>
+
+      <!-- ד. גרפים ויזואליים -->
+      <div class="charts-grid-2">
+        <div class="chart-card">
+          <div style="font-size:0.84rem; font-weight:800; color:var(--gold-bright); margin-bottom:8px;">גרף תורים לפי ימים בשבוע</div>
+          <canvas id="chartApptsByDay" height="190"></canvas>
+        </div>
+        <div class="chart-card">
+          <div style="font-size:0.84rem; font-weight:800; color:var(--gold-bright); margin-bottom:8px;">פילוח אישורי הגעה, ביטולים והודעות</div>
+          <canvas id="chartStatusBreakdown" height="190"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- לשונית 3: מערכת SMS, תזכורות, לקוחות והיסטוריה -->
+    <div id="tab-sms" class="panel-box" style="display:none;">
       <div class="sms-hub-grid">
-        <!-- שליחת תפוצה לכלל המשתמשים -->
         <div class="hub-card">
-          <h3 style="font-size:1.05rem; font-weight:900; color:var(--gold-bright); margin-bottom:6px;">📣 שליחת הודעת SMS לכלל המשתמשים הרשומים</h3>
-          <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">ניתן לשלב <code>{שם}</code> להכנסת שם הלקוח אוטומטית.</p>
+          <h3 style="font-size:1.05rem; font-weight:900; color:var(--gold-bright); margin-bottom:6px;">📣 שליחת הודעת SMS לכלל הלקוחות הרשומים</h3>
+          <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">שלב <code>{שם}</code> להכנסת שם הלקוח אוטומטית.</p>
           <textarea id="broadcastInput" class="input-field" placeholder="אהלן {שם}, פתחנו תורים חדשים להשבוע במספרה של עיליי!"></textarea>
           <button type="button" class="btn-gold" style="width:100%; padding:12px;" onclick="sendBroadcastToAll()">שלח SMS לכלל הלקוחות (<span id="btnBroadcastCount">0</span>)</button>
 
@@ -137,9 +174,8 @@
           <div class="users-list-scroll" id="smsHistoryContainer" style="max-height:210px;"></div>
         </div>
 
-        <!-- רשימת לקוחות ומעקב -->
         <div class="hub-card">
-          <h3 style="font-size:1.05rem; font-weight:900; margin-bottom:8px;">👥 לקוחות רשומים במועדון (<span id="clubListCount">0</span>)</h3>
+          <h3 style="font-size:1.05rem; font-weight:900; margin-bottom:8px;">👥 ניהול לקוחות והיסטוריית ביקורים (<span id="clubListCount">0</span>)</h3>
           <div style="display:grid; grid-template-columns:1fr 1fr auto; gap:6px; margin-bottom:10px;">
             <input type="text" id="manualClubName" class="input-field" style="margin:0;" placeholder="שם מלא ייחודי" />
             <input type="tel" id="manualClubPhone" class="input-field" style="margin:0;" placeholder="טלפון נייד" />
@@ -149,32 +185,54 @@
         </div>
       </div>
 
-      <!-- הגדרות חיבור API + כמות שעות לתזכורת אוטומטית + מכסת חבילה -->
       <div class="hub-card">
-        <h3 style="font-size:1.02rem; font-weight:900; color:var(--gold-bright); margin-bottom:10px;">⚙️ הגדרות TextMe API, מכסת חבילה ותזכורת אוטומטית לפני תור</h3>
-        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(175px, 1fr)); gap:10px;">
+        <h3 style="font-size:1.02rem; font-weight:900; color:var(--gold-bright); margin-bottom:10px;">⚙️ הגדרות TextMe API, מכסת חבילה ותזכורת אוטומטית</h3>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(165px, 1fr)); gap:10px;">
           <div><label style="font-size:0.74rem; color:#94a3b8;">ספק SMS:</label><select id="smsProviderSelect" class="input-field"><option value="textme">TextMe (ישראל)</option><option value="clicksend">ClickSend</option><option value="twilio">Twilio</option></select></div>
           <div><label style="font-size:0.74rem; color:#94a3b8;">שם שולח (עד 11 תווים):</label><input type="text" id="smsSenderIdInput" class="input-field" value="Ilay" /></div>
           <div><label style="font-size:0.74rem; color:#94a3b8;">שם משתמש ב-TextMe:</label><input type="text" id="smsApiUserInput" class="input-field" placeholder="Username / Email" /></div>
           <div><label style="font-size:0.74rem; color:#94a3b8;">מפתח API Token:</label><input type="password" id="smsApiKeyInput" class="input-field" placeholder="Bearer Token" /></div>
-          <div><label style="font-size:0.74rem; color:#94a3b8;">כמות הודעות בחבילה שלך:</label><input type="number" id="smsQuotaInput" class="input-field" value="1000" /></div>
-          <div><label style="font-size:0.74rem; color:#94a3b8;">תזכורת אוטומטית (שעות לפני תור):</label><input type="number" id="reminderHoursInput" class="input-field" value="3" min="1" max="48" /></div>
+          <div><label style="font-size:0.74rem; color:#94a3b8;">מכסת הודעות בחבילה:</label><input type="number" id="smsQuotaInput" class="input-field" value="1000" /></div>
+          <div><label style="font-size:0.74rem; color:#94a3b8;">תזכורת (שעות לפני תור):</label><input type="number" id="reminderHoursInput" class="input-field" value="3" min="1" max="48" /></div>
         </div>
         <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:8px;">
-          <button type="button" class="btn-gold" style="flex:1;" onclick="saveSmsSettings()">💾 שמור הגדרות SMS וחבילה</button>
+          <button type="button" class="btn-gold" style="flex:1;" onclick="saveSmsSettings()">💾 שמור הגדרות SMS</button>
           <button type="button" class="btn-outline" onclick="sendTrackedSms(siteConfig.barberPhone, 'בדיקה', 'בדיקת מערכת SMS מאת Ilay Barbershop', 'booking').then(ok=>showToast(ok?'נשלח בהצלחה!':'נכשל - בדוק מפתחות'))">📨 שלח SMS בדיקה</button>
         </div>
       </div>
     </div>
 
-    <!-- לשונית 3: תיק עבודות -->
+    <!-- לשונית 4: מערכת העלאת תמונות מתקדמת מהמכשיר עם תצוגה מקדימה לפני שמירה -->
     <div id="tab-portfolio" class="panel-box" style="display:none;">
-      <h3 style="font-size:1.08rem; font-weight:900; color:var(--gold-bright); margin-bottom:10px;">ניהול תמונות תיק עבודות</h3>
-      <input type="text" id="newPhotoUrlInput" class="input-field" placeholder="הדבק קישור לתמונה או העלה מהמכשיר..." />
-      <div id="adminPortfolioGrid" class="portfolio-grid" style="margin-top:12px;"></div>
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
+        <div>
+          <h3 style="font-size:1.1rem; font-weight:900; color:var(--gold-bright);">📸 העלאת תמונות מהמכשיר וניהול תיק עבודות</h3>
+          <p style="font-size:0.8rem; color:var(--text-muted);">בחר תמונות מהטלפון או מהמחשב, צפה בתצוגה מקדימה ושמור ישירות למאגר המסונכרן (נשמר גם אחרי רענון)</p>
+        </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <label for="devicePhotoUploadInput" class="btn-gold" style="cursor:pointer;">📁 בחר תמונות מהמכשיר (טלפון / מחשב)</label>
+          <input type="file" id="devicePhotoUploadInput" class="sr-file-input" accept="image/*" multiple onchange="previewSelectedDevicePhotos(event)" />
+          <input type="file" id="replaceSinglePhotoInput" class="sr-file-input" accept="image/*" onchange="confirmReplaceSinglePhoto(event)" />
+        </div>
+      </div>
+
+      <!-- אזור תצוגה מקדימה לפני שמירה -->
+      <div id="photoPreviewStagingBox" class="hub-card" style="display:none; margin-bottom:16px; border-color:#10b981;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
+          <strong style="color:#34d399; font-size:0.92rem;">✨ תצוגה מקדימה לפני שמירה (<span id="stagingCount">0</span> תמונות נבחרו)</strong>
+          <div style="display:flex; gap:8px;">
+            <button type="button" class="btn-gold" style="padding:7px 14px; font-size:0.8rem;" onclick="commitStagedPhotos(false)">✅ שמור והוסף לתיק העבודות</button>
+            <button type="button" class="btn-outline" style="padding:7px 14px; font-size:0.8rem;" onclick="commitStagedPhotos(true)">🔄 החלף את כל התיק בתמונות אלו</button>
+            <button type="button" class="btn-outline" style="padding:7px 12px; font-size:0.8rem; border-color:#ef4444; color:#fca5a5;" onclick="cancelStagedPhotos()">ביטול</button>
+          </div>
+        </div>
+        <div class="portfolio-grid" id="stagingPreviewGrid"></div>
+      </div>
+
+      <div id="adminPortfolioGrid" class="portfolio-grid"></div>
     </div>
 
-    <!-- לשונית 4: מחירון וכותרת -->
+    <!-- לשונית 5: מחירון וכותרת -->
     <div id="tab-edit" class="panel-box" style="display:none;">
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px;">
         <input type="text" id="editSiteTitle" class="input-field" placeholder="כותרת האתר" />
@@ -184,7 +242,7 @@
       <button type="button" class="btn-gold" style="width:100%; margin-top:12px;" onclick="saveServicesAndTitles()">שמור מחירון וכותרות</button>
     </div>
 
-    <!-- לשונית 5: שעות פעילות -->
+    <!-- לשונית 6: שעות פעילות -->
     <div id="tab-hours" class="panel-box" style="display:none;">
       <div id="hoursEditorRows" style="display:flex; flex-direction:column; gap:8px; margin-bottom:14px;"></div>
       <button type="button" class="btn-gold" style="width:100%;" onclick="saveHoursSettings()">שמור שעות פעילות</button>
@@ -217,6 +275,10 @@
       { u: "aridev", p: "5354633", label: "AriDev" }
     ];
     let boardFilterMode = "all";
+    let stagedPhotosData = [];
+    let replaceTargetPhotoIdx = null;
+    let chartDaysInstance = null;
+    let chartStatusInstance = null;
 
     function showToast(msg) {
       const t = document.getElementById("toastPopup");
@@ -244,11 +306,61 @@
     function switchTab(tab) {
       document.querySelectorAll(".admin-tab-btn").forEach(b => b.classList.remove("active"));
       document.getElementById("tabbtn-" + tab)?.classList.add("active");
-      ["cal", "sms", "portfolio", "edit", "hours"].forEach(t => {
+      ["cal", "analytics", "sms", "portfolio", "edit", "hours"].forEach(t => {
         document.getElementById("tab-" + t).style.display = t === tab ? "block" : "none";
+      });
+      if (tab === "analytics") renderAnalyticsDashboard();
+    }
+
+    // --- פעמון התראות חכם בזמן אמת ---
+    function toggleNotifDrawer() {
+      document.getElementById("notifDrawer").classList.toggle("open");
+    }
+
+    function renderNotificationsBell() {
+      const unread = adminNotifications.filter(n => !n.read).length;
+      const badge = document.getElementById("notifUnreadBadge");
+      badge.textContent = unread;
+      badge.classList.toggle("show", unread > 0);
+
+      const list = document.getElementById("notifListContainer");
+      if (!adminNotifications.length) {
+        list.innerHTML = `<div style="padding:16px; text-align:center; color:var(--text-muted); font-size:0.82rem;">אין התראות חדשות כרגע.</div>`;
+        return;
+      }
+      list.innerHTML = "";
+      adminNotifications.slice(0, 40).forEach(n => {
+        const item = document.createElement("div");
+        item.className = "notif-item" + (!n.read ? " unread" : "");
+        item.innerHTML = `
+          <div style="display:flex; justify-content:space-between; font-size:0.78rem; font-weight:900; color:var(--gold-bright);">
+            <span>${sanitizeStr(n.title, 45)}</span>
+            <span style="font-size:0.68rem; color:#94a3b8;">${n.timeStr || ""}</span>
+          </div>
+          <div style="font-size:0.8rem; color:#f8fafc; margin-top:3px;">${sanitizeStr(n.message, 120)}</div>
+        `;
+        item.onclick = () => {
+          n.read = true;
+          saveAllStateLocally();
+          renderNotificationsBell();
+          document.getElementById("notifDrawer").classList.remove("open");
+          if (n.dayIdx !== null && n.dayIdx !== undefined) {
+            boardFilterMode = Number(n.dayIdx);
+            switchTab("cal");
+            renderCalendarBoard();
+          }
+        };
+        list.appendChild(item);
       });
     }
 
+    function markAllNotifsRead() {
+      adminNotifications.forEach(n => { n.read = true; });
+      saveAllStateLocally();
+      renderNotificationsBell();
+    }
+
+    // --- יומן תורים וסטטוסים ---
     function generateCalendarHours() {
       const step = Math.max(10, (Number(siteConfig.slotInterval) || 30) + (Number(siteConfig.slotBuffer) || 0));
       const out = [];
@@ -259,18 +371,17 @@
       return out.sort();
     }
 
-    // מעבר סטטוס תור מהיר בלחיצה (אפור = ממתין -> ירוק = אושר)
-    function toggleApptStatusAdmin(apptId, ev) {
+    function cycleApptStatusAdmin(apptId, ev) {
       if (ev) ev.stopPropagation();
       const appt = appointments.find(a => a.id === apptId);
       if (!appt) return;
-      appt.status = appt.status === "confirmed" ? "pending" : "confirmed";
+      const order = ["pending", "confirmed", "noshow"];
+      const next = order[(order.indexOf(appt.status || "pending") + 1) % order.length];
+      appt.status = next;
       broadcastCloudState();
       renderAllAdmin();
-      showToast(`סטטוס התור של ${appt.name} עודכן ל-${appt.status === "confirmed" ? "אושר (ירוק)" : "ממתין לאישור (אפור)"}`);
     }
 
-    // הזזת תור ושליחת SMS אוטומטית + חישוב במונה הזזות
     async function moveAppointmentToSlot(apptId, newDayIdx, newTime) {
       const appt = appointments.find(a => a.id === apptId);
       if (!appt || (Number(appt.dayIdx) === Number(newDayIdx) && appt.time === newTime)) return;
@@ -281,37 +392,49 @@
       appt.dateStr = getFormattedDateForDayIdx(newDayIdx);
       appt.time = newTime;
       appt.startsAtMs = getTargetTimestamp(newDayIdx, newTime);
-      appt.status = "pending"; // חוזר לממתין לאישור לאחר הזזה
+      appt.status = "pending";
+      appt.movedCount = (Number(appt.movedCount) || 0) + 1;
       appt.reminderSent = false;
-      broadcastCloudState();
+
+      pushRealtimeNotification("moved", "תור הוזז ביומן", `התור של ${appt.name} הועבר ליום ${DAYS_HEB[newDayIdx]} (${appt.dateStr}) בשעה ${newTime}.`, appt.id, newDayIdx);
       renderAllAdmin();
 
       const publicUrl = `${window.location.origin}/ilay.html#personal-area`;
-      const msg = `אהלן ${appt.name}, עדכון מהמספרה של עיליי (Ilay Barbershop): התור שלך הוזז ליום ${DAYS_HEB[newDayIdx]} (${appt.dateStr}) בשעה ${newTime}. לאישור הגעה היכנס לאזור האישי: ${publicUrl}`;
-      await sendTrackedSms(appt.phone, appt.name, msg, "move", appt.id);
-      showToast(`התור של ${appt.name} הוזז ונשלחה הודעת SMS!`);
+      const msg = `אהלן ${appt.name}, עדכון מ-Ilay Barbershop: התור שלך הוזז ליום ${DAYS_HEB[newDayIdx]} (${appt.dateStr}) בשעה ${newTime}. לאישור הגעה: ${publicUrl}`;
+      await sendTrackedSms(appt.phone, appt.name, msg, "move", appt.id, "sms");
+      showToast(`התור של ${appt.name} הוזז ונשלח SMS!`);
     }
 
-    // ביטול תור -> מסמן באדום (בוטל) ביומן ושולח SMS ביטול
     async function cancelAppointmentAdmin(apptId, ev) {
       if (ev) ev.stopPropagation();
       const appt = appointments.find(a => a.id === apptId);
       if (!appt) return;
       if (appt.status === "canceled") {
-        // מחיקה סופית אם כבר בוטל
         appointments = appointments.filter(a => a.id !== apptId);
         broadcastCloudState();
         renderAllAdmin();
         return;
       }
       appt.status = "canceled";
-      broadcastCloudState();
+      appt.canceledAt = Date.now();
+      pushRealtimeNotification("canceled", "תור בוטל ביומן", `התור של ${appt.name} ליום ${DAYS_HEB[appt.dayIdx]} בשעה ${appt.time} בוטל.`, appt.id, appt.dayIdx);
       renderAllAdmin();
 
       const dateStr = appt.dateStr || getFormattedDateForDayIdx(appt.dayIdx);
-      const msg = `אהלן ${appt.name}, הודעה מהמספרה של עיליי (Ilay Barbershop): התור שלך ליום ${DAYS_HEB[appt.dayIdx]} (${dateStr}) בשעה ${appt.time} בוטל. לקביעת מועד חדש היכנס לאתר המספרה.`;
-      await sendTrackedSms(appt.phone, appt.name, msg, "cancel", appt.id);
-      showToast(`התור של ${appt.name} סומן כבוטל (אדום) ונשלח SMS!`);
+      const msg = `אהלן ${appt.name}, הודעה מ-Ilay Barbershop: התור שלך ליום ${DAYS_HEB[appt.dayIdx]} (${dateStr}) בשעה ${appt.time} בוטל. לקביעת מועד חדש היכנס לאתר.`;
+      await sendTrackedSms(appt.phone, appt.name, msg, "cancel", appt.id, "sms");
+      showToast(`התור של ${appt.name} סומן כבוטל ונשלח SMS!`);
+    }
+
+    function sendWhatsappFromCard(apptId, ev) {
+      if (ev) ev.stopPropagation();
+      const appt = appointments.find(a => a.id === apptId);
+      if (!appt) return;
+      const dateStr = appt.dateStr || getFormattedDateForDayIdx(appt.dayIdx);
+      const msg = `אהלן ${appt.name}, תזכורת מ-Ilay Barbershop לתור שלך ביום ${DAYS_HEB[appt.dayIdx]} (${dateStr}) בשעה ${appt.time}. נתראה!`;
+      sendTrackedSms(appt.phone, appt.name, msg, "reminder", appt.id, "whatsapp");
+      const clean = appt.phone.replace(/[^0-9]/g, "").replace(/^0/, "972");
+      window.open(`https://wa.me/${clean}?text=${encodeURIComponent(msg)}`, "_blank");
     }
 
     function renderCalendarBoard() {
@@ -341,8 +464,6 @@
         activeDays.forEach(dIdx => {
           const slot = document.createElement("div");
           slot.className = "cal-slot";
-          slot.dataset.dayIdx = dIdx;
-          slot.dataset.time = hourStr;
           slot.ondragover = e => { e.preventDefault(); slot.classList.add("drag-over"); };
           slot.ondragleave = () => slot.classList.remove("drag-over");
           slot.ondrop = e => {
@@ -355,26 +476,28 @@
           if (slotAppts.length) {
             slotAppts.forEach(appt => {
               const st = appt.status || "pending";
-              const stLabel = st === "confirmed" ? "🟢 אושר" : st === "canceled" ? "🔴 בוטל" : "⚪ ממתין לאישור";
+              const stLabel = st === "confirmed" ? "🟢 אושר" : st === "canceled" ? "🔴 בוטל" : st === "noshow" ? "🟠 לא הגיע" : "⚪ ממתין";
               const card = document.createElement("div");
               card.className = `appt-card status-${st}`;
               card.draggable = st !== "canceled";
               card.ondragstart = e => e.dataTransfer.setData("text/plain", appt.id);
               card.innerHTML = `
                 <div class="appt-top">
-                  <button type="button" class="appt-btn-mini" onclick="toggleApptStatusAdmin('${appt.id}', event)" title="לחץ לשינוי סטטוס הגעה">${stLabel}</button>
-                  <button type="button" class="appt-btn-mini" style="color:#fca5a5;" onclick="cancelAppointmentAdmin('${appt.id}', event)" title="ביטול תור">✕</button>
+                  <button type="button" class="appt-btn-mini" onclick="cycleApptStatusAdmin('${appt.id}', event)" title="לחץ לשינוי סטטוס (ממתין / אושר / לא הגיע)">${stLabel}</button>
+                  <div style="display:flex; gap:3px;">
+                    <button type="button" class="appt-btn-mini" style="color:#34d399;" onclick="sendWhatsappFromCard('${appt.id}', event)" title="שלח WhatsApp">WA</button>
+                    <button type="button" class="appt-btn-mini" style="color:#fca5a5;" onclick="cancelAppointmentAdmin('${appt.id}', event)" title="ביטול תור">✕</button>
+                  </div>
                 </div>
-                <div style="font-weight:900; font-size:0.86rem; color:#fff;">${sanitizeStr(appt.name, 30)}</div>
-                <div style="font-size:0.75rem; color:#93c5fd; direction:ltr; text-align:right;">${sanitizeStr(appt.phone, 15)}</div>
-                <div style="font-size:0.72rem; color:var(--gold-bright);">${sanitizeStr(appt.service, 40)}</div>
-                ${appt.reminderSent ? `<div style="font-size:0.65rem; color:#34d399; margin-top:2px;">✓ נשלחה תזכורת SMS</div>` : ""}
+                <div style="font-weight:900; font-size:0.85rem; color:#fff;">${sanitizeStr(appt.name, 28)}</div>
+                <div style="font-size:0.74rem; color:#93c5fd; direction:ltr; text-align:right;">${sanitizeStr(appt.phone, 15)}</div>
+                <div style="font-size:0.71rem; color:var(--gold-bright);">${sanitizeStr(appt.service, 40)}</div>
               `;
               slot.appendChild(card);
             });
           } else {
             const empty = document.createElement("div");
-            empty.style.cssText = "text-align:center; font-size:0.75rem; color:rgba(148,163,184,0.6); cursor:pointer; padding:16px 4px;";
+            empty.style.cssText = "text-align:center; font-size:0.74rem; color:rgba(148,163,184,0.6); cursor:pointer; padding:16px 4px;";
             empty.textContent = "+ פנוי";
             empty.onclick = () => { openManualAddModal(); document.getElementById("manualDaySelect").value = String(dIdx); document.getElementById("manualHourSelect").value = hourStr; };
             slot.appendChild(empty);
@@ -384,34 +507,196 @@
       });
     }
 
+    // --- מערכת העלאת תמונות מהמכשיר עם תצוגה מקדימה לפני שמירה ---
+    async function previewSelectedDevicePhotos(ev) {
+      const files = Array.from(ev.target.files || []);
+      if (!files.length) return;
+      stagedPhotosData = [];
+      for (const file of files) {
+        stagedPhotosData.push(await compressImageFile(file));
+      }
+      ev.target.value = "";
+      document.getElementById("stagingCount").textContent = stagedPhotosData.length;
+      const previewGrid = document.getElementById("stagingPreviewGrid");
+      previewGrid.innerHTML = "";
+      stagedPhotosData.forEach((src, i) => {
+        previewGrid.innerHTML += `<div class="photo-card"><div class="photo-inner"><img src="${src}" alt="תצוגה מקדימה ${i + 1}" /></div><div class="photo-tag"><span>תצוגה מקדימה #${i + 1}</span></div></div>`;
+      });
+      document.getElementById("photoPreviewStagingBox").style.display = "block";
+    }
+
+    async function commitStagedPhotos(replaceAll) {
+      if (!stagedPhotosData.length) return;
+      if (replaceAll) portfolioList = [...stagedPhotosData];
+      else portfolioList.push(...stagedPhotosData);
+      stagedPhotosData = [];
+      document.getElementById("photoPreviewStagingBox").style.display = "none";
+      await savePortfolioLocally(portfolioList);
+      broadcastPortfolioToCloud(portfolioList);
+      renderPortfolioAdmin();
+      showToast("התמונות נשמרו ומסונכרנות כעת באתר הלקוחות!");
+    }
+
+    function cancelStagedPhotos() {
+      stagedPhotosData = [];
+      document.getElementById("photoPreviewStagingBox").style.display = "none";
+    }
+
+    function triggerReplacePhoto(idx) {
+      replaceTargetPhotoIdx = idx;
+      document.getElementById("replaceSinglePhotoInput").click();
+    }
+
+    async function confirmReplaceSinglePhoto(ev) {
+      const file = ev.target.files?.[0];
+      if (!file || replaceTargetPhotoIdx === null) return;
+      const compressed = await compressImageFile(file);
+      portfolioList[replaceTargetPhotoIdx] = compressed;
+      replaceTargetPhotoIdx = null;
+      ev.target.value = "";
+      await savePortfolioLocally(portfolioList);
+      broadcastPortfolioToCloud(portfolioList);
+      renderPortfolioAdmin();
+      showToast("התמונה הוחלפה ועודכנה באתר!");
+    }
+
+    async function deletePortfolioPhoto(idx) {
+      if (portfolioList.length <= 1) return showToast("חייבת להישאר לפחות תמונה אחת בתיק");
+      portfolioList.splice(idx, 1);
+      await savePortfolioLocally(portfolioList);
+      broadcastPortfolioToCloud(portfolioList);
+      renderPortfolioAdmin();
+      showToast("התמונה נמחקה ועודכנה באתר!");
+    }
+
+    function renderPortfolioAdmin() {
+      document.getElementById("tabPhotoCount").textContent = portfolioList.length;
+      const grid = document.getElementById("adminPortfolioGrid");
+      grid.innerHTML = "";
+      portfolioList.forEach((src, i) => {
+        const fallback = DEFAULT_PORTFOLIO[i % DEFAULT_PORTFOLIO.length];
+        grid.innerHTML += `
+          <div class="photo-card">
+            <div class="photo-inner"><img src="${src}" alt="תמונה ${i + 1}" onerror="this.onerror=null;this.src='${fallback}'" /></div>
+            <div class="photo-tag">
+              <button type="button" class="appt-btn-mini" onclick="triggerReplacePhoto(${i})">🔄 החלף</button>
+              <button type="button" class="appt-btn-mini" style="color:#fca5a5;" onclick="deletePortfolioPhoto(${i})">🗑️ מחק</button>
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    // --- מרכז סטטיסטיקות מלא, גרפים וייצוא ל-Excel / CSV ---
+    function renderAnalyticsDashboard() {
+      const period = document.getElementById("analyticsPeriodSelect")?.value || "all";
+      const data = computeComprehensiveAnalytics(period);
+      const A = data.appts, C = data.clients, M = data.messages;
+
+      document.getElementById("kpiAppointmentsGrid").innerHTML = `
+        <div class="kpi-mini-box"><strong>${A.totalAppts}</strong><span>סה"כ תורים</span></div>
+        <div class="kpi-mini-box"><strong>${A.todayAppts}</strong><span>תורים היום</span></div>
+        <div class="kpi-mini-box"><strong>${A.weekAppts}</strong><span>תורים השבוע</span></div>
+        <div class="kpi-mini-box"><strong>${A.monthAppts}</strong><span>צפי תורים החודש</span></div>
+        <div class="kpi-mini-box"><strong>${A.futureAppts}</strong><span>תורים עתידיים</span></div>
+        <div class="kpi-mini-box"><strong>${A.completedAppts}</strong><span>תורים שהסתיימו</span></div>
+        <div class="kpi-mini-box"><strong style="color:#fca5a5;">${A.canceledAppts}</strong><span>תורים שבוטלו (${A.cancelRate}%)</span></div>
+        <div class="kpi-mini-box"><strong>${A.movedAppts}</strong><span>תורים שהוזזו</span></div>
+        <div class="kpi-mini-box"><strong style="color:#fde68a;">${A.noShowAppts}</strong><span>לא הגיעו</span></div>
+        <div class="kpi-mini-box"><strong style="color:#34d399;">${A.confirmationRate}%</strong><span>אחוז אישורי הגעה</span></div>
+        <div class="kpi-mini-box"><strong style="color:#34d399;">${A.arrivalRate}%</strong><span>אחוז הגעה בפועל</span></div>
+      `;
+
+      document.getElementById("kpiClientsGrid").innerHTML = `
+        <div class="kpi-mini-box"><strong>${C.totalClients}</strong><span>סה"כ לקוחות</span></div>
+        <div class="kpi-mini-box"><strong>${C.newClients}</strong><span>לקוחות חדשים</span></div>
+        <div class="kpi-mini-box"><strong style="color:#34d399;">${C.returningClients}</strong><span>לקוחות חוזרים</span></div>
+        <div class="kpi-mini-box"><strong>${C.activeClients}</strong><span>לקוחות פעילים</span></div>
+        <div class="kpi-mini-box"><strong style="color:#fca5a5;">${C.inactiveClients}</strong><span>לא קבעו זמן רב</span></div>
+        <div class="kpi-mini-box"><strong>${C.avgApptsPerClient}</strong><span>ממוצע תורים ללקוח</span></div>
+      `;
+
+      document.getElementById("kpiMessagesGrid").innerHTML = `
+        <div class="kpi-mini-box"><strong>${M.smsSent}</strong><span>SMS שנשלחו</span></div>
+        <div class="kpi-mini-box"><strong style="color:#34d399;">${M.smsDelivered}</strong><span>נמסרו בהצלחה</span></div>
+        <div class="kpi-mini-box"><strong style="color:#fca5a5;">${M.smsFailed}</strong><span>הודעות שנכשלו</span></div>
+        <div class="kpi-mini-box"><strong>${M.smsReceived}</strong><span>הודעות/אישורים שהתקבלו</span></div>
+        <div class="kpi-mini-box"><strong>${M.pendingRemindersQueue}</strong><span>ממתינות לתזכורת</span></div>
+        <div class="kpi-mini-box"><strong>${M.remindersSent}</strong><span>תזכורות שנשלחו</span></div>
+        <div class="kpi-mini-box"><strong style="color:#34d399;">${A.confirmedAppts}</strong><span>אישורי הגעה</span></div>
+        <div class="kpi-mini-box"><strong>${M.remaining}</strong><span>נותרו בחבילה</span></div>
+        <div class="kpi-mini-box"><strong>${M.estimatedCost} ₪</strong><span>עלות SMS משוערת</span></div>
+        <div class="kpi-mini-box"><strong>${M.totalPartsUsed} / ${M.waSent}</strong><span>חלוקת SMS / WhatsApp</span></div>
+      `;
+
+      if (window.Chart) {
+        const ctx1 = document.getElementById("chartApptsByDay")?.getContext("2d");
+        if (ctx1) {
+          if (chartDaysInstance) chartDaysInstance.destroy();
+          chartDaysInstance = new Chart(ctx1, {
+            type: "bar",
+            data: {
+              labels: DAYS_HEB,
+              datasets: [{ label: "תורים פעילים", data: A.apptsByDay, backgroundColor: "#d4af37", borderRadius: 6 }]
+            },
+            options: { responsive: true, plugins: { legend: { labels: { color: "#f8fafc" } } }, scales: { x: { ticks: { color: "#cbd5e1" } }, y: { ticks: { color: "#cbd5e1", stepSize: 1 } } } }
+          });
+        }
+
+        const ctx2 = document.getElementById("chartStatusBreakdown")?.getContext("2d");
+        if (ctx2) {
+          if (chartStatusInstance) chartStatusInstance.destroy();
+          chartStatusInstance = new Chart(ctx2, {
+            type: "doughnut",
+            data: {
+              labels: ["אושרו (ירוק)", "ממתינים (אפור)", "בוטלו (אדום)", "הוזזו", "SMS שנמסרו"],
+              datasets: [{ data: [A.confirmedAppts, A.pendingAppts, A.canceledAppts, A.movedAppts, M.smsDelivered], backgroundColor: ["#10b981", "#64748b", "#ef4444", "#3b82f6", "#d4af37"] }]
+            },
+            options: { responsive: true, plugins: { legend: { labels: { color: "#f8fafc" } } } }
+          });
+        }
+      }
+    }
+
+    function exportFullReportToCSV() {
+      let csv = "\uFEFFסוג רשומה,שם לקוח,טלפון,יום/תאריך,שעה,שירות/הודעה,סטטוס,מחיר\n";
+      appointments.forEach(a => {
+        csv += `תור,"${a.name}","${a.phone}","יום ${DAYS_HEB[a.dayIdx]} (${a.dateStr || ''})","${a.time}","${a.service}","${a.status || 'pending'}","${a.price || 0}"\n`;
+      });
+      registeredUsers.forEach(u => {
+        csv += `לקוח רשום,"${u.username}","${u.phone}","${u.createdAt || ''}","-","חבר מועדון","פעיל","-"\n`;
+      });
+      smsLogs.forEach(l => {
+        csv += `הודעת ${l.channel || 'SMS'},"${l.name}","${l.phone}","${l.time}","-","${(l.message || '').replace(/"/g, '""')}","${l.status}","${l.parts || 0}"\n`;
+      });
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Ilay_Barbershop_Report_${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast("הדוח המלא יוצא בהצלחה לקובץ Excel / CSV!");
+    }
+
     function renderStatsAndSmsHub() {
-      const activeAppts = appointments.filter(a => a.status !== "canceled");
-      const confirmedCount = activeAppts.filter(a => a.status === "confirmed").length;
-      const pendingCount = activeAppts.filter(a => !a.status || a.status === "pending").length;
-      const canceledCount = appointments.filter(a => a.status === "canceled").length;
-      const weeklyMoney = activeAppts.reduce((sum, a) => sum + (Number(a.price) || 70), 0);
+      const data = computeComprehensiveAnalytics("all");
+      const A = data.appts, C = data.clients, M = data.messages;
+      const weeklyMoney = appointments.filter(a => a.status !== "canceled").reduce((sum, a) => sum + (Number(a.price) || 70), 0);
 
       document.getElementById("statWeeklyMoney").textContent = `${weeklyMoney.toLocaleString()} ₪`;
-      document.getElementById("statWeeklyCount").textContent = `${activeAppts.length} תורים פעילים השבוע`;
-      document.getElementById("statConfirmedRatio").textContent = `🟢 ${confirmedCount} אושרו`;
-      document.getElementById("statPendingRatio").textContent = `⚪ ${pendingCount} ממתינים | 🔴 ${canceledCount} בוטלו`;
-      document.getElementById("statClubCount").textContent = registeredUsers.length;
-      document.getElementById("btnBroadcastCount").textContent = registeredUsers.length;
-      document.getElementById("clubListCount").textContent = registeredUsers.length;
+      document.getElementById("statWeeklyCount").textContent = `${A.weekAppts} תורים פעילים`;
+      document.getElementById("statConfirmedRatio").textContent = `🟢 ${A.confirmedAppts} אושרו (${A.confirmationRate}%)`;
+      document.getElementById("statPendingRatio").textContent = `⚪ ${A.pendingAppts} ממתינים | 🔴 ${A.canceledAppts} בוטלו`;
+      document.getElementById("statSmsRemaining").textContent = M.remaining.toLocaleString();
+      document.getElementById("statSmsSentSub").textContent = `נמסרו: ${M.smsDelivered} | נכשלו: ${M.smsFailed}`;
+      document.getElementById("statClubCount").textContent = C.totalClients;
+      document.getElementById("statAvgVisitsSub").textContent = `ממוצע ${C.avgApptsPerClient} תורים ללקוח`;
+      document.getElementById("btnBroadcastCount").textContent = C.totalClients;
+      document.getElementById("clubListCount").textContent = C.totalClients;
 
-      const smsStat = computeSmsAnalytics();
-      document.getElementById("statSmsRemaining").textContent = smsStat.remaining.toLocaleString();
-      document.getElementById("statSmsSentSub").textContent = `נשלחו: ${smsStat.sentParts} | נכשלו: ${smsStat.failedMsgs}`;
-      document.getElementById("smsBoxQuota").textContent = smsStat.quota.toLocaleString();
-      document.getElementById("smsBoxRemaining").textContent = smsStat.remaining.toLocaleString();
-      document.getElementById("smsBoxSent").textContent = smsStat.sentParts.toLocaleString();
-      document.getElementById("smsBoxFailed").textContent = smsStat.failedMsgs.toLocaleString();
-      document.getElementById("smsBoxBreakdown").textContent =
-        `הזזות: ${smsStat.byCategory.move} | תזכורות: ${smsStat.byCategory.reminder} | קביעה/ביטול: ${smsStat.byCategory.booking + smsStat.byCategory.cancel} | תפוצה: ${smsStat.byCategory.broadcast}`;
-
-      // היסטוריית SMS + כפתור שליחה חוזרת
       const histBox = document.getElementById("smsHistoryContainer");
-      histBox.innerHTML = smsLogs.length ? "" : `<div style="padding:14px; text-align:center; color:var(--text-muted); font-size:0.8rem;">עדיין לא נשלחו הודעות SMS.</div>`;
+      histBox.innerHTML = smsLogs.length ? "" : `<div style="padding:14px; text-align:center; color:var(--text-muted); font-size:0.8rem;">עדיין לא נשלחו הודעות.</div>`;
       smsLogs.slice(0, 60).forEach(l => {
         const row = document.createElement("div");
         row.className = "user-row";
@@ -421,21 +706,25 @@
             <div style="font-size:0.72rem; color:#94a3b8;">${sanitizeStr(l.message, 65)}</div>
           </div>
           <div style="display:flex; align-items:center; gap:6px;">
-            <span class="status-pill ${l.status === 'sent' ? 'confirmed' : 'canceled'}">${l.status === 'sent' ? 'נשלח' : 'נכשל'}</span>
-            ${l.status !== 'sent' ? `<button type="button" class="appt-btn-mini" onclick="retryFailedSmsLog('${l.id}').then(ok=>showToast(ok?'נשלח בהצלחה!':'נכשל שוב'))">🔄 שלח שוב</button>` : ""}
+            <span class="status-pill ${l.status === 'sent' || l.status === 'received' ? 'confirmed' : 'canceled'}">${l.status === 'sent' ? 'נמסר' : l.status === 'received' ? 'התקבל' : 'נכשל'}</span>
+            ${l.status === 'failed' ? `<button type="button" class="appt-btn-mini" onclick="retryFailedSmsLog('${l.id}').then(ok=>showToast(ok?'נשלח בהצלחה!':'נכשל שוב'))">🔄 שלח שוב</button>` : ""}
           </div>
         `;
         histBox.appendChild(row);
       });
 
-      // רשימת לקוחות רשומים
       const uBox = document.getElementById("clubUsersContainer");
       uBox.innerHTML = registeredUsers.length ? "" : `<div style="padding:16px; text-align:center; color:var(--text-muted); font-size:0.82rem;">אין לקוחות רשומים כרגע.</div>`;
       registeredUsers.forEach((u, idx) => {
+        const visits = C.visitCountsByPhone[toIsraeliLocalPhone(u.phone)] || 0;
         const r = document.createElement("div");
         r.className = "user-row";
         r.innerHTML = `
-          <div><strong style="font-size:0.86rem;">${sanitizeStr(u.username, 30)}</strong><div style="font-size:0.75rem; color:var(--gold-bright); direction:ltr;">${u.phone}</div></div>
+          <div>
+            <strong style="font-size:0.86rem;">${sanitizeStr(u.username, 30)}</strong>
+            <span style="font-size:0.72rem; color:#34d399; margin-right:6px;">(${visits} ביקורים)</span>
+            <div style="font-size:0.75rem; color:var(--gold-bright); direction:ltr;">${u.phone}</div>
+          </div>
           <button type="button" class="appt-btn-mini" style="color:#fca5a5;" onclick="registeredUsers.splice(${idx},1);broadcastCloudState();renderAllAdmin();">הסר</button>
         `;
         uBox.appendChild(r);
@@ -445,7 +734,7 @@
     async function triggerManualRemindersNow() {
       const count = await checkAndSendUpcomingReminders(true);
       renderAllAdmin();
-      showToast(count > 0 ? `נשלחו ${count} תזכורות SMS לתורים הקרובים!` : "אין תורים ממתינים בטווח הקרוב שטרם קיבלו תזכורת.");
+      showToast(count > 0 ? `נשלחו ${count} תזכורות SMS לתורים הקרובים!` : "כל התורים הממתינים כבר קיבלו תזכורת.");
     }
 
     function addManualClubUser() {
@@ -468,7 +757,7 @@
       let okCount = 0;
       for (const u of registeredUsers) {
         const msg = raw.replace(/\{שם\}/g, u.username || "");
-        const ok = await sendTrackedSms(u.phone, u.username, msg, "broadcast");
+        const ok = await sendTrackedSms(u.phone, u.username, msg, "broadcast", null, "sms");
         if (ok) okCount++;
       }
       renderAllAdmin();
@@ -484,7 +773,7 @@
       siteConfig.reminderHoursBefore = Math.max(1, Number(document.getElementById("reminderHoursInput").value) || 3);
       broadcastCloudState();
       renderAllAdmin();
-      showToast("הגדרות ה-SMS, מכסת החבילה ושעות התזכורת נשמרו!");
+      showToast("הגדרות ה-SMS נשמרו!");
     }
 
     function openManualAddModal() {
@@ -502,13 +791,18 @@
       const phone = toIsraeliLocalPhone(document.getElementById("manualPhoneInput").value);
       if (name.length < 2 || phone.length < 9) return showToast("נא להזין שם מלא וטלפון תקין");
 
+      if (appointments.some(a => Number(a.dayIdx) === dayIdx && a.time === time && a.status !== "canceled")) {
+        return showToast("השעה הזו כבר תפוסה ביומן!");
+      }
+
       const dateStr = getFormattedDateForDayIdx(dayIdx);
       const newAppt = {
         id: "ap_" + Date.now(), dayIdx, dateStr, time,
+        createdAt: Date.now(),
         startsAtMs: getTargetTimestamp(dayIdx, time),
         name, phone, price: srv.price, service: `${srv.name} • ${srv.price} ₪`,
         note: sanitizeStr(document.getElementById("manualNoteInput").value, 100),
-        status: "pending", reminderSent: false
+        status: "pending", movedCount: 0, reminderSent: false
       };
       appointments.push(newAppt);
       if (!registeredUsers.some(u => u.phone === phone)) {
@@ -519,7 +813,7 @@
       renderAllAdmin();
 
       const publicUrl = `${window.location.origin}/ilay.html#personal-area`;
-      await sendTrackedSms(phone, name, `היי ${name}, נקבע לך תור ב-Ilay Barbershop ליום ${DAYS_HEB[dayIdx]} (${dateStr}) בשעה ${time}. לאישור הגעה היכנס לאזור האישי: ${publicUrl}`, "booking", newAppt.id);
+      await sendTrackedSms(phone, name, `היי ${name}, נקבע לך תור ב-Ilay Barbershop ליום ${DAYS_HEB[dayIdx]} (${dateStr}) בשעה ${time}. לאישור הגעה: ${publicUrl}`, "booking", newAppt.id, "sms");
       showToast("התור שובץ ונשלחה הודעת SMS ללקוח!");
     }
 
@@ -582,12 +876,19 @@
     }
 
     function renderAllAdmin() {
+      renderNotificationsBell();
       renderCalendarBoard();
       renderStatsAndSmsHub();
+      renderPortfolioAdmin();
       renderEditors();
+      if (document.getElementById("tab-analytics").style.display === "block") renderAnalyticsDashboard();
     }
 
     window.onCoreDataUpdated = () => renderAllAdmin();
+    window.onLiveNotificationReceived = notif => {
+      renderAllAdmin();
+      showToast(`🔔 ${notif.title}: ${notif.message}`);
+    };
 
     window.addEventListener("DOMContentLoaded", () => {
       initCloudSyncEngine();
