@@ -62,11 +62,11 @@
       </div>
     </header>
 
-    <!-- 4 כרטיסי על פרקטיים: כמה עשיתי היום, השבוע, החודש + ממוצע, וסטטוסים -->
+    <!-- 4 כרטיסי על פרקטיים: יומי -> שבועי -> חודשי -->
     <div class="stats-grid-4">
       <div class="stat-rev-card">
         <div style="display:flex; justify-content:space-between; align-items:center;">
-          <span style="font-size:0.75rem; color:var(--text-muted); font-weight:700;">הכנסה יומית</span>
+          <span style="font-size:0.75rem; color:var(--text-muted); font-weight:700;">הכנסה ותורים ליום</span>
           <select id="topStatDayFilter" onchange="renderAllAdmin()" style="width:auto; margin:0; padding:2px 6px; font-size:0.74rem; font-weight:800; border-radius:6px;">
             <option value="0">ראשון</option>
             <option value="1">שני</option>
@@ -78,25 +78,25 @@
           </select>
         </div>
         <div class="stat-rev-value" id="statDailyMoney">0 ₪</div>
-        <div class="stat-rev-sub" id="statDailyCount">0 תורים ביום זה</div>
+        <div class="stat-rev-sub" id="statDailyCount">0 לקוחות ביום זה</div>
       </div>
 
       <div class="stat-rev-card">
-        <div style="font-size:0.75rem; color:var(--text-muted); font-weight:700;">הכנסה שבועית</div>
+        <div style="font-size:0.75rem; color:var(--text-muted); font-weight:700;">ממוצע יומי (לקוחות וכסף)</div>
+        <div class="stat-rev-value" id="statAvgDailyMoney">0 ₪ / יום</div>
+        <div class="stat-rev-sub" id="statAvgDailyClients">ממוצע ~0 לקוחות ביום</div>
+      </div>
+
+      <div class="stat-rev-card">
+        <div style="font-size:0.75rem; color:var(--text-muted); font-weight:700;">סיכום שבועי (לפי ממוצע)</div>
         <div class="stat-rev-value" id="statWeeklyMoney">0 ₪</div>
-        <div class="stat-rev-sub" id="statWeeklyCount">0 תורים פעילים השבוע</div>
-      </div>
-
-      <div class="stat-rev-card">
-        <div style="font-size:0.75rem; color:var(--text-muted); font-weight:700;">צפי חודשי וממוצע</div>
-        <div class="stat-rev-value" id="statMonthlyMoney">0 ₪</div>
-        <div class="stat-rev-sub" id="statAvgRevenueSub">ממוצע: 0 ₪ ליום | 0 ₪ לתור</div>
+        <div class="stat-rev-sub" id="statWeeklyCount">בפועל: 0 תורים | צפי: ~0</div>
       </div>
 
       <div class="stat-rev-card" style="border-right-color:var(--status-green);">
-        <div style="font-size:0.75rem; color:var(--text-muted); font-weight:700;">אישורי הגעה ויתרת SMS</div>
-        <div class="stat-rev-value" id="statConfirmedRatio" style="color:#34d399;">0 אושרו</div>
-        <div class="stat-rev-sub" id="statSmsAndPendingSub">0 ממתינים | 1,000 SMS נותרו</div>
+        <div style="font-size:0.75rem; color:var(--text-muted); font-weight:700;">צפי חודשי (לפי ממוצע)</div>
+        <div class="stat-rev-value" id="statMonthlyMoney" style="color:#34d399;">0 ₪</div>
+        <div class="stat-rev-sub" id="statMonthlyClientsSub">כ-0 לקוחות בחודש</div>
       </div>
     </div>
 
@@ -110,7 +110,7 @@
       <button type="button" class="admin-tab-btn" id="tabbtn-hours" onclick="switchTab('hours')">🕒 שעות פעילות</button>
     </div>
 
-    <!-- לשונית 1: יומן תורים חי (ללא "לא הגיע" - רק אושר / ממתין / בוטל) -->
+    <!-- לשונית 1: יומן תורים חי -->
     <div id="tab-cal" class="panel-box">
       <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
         <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
@@ -130,43 +130,45 @@
       <div class="cal-grid-scroll"><div class="cal-board cols-7" id="calendarBoard"></div></div>
     </div>
 
-    <!-- לשונית 2: סטטיסטיקה פרקטית ונקייה + מחירים והכנסות (היום, השבוע, החודש, ממוצע) -->
+    <!-- לשונית 2: סטטיסטיקה פרקטית ונקייה (לפי ממוצע יומי -> שבועי -> חודשי של לקוחות והכנסות) -->
     <div id="tab-analytics" class="panel-box" style="display:none;">
       <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:16px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.08);">
         <div>
-          <h3 style="font-size:1.15rem; font-weight:900; color:var(--gold-bright);">💰 סיכום הכנסות, תורים ו-SMS (פרקטי ונקי)</h3>
-          <p style="font-size:0.8rem; color:var(--text-muted);">מחשב אוטומטית כמה עשית היום, השבוע, החודש, ממוצע הכנסות ושימוש בהודעות</p>
+          <h3 style="font-size:1.15rem; font-weight:900; color:var(--gold-bright);">📊 סטטיסטיקת לקוחות והכנסות (לפי ממוצע יומי ⬅️ שבועי ⬅️ חודשי)</h3>
+          <p style="font-size:0.8rem; color:var(--text-muted);">מחשב אוטומטית כמה לקוחות באים בממוצע ביום, ומכפיל לשבוע ולחודש לפי ימי הפעילות שלך</p>
         </div>
         <button type="button" class="btn-gold" style="padding:8px 14px; font-size:0.82rem;" onclick="exportFullReportToCSV()">📥 ייצוא דוח ל-Excel / CSV</button>
       </div>
 
-      <!-- 1. סטטיסטיקת מחירים והכנסות (הכי חשוב) -->
-      <h4 style="font-size:0.95rem; font-weight:900; color:var(--gold-bright); margin-bottom:8px;">💵 הכנסות ומחירים (כמה עשיתי)</h4>
-      <div class="kpi-mini-grid" id="kpiRevenueGrid"></div>
+      <!-- 1. כמות לקוחות ותורים: יומי -> שבועי -> חודשי -->
+      <h4 style="font-size:0.95rem; font-weight:900; color:var(--gold-bright); margin-bottom:8px;">👥 כמות לקוחות ותורים (יומי ⬅️ שבועי ⬅️ חודשי)</h4>
+      <div class="kpi-mini-grid" id="kpiClientsFlowGrid"></div>
 
-      <!-- 2. סטטיסטיקת תורים ולקוחות פרקטית -->
-      <h4 style="font-size:0.95rem; font-weight:900; color:#fff; margin-bottom:8px;">📅 תורים ולקוחות</h4>
-      <div class="kpi-mini-grid" id="kpiPracticalApptsGrid"></div>
+      <!-- 2. הכנסות בשקלים: יומי -> שבועי -> חודשי -->
+      <h4 style="font-size:0.95rem; font-weight:900; color:#34d399; margin-bottom:8px;">💵 הכנסות ומחירים בשקלים (יומי ⬅️ שבועי ⬅️ חודשי)</h4>
+      <div class="kpi-mini-grid" id="kpiRevenueFlowGrid"></div>
 
-      <!-- 3. סטטיסטיקת הודעות SMS פרקטית -->
-      <h4 style="font-size:0.95rem; font-weight:900; color:#fff; margin-bottom:8px;">📩 מעקב חבילת SMS</h4>
-      <div class="kpi-mini-grid" id="kpiPracticalSmsGrid"></div>
-
-      <!-- גרף הכנסות ותורים לפי ימים בשבוע -->
-      <div class="charts-grid-2">
+      <!-- 3. גרפים סופר פשוטים וברורים להבנה -->
+      <div class="charts-grid-2" style="margin-top:16px;">
         <div class="chart-card">
-          <div style="font-size:0.86rem; font-weight:800; color:var(--gold-bright); margin-bottom:8px;">הכנסה בשקלים (₪) לפי ימים בשבוע</div>
-          <canvas id="chartRevenueByDay" height="175"></canvas>
+          <div style="font-size:0.9rem; font-weight:900; color:var(--gold-bright); margin-bottom:8px;">📅 כמה לקוחות בכל יום בשבוע</div>
+          <canvas id="chartApptsByDay" height="175"></canvas>
         </div>
         <div class="chart-card">
-          <div style="font-size:0.86rem; font-weight:800; color:var(--gold-bright); margin-bottom:8px;">כמות תורים לפי ימים בשבוע</div>
-          <canvas id="chartApptsByDay" height="175"></canvas>
+          <div style="font-size:0.9rem; font-weight:900; color:#34d399; margin-bottom:8px;">💰 כמה כסף (₪) נכנס בכל יום בשבוע</div>
+          <canvas id="chartRevenueByDay" height="175"></canvas>
         </div>
       </div>
     </div>
 
-    <!-- לשונית 3: מערכת SMS, תזכורות, לקוחות והיסטוריה -->
+    <!-- לשונית 3: מערכת SMS, סטטיסטיקת הודעות מלאה, תזכורות ולקוחות -->
     <div id="tab-sms" class="panel-box" style="display:none;">
+      <!-- קוביות סטטיסטיקת ה-SMS מסודרות ונקיות בראש מערכת ה-SMS -->
+      <div style="margin-bottom:16px;">
+        <h3 style="font-size:1.05rem; font-weight:900; color:var(--gold-bright); margin-bottom:8px;">📊 סטטיסטיקת הודעות וחבילת SMS</h3>
+        <div class="kpi-mini-grid" id="kpiPracticalSmsGrid" style="margin-bottom:0;"></div>
+      </div>
+
       <div class="sms-hub-grid">
         <div class="hub-card">
           <h3 style="font-size:1.05rem; font-weight:900; color:var(--gold-bright); margin-bottom:6px;">📣 שליחת הודעת SMS לכלל הלקוחות הרשומים</h3>
@@ -236,7 +238,7 @@
       <div id="adminPortfolioGrid" class="portfolio-grid"></div>
     </div>
 
-    <!-- לשונית 5: מחירון וכותרת (כולל הוספת תספורת חדשה, מחיקה וסנכרון מלא לאתר) -->
+    <!-- לשונית 5: מחירון וכותרת -->
     <div id="tab-edit" class="panel-box" style="display:none;">
       <h3 style="font-size:1.08rem; font-weight:900; color:var(--gold-bright); margin-bottom:10px;">✨ כותרת ראשית ותת-כותרת באתר הלקוחות</h3>
       <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:10px; margin-bottom:18px;">
@@ -253,7 +255,6 @@
       <h3 style="font-size:1.08rem; font-weight:900; color:var(--gold-bright); margin-bottom:10px;">✂️ עריכת מחירון התספורות הקיים</h3>
       <div id="servicesEditorContainer"></div>
 
-      <!-- תיבת הוספת תספורת חדשה למחירון -->
       <div style="border:1.5px dashed var(--gold); border-radius:16px; padding:15px; margin-top:14px; background:rgba(212,175,55,0.05);">
         <div style="font-size:0.95rem; font-weight:900; color:var(--gold-bright); margin-bottom:10px;">+ הוספת תספורת / שירות חדש למחירון באתר:</div>
         <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:10px; align-items:end;">
@@ -280,7 +281,7 @@
       <button type="button" class="btn-gold" style="width:100%; margin-top:16px; padding:14px; font-size:0.95rem;" onclick="saveServicesAndTitles()">💾 שמור מחירון וכותרות וסנכרן לאתר</button>
     </div>
 
-    <!-- לשונית 6: שעות פעילות + מרווח תורים וכמות הפסקה בין תור לתור -->
+    <!-- לשונית 6: שעות פעילות + מרווח תורים והפסקות -->
     <div id="tab-hours" class="panel-box" style="display:none;">
       <div class="hub-card" style="margin-bottom:16px;">
         <h3 style="font-size:1.05rem; font-weight:900; color:var(--gold-bright); margin-bottom:10px;">⏱️ הגדרת זמן בין תור לתור והפסקות</h3>
@@ -428,7 +429,7 @@
       renderNotificationsBell();
     }
 
-    // --- יומן תורים (אושר / ממתין / בוטל בלבד) ---
+    // --- יומן תורים ---
     function generateCalendarHours() {
       const step = Math.max(10, (Number(siteConfig.slotInterval) || 30) + (Number(siteConfig.slotBuffer) || 0));
       const out = [];
@@ -654,52 +655,65 @@
       });
     }
 
-    // --- לוח סטטיסטיקה פרקטי ונקי + מחירים והכנסות ---
+    // --- סטטיסטיקה פרקטית ונקייה: יומי -> שבועי -> חודשי + גרפים פשוטים ---
     function renderAnalyticsDashboard() {
       const selectedDay = Number(document.getElementById("topStatDayFilter")?.value ?? new Date().getDay());
       const data = computeComprehensiveAnalytics(selectedDay);
-      const R = data.revenue, A = data.appts, C = data.clients, M = data.messages;
+      const R = data.revenue, A = data.appts, C = data.clients;
 
-      document.getElementById("kpiRevenueGrid").innerHTML = `
-        <div class="kpi-mini-box" style="border-color:var(--gold);"><strong>${R.todayRevenue.toLocaleString()} ₪</strong><span>עשיתי ביום ${DAYS_HEB[selectedDay]}</span></div>
-        <div class="kpi-mini-box" style="border-color:var(--gold);"><strong>${R.weeklyRevenue.toLocaleString()} ₪</strong><span>עשיתי השבוע</span></div>
-        <div class="kpi-mini-box" style="border-color:#10b981;"><strong style="color:#34d399;">${R.monthlyRevenue.toLocaleString()} ₪</strong><span>צפי הכנסה החודש</span></div>
-        <div class="kpi-mini-box"><strong>${R.avgDailyRevenue.toLocaleString()} ₪</strong><span>ממוצע ליום עבודה</span></div>
-        <div class="kpi-mini-box"><strong>${R.avgRevenuePerAppt.toLocaleString()} ₪</strong><span>ממוצע לתספורת</span></div>
+      // שורה 1: לקוחות ותורים לפי ממוצע יומי -> שבועי -> חודשי
+      document.getElementById("kpiClientsFlowGrid").innerHTML = `
+        <div class="kpi-mini-box" style="border-color:var(--gold);">
+          <strong>${A.avgClientsPerDay}</strong>
+          <span>ממוצע לקוחות ביום</span>
+        </div>
+        <div class="kpi-mini-box" style="border-color:var(--gold);">
+          <strong>~${A.projectedWeeklyClients}</strong>
+          <span>ממוצע לקוחות שבועי (${A.activeWorkdaysInWeek} ימים)</span>
+        </div>
+        <div class="kpi-mini-box" style="border-color:#10b981;">
+          <strong style="color:#34d399;">~${A.projectedMonthlyClients}</strong>
+          <span>ממוצע לקוחות חודשי</span>
+        </div>
+        <div class="kpi-mini-box">
+          <strong>${A.weekApptsActual}</strong>
+          <span>תורים שנקבעו בפועל השבוע</span>
+        </div>
+        <div class="kpi-mini-box">
+          <strong style="color:#34d399;">${A.confirmedAppts}</strong>
+          <span>אישרו הגעה (ירוק)</span>
+        </div>
+        <div class="kpi-mini-box">
+          <strong>${C.totalClients}</strong>
+          <span>סה"כ חברי מועדון רשומים</span>
+        </div>
       `;
 
-      document.getElementById("kpiPracticalApptsGrid").innerHTML = `
-        <div class="kpi-mini-box"><strong>${A.todayAppts}</strong><span>תורים ביום ${DAYS_HEB[selectedDay]}</span></div>
-        <div class="kpi-mini-box"><strong>${A.weekAppts}</strong><span>תורים השבוע</span></div>
-        <div class="kpi-mini-box"><strong style="color:#34d399;">${A.confirmedAppts}</strong><span>אושרו (ירוק)</span></div>
-        <div class="kpi-mini-box"><strong>${A.pendingAppts}</strong><span>ממתינים לאישור (אפור)</span></div>
-        <div class="kpi-mini-box"><strong style="color:#fca5a5;">${A.canceledAppts}</strong><span>בוטלו (אדום)</span></div>
-        <div class="kpi-mini-box"><strong>${C.totalClients}</strong><span>לקוחות רשומים</span></div>
-      `;
-
-      document.getElementById("kpiPracticalSmsGrid").innerHTML = `
-        <div class="kpi-mini-box"><strong style="color:#34d399;">${M.remaining.toLocaleString()}</strong><span>הודעות שנותרו בחבילה</span></div>
-        <div class="kpi-mini-box"><strong>${M.totalPartsUsed}</strong><span>סה"כ הודעות שנשלחו</span></div>
-        <div class="kpi-mini-box"><strong>${M.byCategory.move}</strong><span>נשלחו על הזזת תור</span></div>
-        <div class="kpi-mini-box"><strong>${M.byCategory.reminder}</strong><span>נשלחו כתזכורת</span></div>
-        <div class="kpi-mini-box"><strong>${M.byCategory.booking + M.byCategory.cancel}</strong><span>נשלחו על קביעה/ביטול</span></div>
-        <div class="kpi-mini-box"><strong style="color:#fca5a5;">${M.smsFailed}</strong><span>הודעות שנכשלו</span></div>
+      // שורה 2: כסף והכנסות לפי ממוצע יומי -> שבועי -> חודשי (ללא "ממוצע לתספורת")
+      document.getElementById("kpiRevenueFlowGrid").innerHTML = `
+        <div class="kpi-mini-box" style="border-color:var(--gold);">
+          <strong>${R.todayRevenue.toLocaleString()} ₪</strong>
+          <span>עשיתי ביום ${DAYS_HEB[selectedDay]} (${A.todayAppts} תורים)</span>
+        </div>
+        <div class="kpi-mini-box" style="border-color:var(--gold);">
+          <strong>${R.avgDailyRevenue.toLocaleString()} ₪</strong>
+          <span>ממוצע הכנסה ליום</span>
+        </div>
+        <div class="kpi-mini-box">
+          <strong>${R.weeklyRevenueActual.toLocaleString()} ₪</strong>
+          <span>עשיתי השבוע בפועל</span>
+        </div>
+        <div class="kpi-mini-box" style="border-color:#10b981;">
+          <strong style="color:#34d399;">${R.projectedWeeklyRevenue.toLocaleString()} ₪</strong>
+          <span>צפי שבועי לפי הממוצע</span>
+        </div>
+        <div class="kpi-mini-box" style="border-color:#10b981;">
+          <strong style="color:#34d399;">${R.projectedMonthlyRevenue.toLocaleString()} ₪</strong>
+          <span>צפי הכנסה חודשי</span>
+        </div>
       `;
 
       if (window.Chart) {
-        const ctxRev = document.getElementById("chartRevenueByDay")?.getContext("2d");
-        if (ctxRev) {
-          if (chartRevInstance) chartRevInstance.destroy();
-          chartRevInstance = new Chart(ctxRev, {
-            type: "bar",
-            data: {
-              labels: DAYS_HEB,
-              datasets: [{ label: "הכנסה ב-₪", data: R.dayTotals, backgroundColor: "#10b981", borderRadius: 6 }]
-            },
-            options: { responsive: true, plugins: { legend: { labels: { color: "#f8fafc" } } }, scales: { x: { ticks: { color: "#cbd5e1" } }, y: { ticks: { color: "#cbd5e1" } } } }
-          });
-        }
-
         const ctxDays = document.getElementById("chartApptsByDay")?.getContext("2d");
         if (ctxDays) {
           if (chartDaysInstance) chartDaysInstance.destroy();
@@ -707,9 +721,46 @@
             type: "bar",
             data: {
               labels: DAYS_HEB,
-              datasets: [{ label: "כמות תורים", data: A.apptsByDay, backgroundColor: "#d4af37", borderRadius: 6 }]
+              datasets: [{
+                label: "מספר לקוחות",
+                data: A.apptsByDay,
+                backgroundColor: "#d4af37",
+                borderRadius: 8
+              }]
             },
-            options: { responsive: true, plugins: { legend: { labels: { color: "#f8fafc" } } }, scales: { x: { ticks: { color: "#cbd5e1" } }, y: { ticks: { color: "#cbd5e1", stepSize: 1 } } } }
+            options: {
+              responsive: true,
+              plugins: { legend: { display: false } },
+              scales: {
+                x: { ticks: { color: "#f8fafc", font: { weight: "bold" } } },
+                y: { beginAtZero: true, ticks: { color: "#cbd5e1", stepSize: 1 } }
+              }
+            }
+          });
+        }
+
+        const ctxRev = document.getElementById("chartRevenueByDay")?.getContext("2d");
+        if (ctxRev) {
+          if (chartRevInstance) chartRevInstance.destroy();
+          chartRevInstance = new Chart(ctxRev, {
+            type: "bar",
+            data: {
+              labels: DAYS_HEB,
+              datasets: [{
+                label: "הכנסה בשקלים (₪)",
+                data: R.dayTotals,
+                backgroundColor: "#10b981",
+                borderRadius: 8
+              }]
+            },
+            options: {
+              responsive: true,
+              plugins: { legend: { display: false } },
+              scales: {
+                x: { ticks: { color: "#f8fafc", font: { weight: "bold" } } },
+                y: { beginAtZero: true, ticks: { color: "#cbd5e1", callback: v => v + " ₪" } }
+              }
+            }
           });
         }
       }
@@ -738,14 +789,31 @@
       const data = computeComprehensiveAnalytics(selectedDay);
       const R = data.revenue, A = data.appts, C = data.clients, M = data.messages;
 
+      // עדכון 4 כרטיסי העל בראש הדף (יומי -> ממוצע יומי -> שבועי -> חודשי)
       document.getElementById("statDailyMoney").textContent = `${R.todayRevenue.toLocaleString()} ₪`;
-      document.getElementById("statDailyCount").textContent = `${A.todayAppts} תורים ביום ${DAYS_HEB[selectedDay]}`;
-      document.getElementById("statWeeklyMoney").textContent = `${R.weeklyRevenue.toLocaleString()} ₪`;
-      document.getElementById("statWeeklyCount").textContent = `${A.weekAppts} תורים פעילים השבוע`;
-      document.getElementById("statMonthlyMoney").textContent = `${R.monthlyRevenue.toLocaleString()} ₪`;
-      document.getElementById("statAvgRevenueSub").textContent = `ממוצע: ${R.avgDailyRevenue} ₪ ליום | ${R.avgRevenuePerAppt} ₪ לתור`;
-      document.getElementById("statConfirmedRatio").textContent = `🟢 ${A.confirmedAppts} אושרו`;
-      document.getElementById("statSmsAndPendingSub").textContent = `⚪ ${A.pendingAppts} ממתינים | 📩 ${M.remaining} SMS נותרו`;
+      document.getElementById("statDailyCount").textContent = `${A.todayAppts} לקוחות ביום ${DAYS_HEB[selectedDay]}`;
+
+      document.getElementById("statAvgDailyMoney").textContent = `${R.avgDailyRevenue.toLocaleString()} ₪ / יום`;
+      document.getElementById("statAvgDailyClients").textContent = `ממוצע ~${A.avgClientsPerDay} לקוחות ביום`;
+
+      document.getElementById("statWeeklyMoney").textContent = `${R.weeklyRevenueActual.toLocaleString()} ₪`;
+      document.getElementById("statWeeklyCount").textContent = `בפועל: ${A.weekApptsActual} תורים | צפי שבועי: ~${A.projectedWeeklyClients}`;
+
+      document.getElementById("statMonthlyMoney").textContent = `${R.projectedMonthlyRevenue.toLocaleString()} ₪`;
+      document.getElementById("statMonthlyClientsSub").textContent = `צפי כ-${A.projectedMonthlyClients} לקוחות בחודש`;
+
+      // הצגת סטטיסטיקת ה-SMS המסודרת בתוך לשונית מערכת ה-SMS
+      const smsGrid = document.getElementById("kpiPracticalSmsGrid");
+      if (smsGrid) {
+        smsGrid.innerHTML = `
+          <div class="kpi-mini-box" style="border-color:#10b981;"><strong style="color:#34d399;">${M.remaining.toLocaleString()}</strong><span>הודעות שנותרו בחבילה</span></div>
+          <div class="kpi-mini-box"><strong>${M.totalPartsUsed}</strong><span>סה"כ הודעות שנשלחו</span></div>
+          <div class="kpi-mini-box"><strong>${M.byCategory.move}</strong><span>נשלחו על הזזת תור</span></div>
+          <div class="kpi-mini-box"><strong>${M.byCategory.reminder}</strong><span>נשלחו כתזכורת</span></div>
+          <div class="kpi-mini-box"><strong>${M.byCategory.booking + M.byCategory.cancel}</strong><span>נשלחו על קביעה/ביטול</span></div>
+          <div class="kpi-mini-box" style="border-color:#ef4444;"><strong style="color:#fca5a5;">${M.smsFailed}</strong><span>הודעות שנכשלו</span></div>
+        `;
+      }
 
       document.getElementById("btnBroadcastCount").textContent = C.totalClients;
       document.getElementById("clubListCount").textContent = C.totalClients;
@@ -983,6 +1051,7 @@
       });
       broadcastCloudState();
       renderCalendarBoard();
+      renderAllAdmin();
       showToast("שעות הפעילות, מרווח התורים וההפסקות נשמרו והסתנכרנו עם האתר!");
     }
 
