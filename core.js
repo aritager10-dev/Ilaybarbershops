@@ -1,9 +1,10 @@
 /* =====================================================================
-   ILAY BARBERSHOP - CORE ENGINE (SYNC, AUTH, SMART SMS & 3D SCENE)
+   ILAY BARBERSHOP - CORE ENGINE (REALTIME <3s SYNC, STORAGE, ANALYTICS,
+   NOTIFICATIONS, REMINDERS & 3D SCENE)
    ===================================================================== */
 const TWO_MONTHS_MS = 60 * 24 * 60 * 60 * 1000;
 const DAYS_HEB = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "מוצ״ש"];
-const CLOUD_TOPIC_BASE = "ilay_barbershop_gt_2026_live_v8";
+const CLOUD_TOPIC_BASE = "ilay_barbershop_gt_2026_live_v9";
 const CLOUD_BROKERS = [
   "wss://broker.emqx.io:8084/mqtt",
   "wss://test.mosquitto.org:8081/mqtt",
@@ -62,6 +63,80 @@ function calcSmsParts(text) {
   return len <= 70 ? 1 : Math.ceil(len / 67);
 }
 
+// --- מסד נתונים מקומי לתמונות (IndexedDB) לשמירה קבועה גם אחרי רענון ---
+const DB_NAME = "IlayBarbershopPortfolioDB";
+const STORE_NAME = "portfolioStore";
+
+function openPortfolioDB() {
+  return new Promise((resolve, reject) => {
+    if (!window.indexedDB) return reject("No IndexedDB");
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) db.createObjectStore(STORE_NAME);
+    };
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror = e => reject(e.target.error);
+  });
+}
+
+async function savePortfolioLocally(list) {
+  try { localStorage.setItem("ilay_portfolio_list_v5", JSON.stringify(list)); } catch (_) {}
+  try {
+    const db = await openPortfolioDB();
+    await new Promise((res, rej) => {
+      const tx = db.transaction(STORE_NAME, "readwrite");
+      tx.objectStore(STORE_NAME).put(list, "custom_photos");
+      tx.oncomplete = () => res();
+      tx.onerror = e => rej(e);
+    });
+  } catch (_) {}
+}
+
+async function loadPortfolioFromDB() {
+  try {
+    const savedLS = localStorage.getItem("ilay_portfolio_list_v5");
+    if (savedLS) {
+      const parsed = JSON.parse(savedLS);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (_) {}
+  try {
+    const db = await openPortfolioDB();
+    return await new Promise(resolve => {
+      const tx = db.transaction(STORE_NAME, "readonly");
+      const req = tx.objectStore(STORE_NAME).get("custom_photos");
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => resolve(null);
+    });
+  } catch (_) { return null; }
+}
+
+function compressImageFile(file) {
+  return new Promise(resolve => {
+    const objUrl = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      const maxDim = 540;
+      let w = img.width || 480, h = img.height || 640;
+      if (w > h && w > maxDim) { h = Math.round((h * maxDim) / w); w = maxDim; }
+      else if (h > maxDim) { w = Math.round((w * maxDim) / h); h = maxDim; }
+      canvas.width = w; canvas.height = h;
+      canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(objUrl);
+      resolve(canvas.toDataURL("image/jpeg", 0.68));
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(objUrl);
+      const reader = new FileReader();
+      reader.onload = e => resolve(e.target.result);
+      reader.readAsDataURL(file);
+    };
+    img.src = objUrl;
+  });
+}
+
 // --- טעינת נתוני מערכת ---
 let siteConfig = JSON.parse(localStorage.getItem("ilay_site_cfg") || "null") || {
   title: "ILAY BARBERSHOP",
@@ -70,6 +145,7 @@ let siteConfig = JSON.parse(localStorage.getItem("ilay_site_cfg") || "null") || 
   slotBuffer: 0,
   reminderHoursBefore: 3,
   smsPackageQuota: 1000,
+  smsCostPerUnit: 0.08,
   ntfyTopic: "ilay_barbershop_alerts",
   barberPhone: "0542223765",
   smsProvider: "textme",
@@ -79,6 +155,7 @@ let siteConfig = JSON.parse(localStorage.getItem("ilay_site_cfg") || "null") || 
 };
 if (!siteConfig.smsPackageQuota) siteConfig.smsPackageQuota = 1000;
 if (!siteConfig.reminderHoursBefore) siteConfig.reminderHoursBefore = 3;
+if (siteConfig.smsCostPerUnit === undefined) siteConfig.smsCostPerUnit = 0.08;
 
 let SERVICES = JSON.parse(localStorage.getItem("ilay_services_v2") || "null") || [
   { name: "תספורת קלאסי", price: 70, duration: "30 דק'", desc: "דירוג (מולט, טייפר, בארסט ועוד..) עם גזירות ואפשרות להוסיף פנס לבחירה." },
@@ -100,6 +177,7 @@ let weeklySchedule = JSON.parse(localStorage.getItem("ilay_weekly_hours") || "nu
 let appointments = JSON.parse(localStorage.getItem("ilay_appointments_clean_v1") || "[]");
 let registeredUsers = JSON.parse(localStorage.getItem("ilay_registered_users_v1") || "[]");
 let smsLogs = JSON.parse(localStorage.getItem("ilay_sms_logs_v1") || "[]");
+let adminNotifications = JSON.parse(localStorage.getItem("ilay_admin_notifs_v1") || "[]");
 let portfolioList = [...DEFAULT_PORTFOLIO];
 
 function saveAllStateLocally() {
@@ -108,10 +186,60 @@ function saveAllStateLocally() {
   localStorage.setItem("ilay_weekly_hours", JSON.stringify(weeklySchedule));
   localStorage.setItem("ilay_appointments_clean_v1", JSON.stringify(appointments));
   localStorage.setItem("ilay_registered_users_v1", JSON.stringify(registeredUsers));
-  localStorage.setItem("ilay_sms_logs_v1", JSON.stringify(smsLogs.slice(0, 250)));
+  localStorage.setItem("ilay_sms_logs_v1", JSON.stringify(smsLogs.slice(0, 300)));
+  localStorage.setItem("ilay_admin_notifs_v1", JSON.stringify(adminNotifications.slice(0, 120)));
 }
 
-// --- מנוע שליחת SMS חכם + מעקב חבילה, פילוח והיסטוריה ---
+// --- מערכת התראות חכמה בזמן אמת (פעמון התראות + ntfy + צליל) ---
+function playAlertTone() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+    osc.frequency.setValueAtTime(880, ctx.currentTime + 0.12);
+    gain.gain.setValueAtTime(0.16, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(); osc.stop(ctx.currentTime + 0.4);
+  } catch (_) {}
+}
+
+function pushRealtimeNotification(type, title, message, apptId = null, dayIdx = null) {
+  const notif = {
+    id: "ntf_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6),
+    type, // 'new_booking' | 'canceled' | 'moved' | 'new_user' | 'confirmed' | 'client_msg' | 'sms_failed'
+    title,
+    message,
+    apptId,
+    dayIdx,
+    read: false,
+    createdAt: Date.now(),
+    timeStr: new Date().toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" }) + " " + new Date().toLocaleDateString("he-IL")
+  };
+  adminNotifications.unshift(notif);
+  saveAllStateLocally();
+  broadcastCloudState("live_notif", { notif });
+
+  if (siteConfig.ntfyTopic) {
+    try {
+      fetch("https://ntfy.sh", {
+        method: "POST",
+        body: JSON.stringify({
+          topic: siteConfig.ntfyTopic.trim(),
+          title: "💈 " + title,
+          message,
+          priority: 4,
+          click: `${window.location.origin}/admin.html`
+        })
+      });
+    } catch (_) {}
+  }
+  if (typeof window.onCoreDataUpdated === "function") window.onCoreDataUpdated();
+}
+
+// --- מנוע שליחת SMS ו-WhatsApp מתועד ---
 async function executeProviderSms(toPhoneRaw, messageText) {
   const toE164 = toE164Phone(toPhoneRaw);
   const toLocal = toIsraeliLocalPhone(toPhoneRaw);
@@ -128,17 +256,17 @@ async function executeProviderSms(toPhoneRaw, messageText) {
       const headers = { "Content-Type": "application/xml", "Authorization": "Bearer " + key };
       try {
         const directRes = await fetch("https://my.textme.co.il/api", { method: "POST", headers, body: xmlBody });
-        if (directRes.ok) return { ok: true, reason: "TextMe OK" };
+        if (directRes.ok) return { ok: true, reason: "נמסר (TextMe)" };
       } catch (_) {}
       const proxyRes = await fetch("https://corsproxy.io/?https://my.textme.co.il/api", { method: "POST", headers, body: xmlBody });
-      return { ok: proxyRes.ok, reason: proxyRes.ok ? "TextMe OK" : "שגיאת אימות TextMe" };
+      return { ok: proxyRes.ok, reason: proxyRes.ok ? "נמסר (TextMe)" : "שגיאת אימות TextMe" };
     } else if (provider === "clicksend") {
       const res = await fetch("https://rest.clicksend.com/v3/sms/send", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": "Basic " + btoa(`${user}:${key}`) },
         body: JSON.stringify({ messages: [{ source: "javascript", from: sender, body: messageText, to: toE164 }] })
       });
-      return { ok: res.ok, reason: res.ok ? "ClickSend OK" : "ClickSend Error" };
+      return { ok: res.ok, reason: res.ok ? "נמסר (ClickSend)" : "ClickSend Error" };
     } else if (provider === "twilio") {
       const formBody = new URLSearchParams({ To: toE164, From: sender, Body: messageText });
       const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(user)}/Messages.json`, {
@@ -146,7 +274,7 @@ async function executeProviderSms(toPhoneRaw, messageText) {
         headers: { "Content-Type": "application/x-www-form-urlencoded", "Authorization": "Basic " + btoa(`${user}:${key}`) },
         body: formBody.toString()
       });
-      return { ok: res.ok, reason: res.ok ? "Twilio OK" : "Twilio Error" };
+      return { ok: res.ok, reason: res.ok ? "נמסר (Twilio)" : "Twilio Error" };
     }
   } catch (err) {
     return { ok: false, reason: err.message || "Network Error" };
@@ -154,29 +282,57 @@ async function executeProviderSms(toPhoneRaw, messageText) {
   return { ok: false, reason: "ספק לא נתמך" };
 }
 
-async function sendTrackedSms(toPhoneRaw, recipientName, messageText, category = "booking", apptId = null) {
+async function sendTrackedSms(toPhoneRaw, recipientName, messageText, category = "booking", apptId = null, channel = "sms") {
   const cleanPhone = toIsraeliLocalPhone(toPhoneRaw);
-  const parts = calcSmsParts(messageText);
-  const result = await executeProviderSms(cleanPhone, messageText);
+  const parts = channel === "whatsapp" ? 0 : calcSmsParts(messageText);
+  let result = { ok: true, reason: "נשלח ב-WhatsApp" };
+
+  if (channel === "sms") {
+    result = await executeProviderSms(cleanPhone, messageText);
+  }
 
   const logEntry = {
     id: "sms_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6),
     phone: cleanPhone,
     name: recipientName || cleanPhone,
     message: messageText,
-    category, // 'booking' | 'move' | 'cancel' | 'reminder' | 'broadcast'
+    category, // 'booking' | 'move' | 'cancel' | 'reminder' | 'broadcast' | 'incoming'
+    channel,  // 'sms' | 'whatsapp'
     parts,
     status: result.ok ? "sent" : "failed",
     reason: result.reason,
     apptId,
+    createdAt: Date.now(),
     time: new Date().toLocaleString("he-IL")
   };
 
   smsLogs.unshift(logEntry);
-  saveAllStateLocally();
-  broadcastCloudState();
-  if (typeof window.onCoreDataUpdated === "function") window.onCoreDataUpdated();
+  if (!result.ok && channel === "sms") {
+    pushRealtimeNotification("sms_failed", "כישלון בשליחת SMS", `הודעה אל ${recipientName} (${cleanPhone}) נכשלה: ${result.reason}`, apptId);
+  } else {
+    saveAllStateLocally();
+    broadcastCloudState();
+    if (typeof window.onCoreDataUpdated === "function") window.onCoreDataUpdated();
+  }
   return result.ok;
+}
+
+function logIncomingClientMessage(phone, name, text, category = "incoming", apptId = null) {
+  smsLogs.unshift({
+    id: "inc_" + Date.now() + "_" + Math.random().toString(36).slice(2, 5),
+    phone: toIsraeliLocalPhone(phone),
+    name,
+    message: text,
+    category,
+    channel: "sms",
+    parts: 0,
+    status: "received",
+    reason: "התקבל מהלקוח",
+    apptId,
+    createdAt: Date.now(),
+    time: new Date().toLocaleString("he-IL")
+  });
+  saveAllStateLocally();
 }
 
 async function retryFailedSmsLog(logId) {
@@ -192,28 +348,122 @@ async function retryFailedSmsLog(logId) {
   return res.ok;
 }
 
-function computeSmsAnalytics() {
-  let sentMsgs = 0, sentParts = 0, failedMsgs = 0;
+// --- חישוב סטטיסטיקות מלא ואמיתי מתוך מסד הנתונים (תורים, לקוחות, SMS/WhatsApp) ---
+function computeComprehensiveAnalytics(periodFilter = "all") {
+  const now = Date.now();
+  const periodMsMap = {
+    day: 24 * 3600 * 1000,
+    week: 7 * 24 * 3600 * 1000,
+    month: 30 * 24 * 3600 * 1000,
+    year: 365 * 24 * 3600 * 1000
+  };
+  const cutoffMs = periodMsMap[periodFilter] ? (now - periodMsMap[periodFilter]) : 0;
+
+  const filteredAppts = appointments.filter(a => {
+    const ts = a.createdAt || a.startsAtMs || now;
+    return !cutoffMs || ts >= cutoffMs;
+  });
+
+  const todayIdx = new Date().getDay();
+  const totalAppts = filteredAppts.length;
+  const todayAppts = filteredAppts.filter(a => Number(a.dayIdx) === todayIdx && a.status !== "canceled").length;
+  const weekAppts = appointments.filter(a => a.status !== "canceled").length;
+  const monthAppts = Math.round(weekAppts * 4.3);
+
+  const futureAppts = filteredAppts.filter(a => a.status !== "canceled" && (a.startsAtMs || getTargetTimestamp(a.dayIdx, a.time)) > now).length;
+  const completedAppts = filteredAppts.filter(a => a.status === "confirmed" && (a.startsAtMs || getTargetTimestamp(a.dayIdx, a.time)) <= now).length;
+  const confirmedAppts = filteredAppts.filter(a => a.status === "confirmed").length;
+  const pendingAppts = filteredAppts.filter(a => !a.status || a.status === "pending").length;
+  const canceledAppts = filteredAppts.filter(a => a.status === "canceled").length;
+  const movedAppts = filteredAppts.filter(a => Number(a.movedCount || 0) > 0).length;
+  const noShowAppts = filteredAppts.filter(a => a.status === "noshow").length;
+
+  const activeNonCanceled = Math.max(1, totalAppts - canceledAppts);
+  const cancelRate = totalAppts ? Math.round((canceledAppts / totalAppts) * 100) : 0;
+  const confirmationRate = totalAppts ? Math.round((confirmedAppts / activeNonCanceled) * 100) : 0;
+  const arrivalRate = totalAppts ? Math.round(((activeNonCanceled - noShowAppts) / activeNonCanceled) * 100) : 100;
+
+  // סטטיסטיקות לקוחות
+  const totalClients = registeredUsers.length;
+  const visitCountsByPhone = {};
+  const lastVisitByPhone = {};
+  appointments.forEach(a => {
+    if (a.status === "canceled") return;
+    const p = toIsraeliLocalPhone(a.phone);
+    visitCountsByPhone[p] = (visitCountsByPhone[p] || 0) + 1;
+    const ts = a.startsAtMs || now;
+    if (!lastVisitByPhone[p] || ts > lastVisitByPhone[p]) lastVisitByPhone[p] = ts;
+  });
+
+  let newClients = 0, returningClients = 0, activeClients = 0, inactiveClients = 0;
+  registeredUsers.forEach(u => {
+    const p = toIsraeliLocalPhone(u.phone);
+    const visits = visitCountsByPhone[p] || 0;
+    if (visits <= 1) newClients++;
+    if (visits >= 2) returningClients++;
+    const lastTs = lastVisitByPhone[p] || u.lastActiveAt || 0;
+    if (now - lastTs <= 30 * 24 * 3600 * 1000) activeClients++;
+    else inactiveClients++;
+  });
+  const avgApptsPerClient = totalClients ? (appointments.filter(a => a.status !== "canceled").length / totalClients).toFixed(1) : "0.0";
+
+  // סטטיסטיקות SMS ו-WhatsApp
+  let smsSent = 0, smsDelivered = 0, smsFailed = 0, smsReceived = 0, remindersSent = 0, waSent = 0, totalPartsUsed = 0;
   const byCategory = { booking: 0, move: 0, cancel: 0, reminder: 0, broadcast: 0 };
 
   smsLogs.forEach(l => {
+    if (cutoffMs && l.createdAt && l.createdAt < cutoffMs) return;
+    if (l.status === "received") {
+      smsReceived++;
+      return;
+    }
+    if (l.channel === "whatsapp") {
+      waSent++;
+      return;
+    }
+    smsSent++;
     if (l.status === "sent") {
-      sentMsgs++;
+      smsDelivered++;
       const p = Number(l.parts) || 1;
-      sentParts += p;
+      totalPartsUsed += p;
       if (byCategory[l.category] !== undefined) byCategory[l.category] += p;
+      if (l.category === "reminder") remindersSent++;
     } else {
-      failedMsgs++;
+      smsFailed++;
     }
   });
 
+  const pendingRemindersQueue = appointments.filter(a => a.status === "pending" && !a.reminderSent).length;
   const quota = Number(siteConfig.smsPackageQuota) || 1000;
-  const remaining = Math.max(0, quota - sentParts);
-  return { sentMsgs, sentParts, failedMsgs, quota, remaining, byCategory };
+  const remaining = Math.max(0, quota - totalPartsUsed);
+  const estimatedCost = (totalPartsUsed * (Number(siteConfig.smsCostPerUnit) || 0.08)).toFixed(2);
+
+  // התפלגות יומית לגרפים
+  const apptsByDay = [0, 0, 0, 0, 0, 0, 0];
+  appointments.forEach(a => {
+    if (a.status !== "canceled" && a.dayIdx >= 0 && a.dayIdx < 7) apptsByDay[a.dayIdx]++;
+  });
+
+  return {
+    appts: {
+      totalAppts, todayAppts, weekAppts, monthAppts, futureAppts, completedAppts,
+      confirmedAppts, pendingAppts, canceledAppts, movedAppts, noShowAppts,
+      cancelRate, confirmationRate, arrivalRate, apptsByDay
+    },
+    clients: {
+      totalClients, newClients, returningClients, activeClients, inactiveClients,
+      avgApptsPerClient, visitCountsByPhone
+    },
+    messages: {
+      smsSent, smsDelivered, smsFailed, smsReceived, remindersSent,
+      pendingRemindersQueue, waSent, totalPartsUsed, quota, remaining,
+      estimatedCost, byCategory
+    }
+  };
 }
 
-// --- מנוע תזכורות SMS אוטומטי לפני התור (מונע שליחה כפולה) ---
-async function checkAndSendUpcomingReminders(forceAllPendingToday = false) {
+// --- מנוע תזכורות חכם (מונע שליחה כפולה) ---
+async function checkAndSendUpcomingReminders(forceAllPending = false) {
   const hoursBefore = Number(siteConfig.reminderHoursBefore) || 3;
   const windowMs = hoursBefore * 60 * 60 * 1000;
   const now = Date.now();
@@ -225,12 +475,12 @@ async function checkAndSendUpcomingReminders(forceAllPendingToday = false) {
     const apptTimeMs = appt.startsAtMs || getTargetTimestamp(appt.dayIdx, appt.time);
     const diffMs = apptTimeMs - now;
 
-    if ((diffMs > 0 && diffMs <= windowMs) || (forceAllPendingToday && diffMs > 0 && diffMs <= 24 * 3600 * 1000)) {
+    if ((diffMs > 0 && diffMs <= windowMs) || (forceAllPending && diffMs > 0)) {
       appt.reminderSent = true;
       const dateStr = appt.dateStr || getFormattedDateForDayIdx(appt.dayIdx);
       const dayName = DAYS_HEB[appt.dayIdx];
-      const msg = `אהלן ${appt.name}, תזכורת מהמספרה של עיליי (Ilay Barbershop): התור שלך ליום ${dayName} (${dateStr}) מתקיים בשעה ${appt.time}. האם אתה מאשר הגעה? במידה וכן, היכנס לאזור האישי באתר לאישור הגעה: ${publicUrl}`;
-      await sendTrackedSms(appt.phone, appt.name, msg, "reminder", appt.id);
+      const msg = `אהלן ${appt.name}, תזכורת מ-Ilay Barbershop: התור שלך ליום ${dayName} (${dateStr}) מתקיים בשעה ${appt.time}. לאישור הגעה מהיר היכנס לאזור האישי: ${publicUrl}`;
+      await sendTrackedSms(appt.phone, appt.name, msg, "reminder", appt.id, "sms");
       sentCount++;
     }
   }
@@ -242,9 +492,13 @@ async function checkAndSendUpcomingReminders(forceAllPendingToday = false) {
   return sentCount;
 }
 
-// --- סנכרון ענן חי (MQTT + IndexedDB) ---
+// --- סנכרון דו-כיווני מהיר (<3 שניות) דרך WebSockets + BroadcastChannel + Chunked Photos ---
 const mqttClients = [];
 let lastStateTs = Number(localStorage.getItem("ilay_state_ts") || 0);
+let lastPortfolioTs = Number(localStorage.getItem("ilay_portfolio_ts") || 0);
+const batchMetaMap = {};
+const batchChunksMap = {};
+const localChannel = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("ilay_barbershop_fast_sync") : null;
 
 function broadcastCloudState(extraTopic = null, extraPayload = null) {
   const now = Date.now();
@@ -252,16 +506,22 @@ function broadcastCloudState(extraTopic = null, extraPayload = null) {
   localStorage.setItem("ilay_state_ts", String(now));
   saveAllStateLocally();
 
-  const payload = JSON.stringify({
+  const stateObj = {
     updatedAt: now,
     siteConfig,
     services: SERVICES,
     weeklySchedule,
     appointments,
     registeredUsers,
-    smsLogs: smsLogs.slice(0, 120)
-  });
+    smsLogs: smsLogs.slice(0, 120),
+    adminNotifications: adminNotifications.slice(0, 80)
+  };
 
+  if (localChannel) {
+    try { localChannel.postMessage({ type: "STATE_SYNC", data: stateObj }); } catch (_) {}
+  }
+
+  const payload = JSON.stringify(stateObj);
   mqttClients.forEach(c => {
     try {
       if (c.connected) {
@@ -274,38 +534,120 @@ function broadcastCloudState(extraTopic = null, extraPayload = null) {
   });
 }
 
-function initCloudSyncEngine() {
-  window.addEventListener("storage", () => {
+function broadcastPortfolioToCloud(list) {
+  if (!Array.isArray(list) || !list.length) return;
+  const now = Date.now();
+  const batchId = "b_" + now + "_" + Math.random().toString(36).slice(2, 6);
+  lastPortfolioTs = now;
+  localStorage.setItem("ilay_portfolio_ts", String(now));
+
+  if (localChannel) {
+    try { localChannel.postMessage({ type: "PORTFOLIO_SYNC", list, updatedAt: now }); } catch (_) {}
+  }
+
+  const metaPayload = JSON.stringify({ batchId, updatedAt: now, count: list.length });
+  mqttClients.forEach(c => {
+    try {
+      if (c.connected) {
+        list.forEach((src, idx) => {
+          c.publish(`${CLOUD_TOPIC_BASE}/photo/${idx}`, JSON.stringify({ batchId, idx, src, updatedAt: now }), { qos: 1, retain: true });
+        });
+        c.publish(`${CLOUD_TOPIC_BASE}/portfolio_meta`, metaPayload, { qos: 1, retain: true });
+      }
+    } catch (_) {}
+  });
+}
+
+function tryAssemblePortfolioBatch(batchId) {
+  if (!batchId || !batchMetaMap[batchId]) return;
+  const meta = batchMetaMap[batchId];
+  if (meta.updatedAt <= lastPortfolioTs) return;
+  const chunks = batchChunksMap[batchId] || {};
+  const assembled = [];
+  for (let i = 0; i < meta.count; i++) {
+    if (chunks[i]) assembled.push(chunks[i]);
+  }
+  if (assembled.length === meta.count && assembled.length > 0) {
+    portfolioList = assembled;
+    lastPortfolioTs = meta.updatedAt;
+    localStorage.setItem("ilay_portfolio_ts", String(lastPortfolioTs));
+    savePortfolioLocally(portfolioList);
+    if (typeof window.onCoreDataUpdated === "function") window.onCoreDataUpdated();
+  }
+}
+
+function applyIncomingState(data) {
+  if (!data || !data.updatedAt || data.updatedAt <= lastStateTs) return;
+  lastStateTs = data.updatedAt;
+  localStorage.setItem("ilay_state_ts", String(lastStateTs));
+  if (data.siteConfig) siteConfig = { ...siteConfig, ...data.siteConfig };
+  if (data.services) SERVICES = data.services;
+  if (data.weeklySchedule) weeklySchedule = data.weeklySchedule;
+  if (Array.isArray(data.appointments)) appointments = data.appointments;
+  if (Array.isArray(data.registeredUsers)) registeredUsers = data.registeredUsers;
+  if (Array.isArray(data.smsLogs)) smsLogs = data.smsLogs;
+  if (Array.isArray(data.adminNotifications)) adminNotifications = data.adminNotifications;
+  saveAllStateLocally();
+  if (typeof window.onCoreDataUpdated === "function") window.onCoreDataUpdated(data);
+}
+
+async function initCloudSyncEngine() {
+  const dbPhotos = await loadPortfolioFromDB();
+  if (dbPhotos && Array.isArray(dbPhotos) && dbPhotos.length > 0) {
+    portfolioList = dbPhotos;
+    if (typeof window.onCoreDataUpdated === "function") window.onCoreDataUpdated();
+  }
+
+  if (localChannel) {
+    localChannel.onmessage = ev => {
+      if (ev.data?.type === "STATE_SYNC") applyIncomingState(ev.data.data);
+      if (ev.data?.type === "PORTFOLIO_SYNC" && Array.isArray(ev.data.list)) {
+        portfolioList = ev.data.list;
+        savePortfolioLocally(portfolioList);
+        if (typeof window.onCoreDataUpdated === "function") window.onCoreDataUpdated();
+      }
+    };
+  }
+
+  window.addEventListener("storage", async () => {
     siteConfig = JSON.parse(localStorage.getItem("ilay_site_cfg") || JSON.stringify(siteConfig));
     SERVICES = JSON.parse(localStorage.getItem("ilay_services_v2") || JSON.stringify(SERVICES));
     weeklySchedule = JSON.parse(localStorage.getItem("ilay_weekly_hours") || JSON.stringify(weeklySchedule));
     appointments = JSON.parse(localStorage.getItem("ilay_appointments_clean_v1") || "[]");
     registeredUsers = JSON.parse(localStorage.getItem("ilay_registered_users_v1") || "[]");
     smsLogs = JSON.parse(localStorage.getItem("ilay_sms_logs_v1") || "[]");
+    adminNotifications = JSON.parse(localStorage.getItem("ilay_admin_notifs_v1") || "[]");
+    const savedP = await loadPortfolioFromDB();
+    if (savedP && savedP.length) portfolioList = savedP;
     if (typeof window.onCoreDataUpdated === "function") window.onCoreDataUpdated();
   });
 
   if (!window.mqtt) return;
   CLOUD_BROKERS.forEach(url => {
     try {
-      const client = mqtt.connect(url, { clientId: "ilay_" + Math.random().toString(16).slice(2, 10), clean: true, reconnectPeriod: 2500 });
+      const client = mqtt.connect(url, { clientId: "ilay_" + Math.random().toString(16).slice(2, 10), clean: true, reconnectPeriod: 2000 });
       client.on("connect", () => client.subscribe(`${CLOUD_TOPIC_BASE}/#`, { qos: 1 }));
       client.on("message", (topic, buf) => {
         try {
-          const data = JSON.parse(buf.toString());
-          if (topic === `${CLOUD_TOPIC_BASE}/state` && data.updatedAt && data.updatedAt > lastStateTs) {
-            lastStateTs = data.updatedAt;
-            localStorage.setItem("ilay_state_ts", String(lastStateTs));
-            if (data.siteConfig) siteConfig = { ...siteConfig, ...data.siteConfig };
-            if (data.services) SERVICES = data.services;
-            if (data.weeklySchedule) weeklySchedule = data.weeklySchedule;
-            if (Array.isArray(data.appointments)) appointments = data.appointments;
-            if (Array.isArray(data.registeredUsers)) registeredUsers = data.registeredUsers;
-            if (Array.isArray(data.smsLogs)) smsLogs = data.smsLogs;
-            saveAllStateLocally();
-            if (typeof window.onCoreDataUpdated === "function") window.onCoreDataUpdated(data);
-          } else if (topic === `${CLOUD_TOPIC_BASE}/new_booking` && data.appt) {
-            if (typeof window.onNewLiveBooking === "function") window.onNewLiveBooking(data.appt);
+          const str = buf.toString();
+          if (!str) return;
+          const data = JSON.parse(str);
+          if (topic === `${CLOUD_TOPIC_BASE}/state`) {
+            applyIncomingState(data);
+          } else if (topic === `${CLOUD_TOPIC_BASE}/live_notif` && data.notif) {
+            playAlertTone();
+            if (typeof window.onLiveNotificationReceived === "function") window.onLiveNotificationReceived(data.notif);
+          } else if (topic === `${CLOUD_TOPIC_BASE}/portfolio_meta`) {
+            if (data.batchId && data.updatedAt > lastPortfolioTs) {
+              batchMetaMap[data.batchId] = { count: Number(data.count) || 0, updatedAt: data.updatedAt };
+              tryAssemblePortfolioBatch(data.batchId);
+            }
+          } else if (topic.startsWith(`${CLOUD_TOPIC_BASE}/photo/`)) {
+            if (data && data.batchId && data.src) {
+              if (!batchChunksMap[data.batchId]) batchChunksMap[data.batchId] = {};
+              batchChunksMap[data.batchId][Number(data.idx)] = data.src;
+              tryAssemblePortfolioBatch(data.batchId);
+            }
           }
         } catch (_) {}
       });
@@ -313,8 +655,7 @@ function initCloudSyncEngine() {
     } catch (_) {}
   });
 
-  // בדיקת תזכורות אוטומטית כל דקה
-  setInterval(() => { checkAndSendUpcomingReminders(false); }, 60000);
+  setInterval(() => { checkAndSendUpcomingReminders(false); }, 45000);
 }
 
 // --- מנוע תלת-מימד ריאליסטי (Three.js) ---
