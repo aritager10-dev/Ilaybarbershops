@@ -118,7 +118,7 @@
           📍 דרך הים 11, קומה 10 דירה 36, גני תקווה
         </div>
         <p style="max-width:650px; margin:0 auto; color:#cbd5e1; font-size:0.94rem; line-height:1.68;">
-          נעים להכיר, אני <strong>עילי בן הרוש</strong> – מעל שנתיים כספר בתחום ובוגר <strong>מעל 5 התמחויות אצל הספרים המובילים בישראל</strong>. באזור האישי שלך באתר תוכל לקבוע תור, לצפות בתורים עתידיים וקודמים, ולאשר הגעה בלחיצת כפתור.
+          נעים להכיר, אני <strong>עילי בן הרוש</strong> – מעל שנתיים כספר בתחום ובוגר <strong>מעל 5 התמחויות אצל הספרים המובילים בישראל</strong>. באזור האישי שלך באתר תוכל לקבוע תור, לאשר הגעה, לשנות מועד או לבטל תור בסנכרון חי מול היומן.
         </p>
 
         <div class="hero-stats-row">
@@ -133,7 +133,7 @@
         </div>
       </section>
 
-      <!-- אזור אישי ללקוח (מוצג למשתמש רשום ומחובר) -->
+      <!-- אזור אישי ללקוח (מסונכרן דו-כיוונית עם יומן הניהול) -->
       <section id="sec-personal" class="glass-section" style="display:none;">
         <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid rgba(255,255,255,0.08);">
           <div>
@@ -142,38 +142,40 @@
           </div>
           <div style="display:flex; gap:8px;">
             <button type="button" class="btn-gold-3d" style="padding:9px 16px; font-size:0.84rem;" onclick="openBookingModal(0)">+ קבע תור חדש</button>
-            <button type="button" class="btn-glass" style="padding:9px 14px; font-size:0.82rem; border-color:#ef4444; color:#fca5a5;" onclick="logoutClientUser()">התנתק מהחשבון</button>
+            <button type="button" class="btn-glass" style="padding:9px 14px; font-size:0.82rem; border-color:#ef4444; color:#fca5a5;" onclick="logoutClientUser()">התנתק</button>
           </div>
         </div>
 
         <div class="personal-area-grid">
-          <!-- תורים עתידיים + כפתור אישור הגעה -->
           <div>
-            <h3 style="font-size:1.08rem; font-weight:900; color:var(--gold-bright); margin-bottom:10px;">📅 התורים העתידיים שלי (לחץ לאישור הגעה)</h3>
+            <h3 style="font-size:1.08rem; font-weight:900; color:var(--gold-bright); margin-bottom:10px;">📅 התורים העתידיים שלי (אישור הגעה / שינוי / ביטול)</h3>
             <div id="personalFutureApptsList"></div>
 
             <h3 style="font-size:1.05rem; font-weight:900; color:#cbd5e1; margin:20px 0 10px;">🕓 היסטוריית תורים קודמים וביטולים</h3>
             <div id="personalPastApptsList"></div>
           </div>
 
-          <!-- מידע חשוב ללקוח ופרטי חשבון -->
           <div>
             <div class="hub-card" style="margin-bottom:12px;">
-              <h3 style="font-size:1.02rem; font-weight:900; color:var(--gold-bright); margin-bottom:8px;">📌 מידע חשוב לפני הגעה לתור</h3>
-              <ul style="font-size:0.85rem; color:#cbd5e1; line-height:1.75; padding-right:18px;">
-                <li><strong>כתובת המספרה:</strong> דרך הים 11, קומה 10, דירה 36, גני תקווה.</li>
-                <li><strong>אישור הגעה:</strong> מספר שעות לפני התור תישלח אליך הודעת SMS תזכורת. יש להיכנס לכאן וללחוץ על כפתור <strong>"אשר הגעה לתור"</strong> כדי שהסטטוס ביומן של עילי יהפוך לירוק (אושר).</li>
-                <li><strong>דיוק בזמנים:</strong> מומלץ להגיע כ-5 דקות לפני השעה שנקבעה.</li>
-                <li><strong>שינוי או ביטול:</strong> במידה ואינך יכול להגיע, ניתן לעדכן מראש דרך האזור האישי או מול המספרה.</li>
+              <h3 style="font-size:1rem; font-weight:900; color:var(--gold-bright); margin-bottom:8px;">💬 שליחת הודעה או בקשה מהירה לעיליי</h3>
+              <textarea id="clientDirectMsgInput" class="input-field" style="min-height:60px;" placeholder="כתוב כאן הודעה או בקשה לגבי התור שלך..."></textarea>
+              <button type="button" class="btn-gold-3d" style="width:100%; padding:10px;" onclick="sendClientMessageToAdmin()">שלח הודעה למספרה</button>
+            </div>
+
+            <div class="hub-card" style="margin-bottom:12px;">
+              <h3 style="font-size:1rem; font-weight:900; color:var(--gold-bright); margin-bottom:6px;">📌 מידע חשוב ללקוח</h3>
+              <ul style="font-size:0.84rem; color:#cbd5e1; line-height:1.7; padding-right:18px;">
+                <li><strong>כתובת:</strong> דרך הים 11, קומה 10, דירה 36, גני תקווה.</li>
+                <li><strong>אישור הגעה:</strong> לחיצה על "אני מאשר הגעה" מעדכנת מיד את היומן של עילי לירוק.</li>
+                <li><strong>סנכרון מיידי:</strong> כל שינוי או ביטול מתעדכן ביומן המספרה תוך פחות מ-3 שניות.</li>
               </ul>
             </div>
 
             <div class="hub-card">
-              <h3 style="font-size:0.98rem; font-weight:900; color:#fff; margin-bottom:6px;">🔐 פרטי החשבון המחובר</h3>
-              <div style="font-size:0.86rem; color:#cbd5e1; line-height:1.7;">
+              <h3 style="font-size:0.95rem; font-weight:900; color:#fff; margin-bottom:4px;">🔐 פרטי החשבון המחובר</h3>
+              <div style="font-size:0.84rem; color:#cbd5e1;">
                 <div><strong>שם מלא:</strong> <span id="personalCardName"></span></div>
                 <div><strong>טלפון נייד:</strong> <span id="personalCardPhone" style="direction:ltr;"></span></div>
-                <div style="font-size:0.75rem; color:var(--text-muted); margin-top:6px;">החשבון מאובטח ומתנתק אוטומטית לאחר 60 ימים של אי-פעילות.</div>
               </div>
             </div>
           </div>
@@ -206,7 +208,7 @@
     </div>
   </main>
 
-  <!-- מודאל הרשמה והתחברות (חוסם כפילות שם מלא + מספר טלפון) -->
+  <!-- מודאל הרשמה והתחברות -->
   <div class="modal-backdrop" id="authModal" onclick="if(event.target===this) this.classList.remove('open')">
     <div class="luxury-modal">
       <div class="modal-head">
@@ -215,10 +217,6 @@
           <h3 style="font-size:1.15rem; font-weight:900;">כניסה והרשמה לאזור האישי</h3>
         </div>
         <button type="button" class="modal-close" onclick="document.getElementById('authModal').classList.remove('open')">✕</button>
-      </div>
-
-      <div id="authNoticeBanner" style="background:rgba(212,175,55,0.14); border:1px solid var(--gold); border-radius:11px; padding:9px 12px; margin-bottom:12px; font-size:0.82rem; font-weight:800; color:var(--gold-bright);">
-        לכניסה לאזור האישי, צפייה בתורים, אישור הגעה או קביעת תור – יש להתחבר או להירשם עם שם מלא ומספר טלפון ייחודי.
       </div>
 
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:14px;">
@@ -251,15 +249,15 @@
     </div>
   </div>
 
-  <!-- מודאל קביעת תור -->
-  <div class="modal-backdrop" id="bookingModal" onclick="if(event.target===this) this.classList.remove('open')">
+  <!-- מודאל קביעת / שינוי תור -->
+  <div class="modal-backdrop" id="bookingModal" onclick="if(event.target===this) closeBookingModal()">
     <div class="luxury-modal">
       <div class="modal-head">
         <div>
-          <div style="font-size:0.74rem; color:var(--gold); font-weight:800;">קביעת תור • Ilay Barbershop</div>
+          <div style="font-size:0.74rem; color:var(--gold); font-weight:800;" id="bookingModalSub">קביעת תור • Ilay Barbershop</div>
           <h3 id="modalServiceTitle" style="font-size:1.12rem; font-weight:900;">תספורת קלאסי</h3>
         </div>
-        <button type="button" class="modal-close" onclick="document.getElementById('bookingModal').classList.remove('open')">✕</button>
+        <button type="button" class="modal-close" onclick="closeBookingModal()">✕</button>
       </div>
 
       <div style="font-size:0.82rem; font-weight:800; margin-bottom:5px;">1. בחר תספורת:</div>
@@ -276,7 +274,7 @@
       <input type="tel" id="clientPhoneInput" class="input-field" readonly />
       <textarea id="clientNoteInput" class="input-field" maxlength="120" placeholder="הערות לתור (אופציונלי)"></textarea>
 
-      <button type="button" class="btn-gold-3d" style="width:100%; padding:14px;" onclick="confirmClientBooking()">אשר ושבץ תור ביומן</button>
+      <button type="button" class="btn-gold-3d" id="confirmBookingBtn" style="width:100%; padding:14px;" onclick="confirmClientBooking()">אשר ושבץ תור ביומן</button>
     </div>
   </div>
 
@@ -298,15 +296,23 @@
     </div>
   </div>
 
+  <!-- הגדלת תמונה -->
+  <div class="modal-backdrop" id="lightboxModal" onclick="this.classList.remove('open')">
+    <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:82vh;">
+      <img id="lightboxImg" src="" alt="תספורת" style="max-width:92vw; max-height:76vh; border-radius:16px; border:2px solid var(--gold);" />
+    </div>
+  </div>
+
   <div class="toast-popup" id="toastPopup"></div>
 
   <script src="core.js"></script>
   <script>
     let currentClientUser = JSON.parse(localStorage.getItem("ilay_logged_client_v1") || "null");
     let selectedServiceIdx = 0, selectedBookDay = 0, selectedBookHour = null;
+    let editingApptId = null; // עבור שינוי תור קיים ע"י הלקוח
     let pendingActionAfterLogin = null;
 
-    setTimeout(() => document.getElementById("welcomeSplash")?.classList.add("hide"), 2200);
+    setTimeout(() => document.getElementById("welcomeSplash")?.classList.add("hide"), 2000);
 
     function showToast(msg) {
       const t = document.getElementById("toastPopup");
@@ -317,7 +323,6 @@
 
     function openLegalModal() { document.getElementById("legalTermsModal").classList.add("open"); }
 
-    // בדיקת ניתוק אוטומטי לאחר 60 ימי אי-פעילות
     function verifyClientSession() {
       if (!currentClientUser || !currentClientUser.phone) { currentClientUser = null; return false; }
       const now = Date.now();
@@ -356,7 +361,7 @@
         return showToast("מספר טלפון זה כבר רשום! לא ניתן לפתוח חשבון כפול – נא להתחבר.");
       }
       if (registeredUsers.some(u => (u.username || "").toLowerCase() === fullName.toLowerCase())) {
-        return showToast("השם המלא הזה כבר רשום במערכת! לא ניתן לפתוח פעמיים על אותו שם.");
+        return showToast("השם המלא הזה כבר רשום במערכת! לא ניתן לפתוח חשבון כפול.");
       }
 
       const now = Date.now();
@@ -364,7 +369,7 @@
       registeredUsers.push(newUser);
       currentClientUser = { username: fullName, phone, lastActiveAt: now };
       localStorage.setItem("ilay_logged_client_v1", JSON.stringify(currentClientUser));
-      broadcastCloudState("new_user", { user: newUser });
+      pushRealtimeNotification("new_user", "לקוח חדש נרשם למועדון", `${fullName} (${phone}) פתח חשבון חדש באתר.`);
 
       document.getElementById("authModal").classList.remove("open");
       updateAuthAndPersonalUI();
@@ -419,15 +424,48 @@
       }
     }
 
-    // אישור הגעה לתור ע"י הלקוח מתוך האזור האישי -> הופך לירוק ביומן הניהול!
+    // אישור הגעה ע"י הלקוח -> הופך לירוק ביומן הניהול + שולח התראה חיה לעילי!
     function confirmMyAppointmentArrival(apptId) {
       const appt = appointments.find(a => a.id === apptId);
       if (!appt) return;
       appt.status = "confirmed";
       appt.confirmedAt = new Date().toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
-      broadcastCloudState();
+      logIncomingClientMessage(appt.phone, appt.name, `אישור הגעה לתור ביום ${DAYS_HEB[appt.dayIdx]} בשעה ${appt.time}`, "incoming", appt.id);
+      pushRealtimeNotification("confirmed", "אישור הגעה התקבל!", `${appt.name} אישר הגעה לתור ביום ${DAYS_HEB[appt.dayIdx]} בשעה ${appt.time}.`, appt.id, appt.dayIdx);
       renderPersonalArea();
-      showToast("✅ הגעתך לתור אושרה! הסטטוס ביומן של עילי עודכן לירוק (אושר).");
+      showToast("✅ הגעתך לתור אושרה! הסטטוס ביומן של עילי עודכן לירוק.");
+    }
+
+    // ביטול תור ע"י הלקוח מתוך האזור האישי -> מסנכרן מיד ליומן הניהול!
+    function cancelMyAppointmentByClient(apptId) {
+      const appt = appointments.find(a => a.id === apptId);
+      if (!appt) return;
+      appt.status = "canceled";
+      appt.canceledAt = Date.now();
+      logIncomingClientMessage(appt.phone, appt.name, `ביטול תור ליום ${DAYS_HEB[appt.dayIdx]} בשעה ${appt.time}`, "incoming", appt.id);
+      pushRealtimeNotification("canceled", "לקוח ביטל תור באתר", `${appt.name} (${appt.phone}) ביטל את התור ליום ${DAYS_HEB[appt.dayIdx]} בשעה ${appt.time}.`, appt.id, appt.dayIdx);
+      renderPersonalArea();
+      showToast("התור בוטל והיומן של עילי עודכן בזמן אמת.");
+    }
+
+    // פתיחת חלונית לשינוי מועד התור ע"י הלקוח
+    function openRescheduleByClient(apptId) {
+      const appt = appointments.find(a => a.id === apptId);
+      if (!appt) return;
+      editingApptId = appt.id;
+      selectedBookDay = Number(appt.dayIdx) || 0;
+      selectedBookHour = null;
+      openBookingModal(appt.srvIdx || 0, true);
+    }
+
+    function sendClientMessageToAdmin() {
+      if (!verifyClientSession()) return;
+      const txt = sanitizeStr(document.getElementById("clientDirectMsgInput").value, 160);
+      if (!txt) return showToast("נא להקליד הודעה");
+      logIncomingClientMessage(currentClientUser.phone, currentClientUser.username, txt, "incoming");
+      pushRealtimeNotification("client_msg", `הודעה חדשה מ-${currentClientUser.username}`, `${currentClientUser.username} (${currentClientUser.phone}): "${txt}"`);
+      document.getElementById("clientDirectMsgInput").value = "";
+      showToast("ההודעה נשלחה ישירות לממשק הניהול של עילי!");
     }
 
     function renderPersonalArea() {
@@ -465,13 +503,16 @@
           const card = document.createElement("div");
           card.className = `client-appt-card status-${st}`;
           card.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-              <strong style="font-size:1.02rem; color:#fff;">יום ${DAYS_HEB[a.dayIdx]} (${dateStr}) • שעה ${a.time}</strong>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; flex-wrap:wrap; gap:6px;">
+              <strong style="font-size:1rem; color:#fff;">יום ${DAYS_HEB[a.dayIdx]} (${dateStr}) • שעה ${a.time}</strong>
               <span class="status-pill ${st}">${isConfirmed ? "🟢 הגעה אושרה" : "⚪ ממתין לאישור הגעה"}</span>
             </div>
             <div style="font-size:0.86rem; color:var(--gold-bright); font-weight:700;">✂️ ${sanitizeStr(a.service, 50)}</div>
-            <div style="font-size:0.78rem; color:#94a3b8; margin-top:3px;">📍 דרך הים 11, קומה 10 דירה 36, גני תקווה</div>
-            ${!isConfirmed ? `<button type="button" class="btn-confirm-arrival" onclick="confirmMyAppointmentArrival('${a.id}')">✅ אני מאשר/ת הגעה לתור</button>` : `<div style="margin-top:8px; font-size:0.8rem; color:#34d399; font-weight:800;">✓ אישרת הגעה לתור זה. נתראה במספרה!</div>`}
+            <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
+              ${!isConfirmed ? `<button type="button" class="btn-confirm-arrival" onclick="confirmMyAppointmentArrival('${a.id}')">✅ אני מאשר/ת הגעה לתור</button>` : `<div style="flex:1; font-size:0.8rem; color:#34d399; font-weight:800; align-self:center;">✓ הגעתך מאושרת ביומן</div>`}
+              <button type="button" class="btn-glass" style="padding:8px 12px; font-size:0.78rem;" onclick="openRescheduleByClient('${a.id}')">🔄 שנה מועד</button>
+              <button type="button" class="btn-glass" style="padding:8px 12px; font-size:0.78rem; border-color:#ef4444; color:#fca5a5;" onclick="cancelMyAppointmentByClient('${a.id}')">✕ בטל תור</button>
+            </div>
           `;
           futureList.appendChild(card);
         });
@@ -487,7 +528,7 @@
           card.className = `client-appt-card status-${st}`;
           card.innerHTML = `
             <div style="display:flex; justify-content:space-between; align-items:center;">
-              <strong style="font-size:0.92rem;">יום ${DAYS_HEB[a.dayIdx]} (${dateStr}) • ${a.time}</strong>
+              <strong style="font-size:0.9rem;">יום ${DAYS_HEB[a.dayIdx]} (${dateStr}) • ${a.time}</strong>
               <span class="status-pill ${st}">${st === "canceled" ? "🔴 בוטל" : st === "confirmed" ? "🟢 הושלם / אושר" : "⚪ עבר"}</span>
             </div>
             <div style="font-size:0.8rem; color:#cbd5e1; margin-top:4px;">${sanitizeStr(a.service, 50)}</div>
@@ -566,21 +607,29 @@
       const pGrid = document.getElementById("portfolioGrid");
       pGrid.innerHTML = "";
       portfolioList.forEach((src, i) => {
+        const fallback = DEFAULT_PORTFOLIO[i % DEFAULT_PORTFOLIO.length];
         const card = document.createElement("div");
         card.className = "photo-card";
-        card.innerHTML = `<div class="photo-inner"><img src="${src}" alt="תספורת ${i + 1}" /></div><div class="photo-tag"><span>Ilay Barbershop</span><span>🔍</span></div>`;
+        card.innerHTML = `<div class="photo-inner"><img src="${src}" alt="תספורת ${i + 1}" onerror="this.onerror=null;this.src='${fallback}'" /></div><div class="photo-tag"><span>Ilay Barbershop</span><span>הגדל 🔍</span></div>`;
+        card.onclick = () => {
+          document.getElementById("lightboxImg").src = card.querySelector("img").src;
+          document.getElementById("lightboxModal").classList.add("open");
+        };
         pGrid.appendChild(card);
       });
     }
 
-    function openBookingModal(srvIdx) {
+    function openBookingModal(srvIdx, isReschedule = false) {
       if (!verifyClientSession()) {
-        pendingActionAfterLogin = () => openBookingModal(srvIdx);
+        pendingActionAfterLogin = () => openBookingModal(srvIdx, isReschedule);
         document.getElementById("authModal").classList.add("open");
         showToast("לקביעת תור חובה להתחבר או להירשם עם שם מלא ומספר טלפון");
         return;
       }
+      if (!isReschedule) editingApptId = null;
       selectedServiceIdx = srvIdx < SERVICES.length ? srvIdx : 0;
+      document.getElementById("bookingModalSub").textContent = editingApptId ? "שינוי מועד תור קיים • Ilay Barbershop" : "קביעת תור • Ilay Barbershop";
+      document.getElementById("confirmBookingBtn").textContent = editingApptId ? "שמור מועד חדש לתור" : "אשר ושבץ תור ביומן";
       document.getElementById("bookingServiceSelect").innerHTML = SERVICES.map((s, i) => `<option value="${i}" ${i === selectedServiceIdx ? "selected" : ""}>${sanitizeStr(s.name, 40)} — ${s.price} ₪</option>`).join("");
       updateModalHeaderTitle();
       renderBookingDays();
@@ -588,6 +637,11 @@
       document.getElementById("clientNameInput").value = currentClientUser.username;
       document.getElementById("clientPhoneInput").value = currentClientUser.phone;
       document.getElementById("bookingModal").classList.add("open");
+    }
+
+    function closeBookingModal() {
+      editingApptId = null;
+      document.getElementById("bookingModal").classList.remove("open");
     }
 
     function updateModalHeaderTitle() {
@@ -622,7 +676,7 @@
 
       for (let cur = sh * 60 + sm; cur < eh * 60 + em; cur += step) {
         const tStr = `${String(Math.floor(cur / 60)).padStart(2, "0")}:${String(cur % 60).padStart(2, "0")}`;
-        const taken = appointments.some(a => Number(a.dayIdx) === selectedBookDay && a.time === tStr && a.status !== "canceled");
+        const taken = appointments.some(a => Number(a.dayIdx) === selectedBookDay && a.time === tStr && a.status !== "canceled" && a.id !== editingApptId);
         const btn = document.createElement("button");
         btn.type = "button";
         btn.className = "hour-chip" + (taken ? " taken" : "") + (selectedBookHour === tStr ? " active" : "");
@@ -636,32 +690,66 @@
       if (!verifyClientSession()) return;
       if (!selectedBookHour) return showToast("נא לבחור שעה פנויה");
 
+      // מניעת תור כפול על אותה משבצת
+      const slotTaken = appointments.some(a => Number(a.dayIdx) === selectedBookDay && a.time === selectedBookHour && a.status !== "canceled" && a.id !== editingApptId);
+      if (slotTaken) {
+        renderBookingHours();
+        return showToast("השעה הזו נתפסה כרגע, נא לבחור שעה אחרת");
+      }
+
       const srv = SERVICES[selectedServiceIdx] || SERVICES[0];
       const dateStr = getFormattedDateForDayIdx(selectedBookDay);
       const dayName = DAYS_HEB[selectedBookDay];
+      const publicUrl = `${window.location.origin}/ilay.html#personal-area`;
+
+      if (editingApptId) {
+        const existing = appointments.find(a => a.id === editingApptId);
+        if (existing) {
+          existing.dayIdx = selectedBookDay;
+          existing.dateStr = dateStr;
+          existing.time = selectedBookHour;
+          existing.startsAtMs = getTargetTimestamp(selectedBookDay, selectedBookHour);
+          existing.srvIdx = selectedServiceIdx;
+          existing.price = srv.price;
+          existing.service = `${srv.name} • ${srv.price} ₪`;
+          existing.status = "pending";
+          existing.movedCount = (Number(existing.movedCount) || 0) + 1;
+          existing.reminderSent = false;
+
+          pushRealtimeNotification("moved", "לקוח שינה מועד תור", `${existing.name} הזיז את התור ליום ${dayName} (${dateStr}) בשעה ${selectedBookHour}.`, existing.id, selectedBookDay);
+          sendTrackedSms(existing.phone, existing.name, `היי ${existing.name}, מועד התור שלך ב-Ilay Barbershop עודכן ליום ${dayName} (${dateStr}) בשעה ${selectedBookHour}.`, "move", existing.id);
+          closeBookingModal();
+          updateAuthAndPersonalUI();
+          switchCategory("personal");
+          return showToast("מועד התור עודכן בהצלחה ביומן!");
+        }
+      }
+
       const newAppt = {
-        id: "ap_" + Date.now(),
+        id: "ap_" + Date.now() + "_" + Math.random().toString(36).slice(2, 5),
         dayIdx: selectedBookDay,
         dateStr,
         time: selectedBookHour,
+        createdAt: Date.now(),
         startsAtMs: getTargetTimestamp(selectedBookDay, selectedBookHour),
         name: currentClientUser.username,
         phone: currentClientUser.phone,
+        srvIdx: selectedServiceIdx,
         price: srv.price,
         service: `${srv.name} • ${srv.price} ₪`,
         note: sanitizeStr(document.getElementById("clientNoteInput").value, 120),
-        status: "pending", // ממתין לאישור הגעה (אפור ביומן הניהול עד שיאשר באזור האישי)
+        status: "pending",
+        movedCount: 0,
         reminderSent: false
       };
 
       appointments.push(newAppt);
-      broadcastCloudState("new_booking", { appt: newAppt });
+      pushRealtimeNotification("new_booking", "תור חדש נקבע באתר!", `${newAppt.name} (${newAppt.phone}) קבע תור ל${srv.name} ביום ${dayName} (${dateStr}) בשעה ${newAppt.time}.`, newAppt.id, selectedBookDay);
 
-      const publicUrl = `${window.location.origin}/ilay.html#personal-area`;
-      const smsMsg = `היי ${newAppt.name}, התור שלך ל-Ilay Barbershop נקבע ליום ${dayName} (${dateStr}) בשעה ${newAppt.time}. לצפייה בתור ואישור הגעה באזור האישי: ${publicUrl}`;
+      const smsMsg = `היי ${newAppt.name}, התור שלך ל-Ilay Barbershop נקבע ליום ${dayName} (${dateStr}) בשעה ${newAppt.time}. לצפייה ואישור הגעה באזור האישי: ${publicUrl}`;
       sendTrackedSms(newAppt.phone, newAppt.name, smsMsg, "booking", newAppt.id);
 
-      document.getElementById("bookingModal").classList.remove("open");
+      closeBookingModal();
       document.getElementById("clientNoteInput").value = "";
       updateAuthAndPersonalUI();
       switchCategory("personal");
@@ -671,6 +759,7 @@
     window.onCoreDataUpdated = () => {
       renderSiteContent();
       updateAuthAndPersonalUI();
+      if (document.getElementById("bookingModal").classList.contains("open")) renderBookingHours();
     };
 
     window.addEventListener("DOMContentLoaded", () => {
