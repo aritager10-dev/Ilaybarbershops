@@ -189,7 +189,7 @@ function saveAllStateLocally() {
   localStorage.setItem("ilay_admin_notifs_v1", JSON.stringify(adminNotifications.slice(0, 120)));
 }
 
-// --- התראות בזמן אמת (פעמון + צליל + ntfy) ---
+// --- התראות בזמן אמת ---
 function playAlertTone() {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -347,13 +347,13 @@ async function retryFailedSmsLog(logId) {
   return res.ok;
 }
 
-// --- חישוב סטטיסטיקות פרקטי + חישוב מחירים והכנסות (היום, השבוע, החודש, ממוצע) ---
+// --- חישוב סטטיסטיקות חכם: ממוצע יומי -> שבועי -> חודשי (ללקוחות ולהכנסות) ---
 function computeComprehensiveAnalytics(selectedDayFilter = null) {
   const todayIdx = selectedDayFilter !== null ? Number(selectedDayFilter) : new Date().getDay();
 
   const dayTotals = [0, 0, 0, 0, 0, 0, 0];
   const dayCounts = [0, 0, 0, 0, 0, 0, 0];
-  let weeklyRevenue = 0;
+  let weeklyRevenueActual = 0;
 
   const activeAppts = appointments.filter(a => a.status !== "canceled");
   activeAppts.forEach(a => {
@@ -362,26 +362,33 @@ function computeComprehensiveAnalytics(selectedDayFilter = null) {
     if (d >= 0 && d < 7) {
       dayTotals[d] += price;
       dayCounts[d] += 1;
-      weeklyRevenue += price;
+      weeklyRevenueActual += price;
     }
   });
 
-  const todayRevenue = dayTotals[todayIdx] || 0;
-  const todayAppts = dayCounts[todayIdx] || 0;
-  const weekAppts = activeAppts.length;
-  const monthlyRevenue = Math.round(weeklyRevenue * 4.3);
-  const monthAppts = Math.round(weekAppts * 4.3);
+  const activeWorkdaysInWeek = weeklySchedule.filter(d => d.active).length || 6;
+  const daysWithActualBookings = dayCounts.filter(c => c > 0).length;
+  const divisorDays = daysWithActualBookings > 0 ? daysWithActualBookings : activeWorkdaysInWeek;
 
-  const activeDaysCount = weeklySchedule.filter(d => d.active).length || 1;
-  const avgDailyRevenue = Math.round(weeklyRevenue / activeDaysCount);
-  const avgRevenuePerAppt = weekAppts ? Math.round(weeklyRevenue / weekAppts) : 0;
+  // חישוב שרשרת לקוחות/תורים: יומי -> שבועי -> חודשי
+  const todayAppts = dayCounts[todayIdx] || 0;
+  const weekApptsActual = activeAppts.length;
+  const avgClientsPerDayRaw = weekApptsActual / divisorDays;
+  const avgClientsPerDay = Math.round(avgClientsPerDayRaw * 10) / 10;
+  const projectedWeeklyClients = Math.round(avgClientsPerDayRaw * activeWorkdaysInWeek);
+  const projectedMonthlyClients = Math.round(projectedWeeklyClients * 4.3);
+
+  // חישוב שרשרת כסף והכנסות: יומי -> שבועי -> חודשי
+  const todayRevenue = dayTotals[todayIdx] || 0;
+  const avgDailyRevenue = Math.round(weeklyRevenueActual / divisorDays);
+  const projectedWeeklyRevenue = Math.round(avgDailyRevenue * activeWorkdaysInWeek);
+  const projectedMonthlyRevenue = Math.round(projectedWeeklyRevenue * 4.3);
 
   const confirmedAppts = activeAppts.filter(a => a.status === "confirmed").length;
   const pendingAppts = activeAppts.filter(a => !a.status || a.status === "pending").length;
   const canceledAppts = appointments.filter(a => a.status === "canceled").length;
-  const movedAppts = activeAppts.filter(a => Number(a.movedCount || 0) > 0).length;
 
-  // לקוחות
+  // לקוחות רשומים
   const totalClients = registeredUsers.length;
   const visitCountsByPhone = {};
   activeAppts.forEach(a => {
@@ -411,21 +418,23 @@ function computeComprehensiveAnalytics(selectedDayFilter = null) {
   return {
     revenue: {
       todayRevenue,
-      weeklyRevenue,
-      monthlyRevenue,
       avgDailyRevenue,
-      avgRevenuePerAppt,
+      weeklyRevenueActual,
+      projectedWeeklyRevenue,
+      projectedMonthlyRevenue,
       dayTotals,
       dayCounts
     },
     appts: {
       todayAppts,
-      weekAppts,
-      monthAppts,
+      avgClientsPerDay,
+      weekApptsActual,
+      projectedWeeklyClients,
+      projectedMonthlyClients,
+      activeWorkdaysInWeek,
       confirmedAppts,
       pendingAppts,
       canceledAppts,
-      movedAppts,
       apptsByDay: dayCounts
     },
     clients: {
