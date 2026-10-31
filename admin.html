@@ -56,53 +56,67 @@
         </div>
 
         <button type="button" class="btn-gold" onclick="openManualAddModal()">+ שבץ תור חדש</button>
-        <button type="button" class="btn-outline" onclick="switchTab('analytics')">📊 דוחות וגרפים</button>
+        <button type="button" class="btn-outline" onclick="switchTab('analytics')">💰 הכנסות וסטטיסטיקה</button>
+        <button type="button" class="btn-outline" style="border-color:#f59e0b; color:#fde68a;" onclick="if(confirm('לאפס את כל התורים ביומן?')){appointments=[];broadcastCloudState();renderAllAdmin();}">איפוס יומן</button>
         <button type="button" class="btn-outline" style="border-color:#ef4444; color:#fca5a5;" onclick="localStorage.removeItem('ilay_saved_admin_label'); location.reload();">התנתק</button>
       </div>
     </header>
 
-    <!-- 4 כרטיסי סיכום מהיר -->
+    <!-- 4 כרטיסי על פרקטיים: כמה עשיתי היום, השבוע, החודש + ממוצע, וסטטוסים -->
     <div class="stats-grid-4">
       <div class="stat-rev-card">
-        <div style="font-size:0.75rem; color:var(--text-muted); font-weight:700;">הכנסה מתורים פעילים</div>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size:0.75rem; color:var(--text-muted); font-weight:700;">הכנסה יומית</span>
+          <select id="topStatDayFilter" onchange="renderAllAdmin()" style="width:auto; margin:0; padding:2px 6px; font-size:0.74rem; font-weight:800; border-radius:6px;">
+            <option value="0">ראשון</option>
+            <option value="1">שני</option>
+            <option value="2">שלישי</option>
+            <option value="3">רביעי</option>
+            <option value="4">חמישי</option>
+            <option value="5">שישי</option>
+            <option value="6">מוצ״ש</option>
+          </select>
+        </div>
+        <div class="stat-rev-value" id="statDailyMoney">0 ₪</div>
+        <div class="stat-rev-sub" id="statDailyCount">0 תורים ביום זה</div>
+      </div>
+
+      <div class="stat-rev-card">
+        <div style="font-size:0.75rem; color:var(--text-muted); font-weight:700;">הכנסה שבועית</div>
         <div class="stat-rev-value" id="statWeeklyMoney">0 ₪</div>
-        <div class="stat-rev-sub" id="statWeeklyCount">0 תורים פעילים</div>
+        <div class="stat-rev-sub" id="statWeeklyCount">0 תורים פעילים השבוע</div>
       </div>
+
+      <div class="stat-rev-card">
+        <div style="font-size:0.75rem; color:var(--text-muted); font-weight:700;">צפי חודשי וממוצע</div>
+        <div class="stat-rev-value" id="statMonthlyMoney">0 ₪</div>
+        <div class="stat-rev-sub" id="statAvgRevenueSub">ממוצע: 0 ₪ ליום | 0 ₪ לתור</div>
+      </div>
+
       <div class="stat-rev-card" style="border-right-color:var(--status-green);">
-        <div style="font-size:0.75rem; color:var(--text-muted); font-weight:700;">סטטוס אישורי הגעה</div>
+        <div style="font-size:0.75rem; color:var(--text-muted); font-weight:700;">אישורי הגעה ויתרת SMS</div>
         <div class="stat-rev-value" id="statConfirmedRatio" style="color:#34d399;">0 אושרו</div>
-        <div class="stat-rev-sub" id="statPendingRatio">0 ממתינים | 0 בוטלו</div>
-      </div>
-      <div class="stat-rev-card">
-        <div style="font-size:0.75rem; color:var(--text-muted); font-weight:700;">יתרת הודעות SMS בחבילה</div>
-        <div class="stat-rev-value" id="statSmsRemaining">1,000</div>
-        <div class="stat-rev-sub" id="statSmsSentSub">נמסרו: 0 | נכשלו: 0</div>
-      </div>
-      <div class="stat-rev-card">
-        <div style="font-size:0.75rem; color:var(--text-muted); font-weight:700;">לקוחות רשומים במועדון</div>
-        <div class="stat-rev-value" id="statClubCount">0</div>
-        <div class="stat-rev-sub" id="statAvgVisitsSub">ממוצע 0.0 תורים ללקוח</div>
+        <div class="stat-rev-sub" id="statSmsAndPendingSub">0 ממתינים | 1,000 SMS נותרו</div>
       </div>
     </div>
 
-    <!-- 6 לשוניות מסודרות ונקיות -->
+    <!-- 6 לשוניות מסודרות -->
     <div class="admin-tabs-bar">
-      <button type="button" class="admin-tab-btn active" id="tabbtn-cal" onclick="switchTab('cal')">📅 יומן תורים חי</button>
-      <button type="button" class="admin-tab-btn" id="tabbtn-analytics" onclick="switchTab('analytics')">📊 סטטיסטיקות ודוחות</button>
+      <button type="button" class="admin-tab-btn active" id="tabbtn-cal" onclick="switchTab('cal')">📅 יומן תורים</button>
+      <button type="button" class="admin-tab-btn" id="tabbtn-analytics" onclick="switchTab('analytics')">💰 הכנסות וסטטיסטיקה</button>
       <button type="button" class="admin-tab-btn" id="tabbtn-sms" onclick="switchTab('sms')">📩 מערכת SMS ותזכורות</button>
-      <button type="button" class="admin-tab-btn" id="tabbtn-portfolio" onclick="switchTab('portfolio')">📸 העלאת תמונות (<span id="tabPhotoCount">6</span>)</button>
+      <button type="button" class="admin-tab-btn" id="tabbtn-portfolio" onclick="switchTab('portfolio')">📸 תיק עבודות (<span id="tabPhotoCount">6</span>)</button>
       <button type="button" class="admin-tab-btn" id="tabbtn-edit" onclick="switchTab('edit')">✂️ מחירון וכותרת</button>
       <button type="button" class="admin-tab-btn" id="tabbtn-hours" onclick="switchTab('hours')">🕒 שעות פעילות</button>
     </div>
 
-    <!-- לשונית 1: יומן תורים חי -->
+    <!-- לשונית 1: יומן תורים חי (ללא "לא הגיע" - רק אושר / ממתין / בוטל) -->
     <div id="tab-cal" class="panel-box">
       <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
-        <div style="display:flex; gap:7px; align-items:center; flex-wrap:wrap;">
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
           <span class="status-pill confirmed">🟢 אושר</span>
           <span class="status-pill pending">⚪ ממתין לאישור</span>
           <span class="status-pill canceled">🔴 בוטל</span>
-          <span class="status-pill noshow">🟠 לא הגיע</span>
         </div>
         <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
           <label style="font-size:0.8rem; color:#cbd5e1; cursor:pointer;">
@@ -116,46 +130,37 @@
       <div class="cal-grid-scroll"><div class="cal-board cols-7" id="calendarBoard"></div></div>
     </div>
 
-    <!-- לשונית 2: מערכת סטטיסטיקות מלאה, גרפים וייצוא ל-Excel/CSV -->
+    <!-- לשונית 2: סטטיסטיקה פרקטית ונקייה + מחירים והכנסות (היום, השבוע, החודש, ממוצע) -->
     <div id="tab-analytics" class="panel-box" style="display:none;">
-      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.08);">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:16px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.08);">
         <div>
-          <h3 style="font-size:1.15rem; font-weight:900; color:var(--gold-bright);">📊 מרכז סטטיסטיקות, גרפים ודוחות אמת</h3>
-          <p style="font-size:0.78rem; color:var(--text-muted);">כל הנתונים מחושבים בזמן אמת מתוך מסד הנתונים של היומן, הלקוחות והודעות ה-SMS/WhatsApp</p>
+          <h3 style="font-size:1.15rem; font-weight:900; color:var(--gold-bright);">💰 סיכום הכנסות, תורים ו-SMS (פרקטי ונקי)</h3>
+          <p style="font-size:0.8rem; color:var(--text-muted);">מחשב אוטומטית כמה עשית היום, השבוע, החודש, ממוצע הכנסות ושימוש בהודעות</p>
         </div>
-        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-          <select id="analyticsPeriodSelect" class="input-field" style="width:auto; margin:0; padding:7px 12px;" onchange="renderAnalyticsDashboard()">
-            <option value="all">כל התקופות</option>
-            <option value="day">היום (24 שעות)</option>
-            <option value="week">השבוע האחרון</option>
-            <option value="month">החודש האחרון</option>
-            <option value="year">השנה האחרונה</option>
-          </select>
-          <button type="button" class="btn-gold" style="padding:8px 14px; font-size:0.82rem;" onclick="exportFullReportToCSV()">📥 ייצוא דוח ל-Excel / CSV</button>
-        </div>
+        <button type="button" class="btn-gold" style="padding:8px 14px; font-size:0.82rem;" onclick="exportFullReportToCSV()">📥 ייצוא דוח ל-Excel / CSV</button>
       </div>
 
-      <!-- א. סטטיסטיקות תורים -->
-      <h4 style="font-size:0.92rem; font-weight:900; color:#fff; margin-bottom:8px;">📅 סטטיסטיקות תורים</h4>
-      <div class="kpi-mini-grid" id="kpiAppointmentsGrid"></div>
+      <!-- 1. סטטיסטיקת מחירים והכנסות (הכי חשוב) -->
+      <h4 style="font-size:0.95rem; font-weight:900; color:var(--gold-bright); margin-bottom:8px;">💵 הכנסות ומחירים (כמה עשיתי)</h4>
+      <div class="kpi-mini-grid" id="kpiRevenueGrid"></div>
 
-      <!-- ב. סטטיסטיקות לקוחות -->
-      <h4 style="font-size:0.92rem; font-weight:900; color:#fff; margin-bottom:8px;">👥 סטטיסטיקות לקוחות</h4>
-      <div class="kpi-mini-grid" id="kpiClientsGrid"></div>
+      <!-- 2. סטטיסטיקת תורים ולקוחות פרקטית -->
+      <h4 style="font-size:0.95rem; font-weight:900; color:#fff; margin-bottom:8px;">📅 תורים ולקוחות</h4>
+      <div class="kpi-mini-grid" id="kpiPracticalApptsGrid"></div>
 
-      <!-- ג. סטטיסטיקות SMS ו-WhatsApp -->
-      <h4 style="font-size:0.92rem; font-weight:900; color:#fff; margin-bottom:8px;">💬 סטטיסטיקות SMS ו-WhatsApp</h4>
-      <div class="kpi-mini-grid" id="kpiMessagesGrid"></div>
+      <!-- 3. סטטיסטיקת הודעות SMS פרקטית -->
+      <h4 style="font-size:0.95rem; font-weight:900; color:#fff; margin-bottom:8px;">📩 מעקב חבילת SMS</h4>
+      <div class="kpi-mini-grid" id="kpiPracticalSmsGrid"></div>
 
-      <!-- ד. גרפים ויזואליים -->
+      <!-- גרף הכנסות ותורים לפי ימים בשבוע -->
       <div class="charts-grid-2">
         <div class="chart-card">
-          <div style="font-size:0.84rem; font-weight:800; color:var(--gold-bright); margin-bottom:8px;">גרף תורים לפי ימים בשבוע</div>
-          <canvas id="chartApptsByDay" height="190"></canvas>
+          <div style="font-size:0.86rem; font-weight:800; color:var(--gold-bright); margin-bottom:8px;">הכנסה בשקלים (₪) לפי ימים בשבוע</div>
+          <canvas id="chartRevenueByDay" height="175"></canvas>
         </div>
         <div class="chart-card">
-          <div style="font-size:0.84rem; font-weight:800; color:var(--gold-bright); margin-bottom:8px;">פילוח אישורי הגעה, ביטולים והודעות</div>
-          <canvas id="chartStatusBreakdown" height="190"></canvas>
+          <div style="font-size:0.86rem; font-weight:800; color:var(--gold-bright); margin-bottom:8px;">כמות תורים לפי ימים בשבוע</div>
+          <canvas id="chartApptsByDay" height="175"></canvas>
         </div>
       </div>
     </div>
@@ -175,7 +180,7 @@
         </div>
 
         <div class="hub-card">
-          <h3 style="font-size:1.05rem; font-weight:900; margin-bottom:8px;">👥 ניהול לקוחות והיסטוריית ביקורים (<span id="clubListCount">0</span>)</h3>
+          <h3 style="font-size:1.05rem; font-weight:900; margin-bottom:8px;">👥 לקוחות רשומים במועדון (<span id="clubListCount">0</span>)</h3>
           <div style="display:grid; grid-template-columns:1fr 1fr auto; gap:6px; margin-bottom:10px;">
             <input type="text" id="manualClubName" class="input-field" style="margin:0;" placeholder="שם מלא ייחודי" />
             <input type="tel" id="manualClubPhone" class="input-field" style="margin:0;" placeholder="טלפון נייד" />
@@ -202,12 +207,12 @@
       </div>
     </div>
 
-    <!-- לשונית 4: מערכת העלאת תמונות מתקדמת מהמכשיר עם תצוגה מקדימה לפני שמירה -->
+    <!-- לשונית 4: העלאת תמונות מהמכשיר -->
     <div id="tab-portfolio" class="panel-box" style="display:none;">
       <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
         <div>
           <h3 style="font-size:1.1rem; font-weight:900; color:var(--gold-bright);">📸 העלאת תמונות מהמכשיר וניהול תיק עבודות</h3>
-          <p style="font-size:0.8rem; color:var(--text-muted);">בחר תמונות מהטלפון או מהמחשב, צפה בתצוגה מקדימה ושמור ישירות למאגר המסונכרן (נשמר גם אחרי רענון)</p>
+          <p style="font-size:0.8rem; color:var(--text-muted);">בחר תמונות מהטלפון או מהמחשב, צפה בתצוגה מקדימה ושמור ישירות לאתר</p>
         </div>
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
           <label for="devicePhotoUploadInput" class="btn-gold" style="cursor:pointer;">📁 בחר תמונות מהמכשיר (טלפון / מחשב)</label>
@@ -216,13 +221,12 @@
         </div>
       </div>
 
-      <!-- אזור תצוגה מקדימה לפני שמירה -->
       <div id="photoPreviewStagingBox" class="hub-card" style="display:none; margin-bottom:16px; border-color:#10b981;">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
           <strong style="color:#34d399; font-size:0.92rem;">✨ תצוגה מקדימה לפני שמירה (<span id="stagingCount">0</span> תמונות נבחרו)</strong>
           <div style="display:flex; gap:8px;">
-            <button type="button" class="btn-gold" style="padding:7px 14px; font-size:0.8rem;" onclick="commitStagedPhotos(false)">✅ שמור והוסף לתיק העבודות</button>
-            <button type="button" class="btn-outline" style="padding:7px 14px; font-size:0.8rem;" onclick="commitStagedPhotos(true)">🔄 החלף את כל התיק בתמונות אלו</button>
+            <button type="button" class="btn-gold" style="padding:7px 14px; font-size:0.8rem;" onclick="commitStagedPhotos(false)">✅ שמור והוסף לתיק</button>
+            <button type="button" class="btn-outline" style="padding:7px 14px; font-size:0.8rem;" onclick="commitStagedPhotos(true)">🔄 החלף את כל התיק</button>
             <button type="button" class="btn-outline" style="padding:7px 12px; font-size:0.8rem; border-color:#ef4444; color:#fca5a5;" onclick="cancelStagedPhotos()">ביטול</button>
           </div>
         </div>
@@ -232,20 +236,82 @@
       <div id="adminPortfolioGrid" class="portfolio-grid"></div>
     </div>
 
-    <!-- לשונית 5: מחירון וכותרת -->
+    <!-- לשונית 5: מחירון וכותרת (כולל הוספת תספורת חדשה, מחיקה וסנכרון מלא לאתר) -->
     <div id="tab-edit" class="panel-box" style="display:none;">
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px;">
-        <input type="text" id="editSiteTitle" class="input-field" placeholder="כותרת האתר" />
-        <input type="text" id="editSiteSubtitle" class="input-field" placeholder="תת-כותרת" />
+      <h3 style="font-size:1.08rem; font-weight:900; color:var(--gold-bright); margin-bottom:10px;">✨ כותרת ראשית ותת-כותרת באתר הלקוחות</h3>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:10px; margin-bottom:18px;">
+        <div>
+          <label style="font-size:0.78rem; color:#cbd5e1; font-weight:700;">כותרת ראשית באתר:</label>
+          <input type="text" id="editSiteTitle" class="input-field" placeholder="ILAY BARBERSHOP" />
+        </div>
+        <div>
+          <label style="font-size:0.78rem; color:#cbd5e1; font-weight:700;">תת-כותרת באתר:</label>
+          <input type="text" id="editSiteSubtitle" class="input-field" placeholder="תספורת נקייה, אווירה טובה וסטייל שיושב בול." />
+        </div>
       </div>
+
+      <h3 style="font-size:1.08rem; font-weight:900; color:var(--gold-bright); margin-bottom:10px;">✂️ עריכת מחירון התספורות הקיים</h3>
       <div id="servicesEditorContainer"></div>
-      <button type="button" class="btn-gold" style="width:100%; margin-top:12px;" onclick="saveServicesAndTitles()">שמור מחירון וכותרות</button>
+
+      <!-- תיבת הוספת תספורת חדשה למחירון -->
+      <div style="border:1.5px dashed var(--gold); border-radius:16px; padding:15px; margin-top:14px; background:rgba(212,175,55,0.05);">
+        <div style="font-size:0.95rem; font-weight:900; color:var(--gold-bright); margin-bottom:10px;">+ הוספת תספורת / שירות חדש למחירון באתר:</div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:10px; align-items:end;">
+          <div>
+            <label style="font-size:0.75rem; color:#cbd5e1;">שם התספורת:</label>
+            <input type="text" id="newSrvName" class="input-field" style="margin:0;" placeholder="למשל: תספורת + צבע" />
+          </div>
+          <div>
+            <label style="font-size:0.75rem; color:#cbd5e1;">מחיר (₪):</label>
+            <input type="number" id="newSrvPrice" class="input-field" style="margin:0;" placeholder="120" />
+          </div>
+          <div>
+            <label style="font-size:0.75rem; color:#cbd5e1;">זמן משוער:</label>
+            <input type="text" id="newSrvTime" class="input-field" style="margin:0;" placeholder="45 דק'" />
+          </div>
+          <div>
+            <label style="font-size:0.75rem; color:#cbd5e1;">תיאור התספורת:</label>
+            <input type="text" id="newSrvDesc" class="input-field" style="margin:0;" placeholder="תיאור קצר שיופיע ללקוח..." />
+          </div>
+          <button type="button" class="btn-gold" style="height:44px; padding:0 20px;" onclick="addNewServiceToMenu()">+ הוסף למחירון</button>
+        </div>
+      </div>
+
+      <button type="button" class="btn-gold" style="width:100%; margin-top:16px; padding:14px; font-size:0.95rem;" onclick="saveServicesAndTitles()">💾 שמור מחירון וכותרות וסנכרן לאתר</button>
     </div>
 
-    <!-- לשונית 6: שעות פעילות -->
+    <!-- לשונית 6: שעות פעילות + מרווח תורים וכמות הפסקה בין תור לתור -->
     <div id="tab-hours" class="panel-box" style="display:none;">
-      <div id="hoursEditorRows" style="display:flex; flex-direction:column; gap:8px; margin-bottom:14px;"></div>
-      <button type="button" class="btn-gold" style="width:100%;" onclick="saveHoursSettings()">שמור שעות פעילות</button>
+      <div class="hub-card" style="margin-bottom:16px;">
+        <h3 style="font-size:1.05rem; font-weight:900; color:var(--gold-bright); margin-bottom:10px;">⏱️ הגדרת זמן בין תור לתור והפסקות</h3>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px;">
+          <div>
+            <label style="font-size:0.82rem; color:#cbd5e1; font-weight:700;">כמות זמן בין תור לתור (מרווח תורים):</label>
+            <select id="slotIntervalSelect" class="input-field" style="margin-top:4px;">
+              <option value="15">כל 15 דקות</option>
+              <option value="20">כל 20 דקות</option>
+              <option value="25">כל 25 דקות</option>
+              <option value="30">כל 30 דקות</option>
+              <option value="40">כל 40 דקות</option>
+              <option value="45">כל 45 דקות</option>
+              <option value="60">כל 60 דקות (שעה)</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:0.82rem; color:#cbd5e1; font-weight:700;">כמות הפסקה בין תור לתור (זמן התארגנות):</label>
+            <select id="slotBufferSelect" class="input-field" style="margin-top:4px;">
+              <option value="0">ללא הפסקה (0 דקות)</option>
+              <option value="5">5 דקות הפסקה בין תורים</option>
+              <option value="10">10 דקות הפסקה בין תורים</option>
+              <option value="15">15 דקות הפסקה בין תורים</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <h3 style="font-size:1.05rem; font-weight:900; color:var(--gold-bright); margin-bottom:10px;">🕒 שעות פתיחה וסגירה לפי ימים (מאיזה שעה עד איזה שעה)</h3>
+      <div id="hoursEditorRows" style="display:flex; flex-direction:column; gap:8px; margin-bottom:16px;"></div>
+      <button type="button" class="btn-gold" style="width:100%; padding:14px; font-size:0.95rem;" onclick="saveHoursSettings()">💾 שמור שעות פעילות ומרווחי תורים</button>
     </div>
   </div>
 
@@ -277,8 +343,8 @@
     let boardFilterMode = "all";
     let stagedPhotosData = [];
     let replaceTargetPhotoIdx = null;
+    let chartRevInstance = null;
     let chartDaysInstance = null;
-    let chartStatusInstance = null;
 
     function showToast(msg) {
       const t = document.getElementById("toastPopup");
@@ -300,6 +366,8 @@
       document.getElementById("loginScreen").style.display = "none";
       document.getElementById("adminApp").classList.add("authenticated");
       document.getElementById("adminHeaderTitle").textContent = `ניהול ויומן • ${label}`;
+      const topDaySelect = document.getElementById("topStatDayFilter");
+      if (topDaySelect) topDaySelect.value = String(new Date().getDay());
       renderAllAdmin();
     }
 
@@ -312,7 +380,7 @@
       if (tab === "analytics") renderAnalyticsDashboard();
     }
 
-    // --- פעמון התראות חכם בזמן אמת ---
+    // --- פעמון התראות ---
     function toggleNotifDrawer() {
       document.getElementById("notifDrawer").classList.toggle("open");
     }
@@ -360,7 +428,7 @@
       renderNotificationsBell();
     }
 
-    // --- יומן תורים וסטטוסים ---
+    // --- יומן תורים (אושר / ממתין / בוטל בלבד) ---
     function generateCalendarHours() {
       const step = Math.max(10, (Number(siteConfig.slotInterval) || 30) + (Number(siteConfig.slotBuffer) || 0));
       const out = [];
@@ -371,13 +439,11 @@
       return out.sort();
     }
 
-    function cycleApptStatusAdmin(apptId, ev) {
+    function toggleApptStatusAdmin(apptId, ev) {
       if (ev) ev.stopPropagation();
       const appt = appointments.find(a => a.id === apptId);
       if (!appt) return;
-      const order = ["pending", "confirmed", "noshow"];
-      const next = order[(order.indexOf(appt.status || "pending") + 1) % order.length];
-      appt.status = next;
+      appt.status = appt.status === "confirmed" ? "pending" : "confirmed";
       broadcastCloudState();
       renderAllAdmin();
     }
@@ -452,7 +518,8 @@
 
       board.innerHTML += `<div class="cal-col-header">שעה / יום</div>`;
       activeDays.forEach(dIdx => {
-        board.innerHTML += `<div class="cal-col-header">יום ${DAYS_HEB[dIdx]}<small>${getFormattedDateForDayIdx(dIdx)}</small></div>`;
+        const sched = weeklySchedule[dIdx];
+        board.innerHTML += `<div class="cal-col-header">יום ${DAYS_HEB[dIdx]} (${getFormattedDateForDayIdx(dIdx)})<small>${sched && sched.active ? sched.start + " - " + sched.end : "סגור"}</small></div>`;
       });
 
       generateCalendarHours().forEach(hourStr => {
@@ -475,15 +542,15 @@
           const slotAppts = appointments.filter(a => Number(a.dayIdx) === dIdx && a.time === hourStr && (showCanceled || a.status !== "canceled"));
           if (slotAppts.length) {
             slotAppts.forEach(appt => {
-              const st = appt.status || "pending";
-              const stLabel = st === "confirmed" ? "🟢 אושר" : st === "canceled" ? "🔴 בוטל" : st === "noshow" ? "🟠 לא הגיע" : "⚪ ממתין";
+              const st = appt.status === "confirmed" ? "confirmed" : appt.status === "canceled" ? "canceled" : "pending";
+              const stLabel = st === "confirmed" ? "🟢 אושר" : st === "canceled" ? "🔴 בוטל" : "⚪ ממתין";
               const card = document.createElement("div");
               card.className = `appt-card status-${st}`;
               card.draggable = st !== "canceled";
               card.ondragstart = e => e.dataTransfer.setData("text/plain", appt.id);
               card.innerHTML = `
                 <div class="appt-top">
-                  <button type="button" class="appt-btn-mini" onclick="cycleApptStatusAdmin('${appt.id}', event)" title="לחץ לשינוי סטטוס (ממתין / אושר / לא הגיע)">${stLabel}</button>
+                  <button type="button" class="appt-btn-mini" onclick="toggleApptStatusAdmin('${appt.id}', event)" title="לחץ לשינוי בין ממתין לאושר">${stLabel}</button>
                   <div style="display:flex; gap:3px;">
                     <button type="button" class="appt-btn-mini" style="color:#34d399;" onclick="sendWhatsappFromCard('${appt.id}', event)" title="שלח WhatsApp">WA</button>
                     <button type="button" class="appt-btn-mini" style="color:#fca5a5;" onclick="cancelAppointmentAdmin('${appt.id}', event)" title="ביטול תור">✕</button>
@@ -507,7 +574,7 @@
       });
     }
 
-    // --- מערכת העלאת תמונות מהמכשיר עם תצוגה מקדימה לפני שמירה ---
+    // --- העלאת תמונות מהמכשיר ---
     async function previewSelectedDevicePhotos(ev) {
       const files = Array.from(ev.target.files || []);
       if (!files.length) return;
@@ -587,87 +654,74 @@
       });
     }
 
-    // --- מרכז סטטיסטיקות מלא, גרפים וייצוא ל-Excel / CSV ---
+    // --- לוח סטטיסטיקה פרקטי ונקי + מחירים והכנסות ---
     function renderAnalyticsDashboard() {
-      const period = document.getElementById("analyticsPeriodSelect")?.value || "all";
-      const data = computeComprehensiveAnalytics(period);
-      const A = data.appts, C = data.clients, M = data.messages;
+      const selectedDay = Number(document.getElementById("topStatDayFilter")?.value ?? new Date().getDay());
+      const data = computeComprehensiveAnalytics(selectedDay);
+      const R = data.revenue, A = data.appts, C = data.clients, M = data.messages;
 
-      document.getElementById("kpiAppointmentsGrid").innerHTML = `
-        <div class="kpi-mini-box"><strong>${A.totalAppts}</strong><span>סה"כ תורים</span></div>
-        <div class="kpi-mini-box"><strong>${A.todayAppts}</strong><span>תורים היום</span></div>
+      document.getElementById("kpiRevenueGrid").innerHTML = `
+        <div class="kpi-mini-box" style="border-color:var(--gold);"><strong>${R.todayRevenue.toLocaleString()} ₪</strong><span>עשיתי ביום ${DAYS_HEB[selectedDay]}</span></div>
+        <div class="kpi-mini-box" style="border-color:var(--gold);"><strong>${R.weeklyRevenue.toLocaleString()} ₪</strong><span>עשיתי השבוע</span></div>
+        <div class="kpi-mini-box" style="border-color:#10b981;"><strong style="color:#34d399;">${R.monthlyRevenue.toLocaleString()} ₪</strong><span>צפי הכנסה החודש</span></div>
+        <div class="kpi-mini-box"><strong>${R.avgDailyRevenue.toLocaleString()} ₪</strong><span>ממוצע ליום עבודה</span></div>
+        <div class="kpi-mini-box"><strong>${R.avgRevenuePerAppt.toLocaleString()} ₪</strong><span>ממוצע לתספורת</span></div>
+      `;
+
+      document.getElementById("kpiPracticalApptsGrid").innerHTML = `
+        <div class="kpi-mini-box"><strong>${A.todayAppts}</strong><span>תורים ביום ${DAYS_HEB[selectedDay]}</span></div>
         <div class="kpi-mini-box"><strong>${A.weekAppts}</strong><span>תורים השבוע</span></div>
-        <div class="kpi-mini-box"><strong>${A.monthAppts}</strong><span>צפי תורים החודש</span></div>
-        <div class="kpi-mini-box"><strong>${A.futureAppts}</strong><span>תורים עתידיים</span></div>
-        <div class="kpi-mini-box"><strong>${A.completedAppts}</strong><span>תורים שהסתיימו</span></div>
-        <div class="kpi-mini-box"><strong style="color:#fca5a5;">${A.canceledAppts}</strong><span>תורים שבוטלו (${A.cancelRate}%)</span></div>
-        <div class="kpi-mini-box"><strong>${A.movedAppts}</strong><span>תורים שהוזזו</span></div>
-        <div class="kpi-mini-box"><strong style="color:#fde68a;">${A.noShowAppts}</strong><span>לא הגיעו</span></div>
-        <div class="kpi-mini-box"><strong style="color:#34d399;">${A.confirmationRate}%</strong><span>אחוז אישורי הגעה</span></div>
-        <div class="kpi-mini-box"><strong style="color:#34d399;">${A.arrivalRate}%</strong><span>אחוז הגעה בפועל</span></div>
+        <div class="kpi-mini-box"><strong style="color:#34d399;">${A.confirmedAppts}</strong><span>אושרו (ירוק)</span></div>
+        <div class="kpi-mini-box"><strong>${A.pendingAppts}</strong><span>ממתינים לאישור (אפור)</span></div>
+        <div class="kpi-mini-box"><strong style="color:#fca5a5;">${A.canceledAppts}</strong><span>בוטלו (אדום)</span></div>
+        <div class="kpi-mini-box"><strong>${C.totalClients}</strong><span>לקוחות רשומים</span></div>
       `;
 
-      document.getElementById("kpiClientsGrid").innerHTML = `
-        <div class="kpi-mini-box"><strong>${C.totalClients}</strong><span>סה"כ לקוחות</span></div>
-        <div class="kpi-mini-box"><strong>${C.newClients}</strong><span>לקוחות חדשים</span></div>
-        <div class="kpi-mini-box"><strong style="color:#34d399;">${C.returningClients}</strong><span>לקוחות חוזרים</span></div>
-        <div class="kpi-mini-box"><strong>${C.activeClients}</strong><span>לקוחות פעילים</span></div>
-        <div class="kpi-mini-box"><strong style="color:#fca5a5;">${C.inactiveClients}</strong><span>לא קבעו זמן רב</span></div>
-        <div class="kpi-mini-box"><strong>${C.avgApptsPerClient}</strong><span>ממוצע תורים ללקוח</span></div>
-      `;
-
-      document.getElementById("kpiMessagesGrid").innerHTML = `
-        <div class="kpi-mini-box"><strong>${M.smsSent}</strong><span>SMS שנשלחו</span></div>
-        <div class="kpi-mini-box"><strong style="color:#34d399;">${M.smsDelivered}</strong><span>נמסרו בהצלחה</span></div>
+      document.getElementById("kpiPracticalSmsGrid").innerHTML = `
+        <div class="kpi-mini-box"><strong style="color:#34d399;">${M.remaining.toLocaleString()}</strong><span>הודעות שנותרו בחבילה</span></div>
+        <div class="kpi-mini-box"><strong>${M.totalPartsUsed}</strong><span>סה"כ הודעות שנשלחו</span></div>
+        <div class="kpi-mini-box"><strong>${M.byCategory.move}</strong><span>נשלחו על הזזת תור</span></div>
+        <div class="kpi-mini-box"><strong>${M.byCategory.reminder}</strong><span>נשלחו כתזכורת</span></div>
+        <div class="kpi-mini-box"><strong>${M.byCategory.booking + M.byCategory.cancel}</strong><span>נשלחו על קביעה/ביטול</span></div>
         <div class="kpi-mini-box"><strong style="color:#fca5a5;">${M.smsFailed}</strong><span>הודעות שנכשלו</span></div>
-        <div class="kpi-mini-box"><strong>${M.smsReceived}</strong><span>הודעות/אישורים שהתקבלו</span></div>
-        <div class="kpi-mini-box"><strong>${M.pendingRemindersQueue}</strong><span>ממתינות לתזכורת</span></div>
-        <div class="kpi-mini-box"><strong>${M.remindersSent}</strong><span>תזכורות שנשלחו</span></div>
-        <div class="kpi-mini-box"><strong style="color:#34d399;">${A.confirmedAppts}</strong><span>אישורי הגעה</span></div>
-        <div class="kpi-mini-box"><strong>${M.remaining}</strong><span>נותרו בחבילה</span></div>
-        <div class="kpi-mini-box"><strong>${M.estimatedCost} ₪</strong><span>עלות SMS משוערת</span></div>
-        <div class="kpi-mini-box"><strong>${M.totalPartsUsed} / ${M.waSent}</strong><span>חלוקת SMS / WhatsApp</span></div>
       `;
 
       if (window.Chart) {
-        const ctx1 = document.getElementById("chartApptsByDay")?.getContext("2d");
-        if (ctx1) {
-          if (chartDaysInstance) chartDaysInstance.destroy();
-          chartDaysInstance = new Chart(ctx1, {
+        const ctxRev = document.getElementById("chartRevenueByDay")?.getContext("2d");
+        if (ctxRev) {
+          if (chartRevInstance) chartRevInstance.destroy();
+          chartRevInstance = new Chart(ctxRev, {
             type: "bar",
             data: {
               labels: DAYS_HEB,
-              datasets: [{ label: "תורים פעילים", data: A.apptsByDay, backgroundColor: "#d4af37", borderRadius: 6 }]
+              datasets: [{ label: "הכנסה ב-₪", data: R.dayTotals, backgroundColor: "#10b981", borderRadius: 6 }]
             },
-            options: { responsive: true, plugins: { legend: { labels: { color: "#f8fafc" } } }, scales: { x: { ticks: { color: "#cbd5e1" } }, y: { ticks: { color: "#cbd5e1", stepSize: 1 } } } }
+            options: { responsive: true, plugins: { legend: { labels: { color: "#f8fafc" } } }, scales: { x: { ticks: { color: "#cbd5e1" } }, y: { ticks: { color: "#cbd5e1" } } } }
           });
         }
 
-        const ctx2 = document.getElementById("chartStatusBreakdown")?.getContext("2d");
-        if (ctx2) {
-          if (chartStatusInstance) chartStatusInstance.destroy();
-          chartStatusInstance = new Chart(ctx2, {
-            type: "doughnut",
+        const ctxDays = document.getElementById("chartApptsByDay")?.getContext("2d");
+        if (ctxDays) {
+          if (chartDaysInstance) chartDaysInstance.destroy();
+          chartDaysInstance = new Chart(ctxDays, {
+            type: "bar",
             data: {
-              labels: ["אושרו (ירוק)", "ממתינים (אפור)", "בוטלו (אדום)", "הוזזו", "SMS שנמסרו"],
-              datasets: [{ data: [A.confirmedAppts, A.pendingAppts, A.canceledAppts, A.movedAppts, M.smsDelivered], backgroundColor: ["#10b981", "#64748b", "#ef4444", "#3b82f6", "#d4af37"] }]
+              labels: DAYS_HEB,
+              datasets: [{ label: "כמות תורים", data: A.apptsByDay, backgroundColor: "#d4af37", borderRadius: 6 }]
             },
-            options: { responsive: true, plugins: { legend: { labels: { color: "#f8fafc" } } } }
+            options: { responsive: true, plugins: { legend: { labels: { color: "#f8fafc" } } }, scales: { x: { ticks: { color: "#cbd5e1" } }, y: { ticks: { color: "#cbd5e1", stepSize: 1 } } } }
           });
         }
       }
     }
 
     function exportFullReportToCSV() {
-      let csv = "\uFEFFסוג רשומה,שם לקוח,טלפון,יום/תאריך,שעה,שירות/הודעה,סטטוס,מחיר\n";
+      let csv = "\uFEFFסוג רשומה,שם לקוח,טלפון,יום/תאריך,שעה,שירות/הודעה,סטטוס,מחיר (₪)\n";
       appointments.forEach(a => {
         csv += `תור,"${a.name}","${a.phone}","יום ${DAYS_HEB[a.dayIdx]} (${a.dateStr || ''})","${a.time}","${a.service}","${a.status || 'pending'}","${a.price || 0}"\n`;
       });
       registeredUsers.forEach(u => {
         csv += `לקוח רשום,"${u.username}","${u.phone}","${u.createdAt || ''}","-","חבר מועדון","פעיל","-"\n`;
-      });
-      smsLogs.forEach(l => {
-        csv += `הודעת ${l.channel || 'SMS'},"${l.name}","${l.phone}","${l.time}","-","${(l.message || '').replace(/"/g, '""')}","${l.status}","${l.parts || 0}"\n`;
       });
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
@@ -676,22 +730,23 @@
       a.download = `Ilay_Barbershop_Report_${new Date().toISOString().slice(0, 10)}.csv`;
       a.click();
       URL.revokeObjectURL(url);
-      showToast("הדוח המלא יוצא בהצלחה לקובץ Excel / CSV!");
+      showToast("הדוח יוצא בהצלחה לקובץ Excel / CSV!");
     }
 
     function renderStatsAndSmsHub() {
-      const data = computeComprehensiveAnalytics("all");
-      const A = data.appts, C = data.clients, M = data.messages;
-      const weeklyMoney = appointments.filter(a => a.status !== "canceled").reduce((sum, a) => sum + (Number(a.price) || 70), 0);
+      const selectedDay = Number(document.getElementById("topStatDayFilter")?.value ?? new Date().getDay());
+      const data = computeComprehensiveAnalytics(selectedDay);
+      const R = data.revenue, A = data.appts, C = data.clients, M = data.messages;
 
-      document.getElementById("statWeeklyMoney").textContent = `${weeklyMoney.toLocaleString()} ₪`;
-      document.getElementById("statWeeklyCount").textContent = `${A.weekAppts} תורים פעילים`;
-      document.getElementById("statConfirmedRatio").textContent = `🟢 ${A.confirmedAppts} אושרו (${A.confirmationRate}%)`;
-      document.getElementById("statPendingRatio").textContent = `⚪ ${A.pendingAppts} ממתינים | 🔴 ${A.canceledAppts} בוטלו`;
-      document.getElementById("statSmsRemaining").textContent = M.remaining.toLocaleString();
-      document.getElementById("statSmsSentSub").textContent = `נמסרו: ${M.smsDelivered} | נכשלו: ${M.smsFailed}`;
-      document.getElementById("statClubCount").textContent = C.totalClients;
-      document.getElementById("statAvgVisitsSub").textContent = `ממוצע ${C.avgApptsPerClient} תורים ללקוח`;
+      document.getElementById("statDailyMoney").textContent = `${R.todayRevenue.toLocaleString()} ₪`;
+      document.getElementById("statDailyCount").textContent = `${A.todayAppts} תורים ביום ${DAYS_HEB[selectedDay]}`;
+      document.getElementById("statWeeklyMoney").textContent = `${R.weeklyRevenue.toLocaleString()} ₪`;
+      document.getElementById("statWeeklyCount").textContent = `${A.weekAppts} תורים פעילים השבוע`;
+      document.getElementById("statMonthlyMoney").textContent = `${R.monthlyRevenue.toLocaleString()} ₪`;
+      document.getElementById("statAvgRevenueSub").textContent = `ממוצע: ${R.avgDailyRevenue} ₪ ליום | ${R.avgRevenuePerAppt} ₪ לתור`;
+      document.getElementById("statConfirmedRatio").textContent = `🟢 ${A.confirmedAppts} אושרו`;
+      document.getElementById("statSmsAndPendingSub").textContent = `⚪ ${A.pendingAppts} ממתינים | 📩 ${M.remaining} SMS נותרו`;
+
       document.getElementById("btnBroadcastCount").textContent = C.totalClients;
       document.getElementById("clubListCount").textContent = C.totalClients;
 
@@ -722,7 +777,7 @@
         r.innerHTML = `
           <div>
             <strong style="font-size:0.86rem;">${sanitizeStr(u.username, 30)}</strong>
-            <span style="font-size:0.72rem; color:#34d399; margin-right:6px;">(${visits} ביקורים)</span>
+            <span style="font-size:0.72rem; color:#34d399; margin-right:6px;">(${visits} תורים)</span>
             <div style="font-size:0.75rem; color:var(--gold-bright); direction:ltr;">${u.phone}</div>
           </div>
           <button type="button" class="appt-btn-mini" style="color:#fca5a5;" onclick="registeredUsers.splice(${idx},1);broadcastCloudState();renderAllAdmin();">הסר</button>
@@ -817,6 +872,49 @@
       showToast("התור שובץ ונשלחה הודעת SMS ללקוח!");
     }
 
+    // --- עריכת מחירון, הוספת תספורת חדשה, מחיקה ושעות פעילות ---
+    function syncEditedServicesFromDOM() {
+      SERVICES.forEach((s, i) => {
+        const n = document.getElementById(`sn_${i}`);
+        const p = document.getElementById(`sp_${i}`);
+        const d = document.getElementById(`sd_${i}`);
+        const desc = document.getElementById(`sdesc_${i}`);
+        if (n && n.value.trim()) s.name = sanitizeStr(n.value, 40);
+        if (p && Number(p.value) >= 0) s.price = Number(p.value);
+        if (d && d.value.trim()) s.duration = sanitizeStr(d.value, 20);
+        if (desc) s.desc = sanitizeStr(desc.value, 120);
+      });
+    }
+
+    function addNewServiceToMenu() {
+      syncEditedServicesFromDOM();
+      const name = sanitizeStr(document.getElementById("newSrvName").value, 40);
+      const price = Number(document.getElementById("newSrvPrice").value) || 80;
+      const duration = sanitizeStr(document.getElementById("newSrvTime").value, 20) || "30 דק'";
+      const desc = sanitizeStr(document.getElementById("newSrvDesc").value, 120) || "תספורת מותאמת אישית.";
+
+      if (!name) return showToast("נא להזין שם לתספורת החדשה");
+
+      SERVICES.push({ name, price, duration, desc });
+      document.getElementById("newSrvName").value = "";
+      document.getElementById("newSrvPrice").value = "";
+      document.getElementById("newSrvTime").value = "";
+      document.getElementById("newSrvDesc").value = "";
+
+      broadcastCloudState();
+      renderEditors();
+      showToast(`התספורת "${name}" נוספה למחירון והתעדכנה באתר הלקוחות!`);
+    }
+
+    function deleteServiceFromMenu(idx) {
+      syncEditedServicesFromDOM();
+      if (SERVICES.length <= 1) return showToast("חייבת להישאר לפחות תספורת אחת במחירון");
+      const removed = SERVICES.splice(idx, 1)[0];
+      broadcastCloudState();
+      renderEditors();
+      showToast(`התספורת "${removed.name}" הוסרה מהמחירון.`);
+    }
+
     function renderEditors() {
       document.getElementById("smsProviderSelect").value = siteConfig.smsProvider || "textme";
       document.getElementById("smsSenderIdInput").value = siteConfig.smsSenderId || "Ilay";
@@ -830,39 +928,52 @@
       const sCont = document.getElementById("servicesEditorContainer");
       sCont.innerHTML = "";
       SERVICES.forEach((s, i) => {
-        sCont.innerHTML += `<div style="display:grid; grid-template-columns:1fr 90px 90px 1.4fr; gap:8px; margin-bottom:8px;">
-          <input type="text" id="sn_${i}" class="input-field" value="${sanitizeStr(s.name, 40)}" />
-          <input type="number" id="sp_${i}" class="input-field" value="${s.price}" />
-          <input type="text" id="sd_${i}" class="input-field" value="${sanitizeStr(s.duration, 20)}" />
-          <input type="text" id="sdesc_${i}" class="input-field" value="${sanitizeStr(s.desc, 120)}" />
-        </div>`;
+        sCont.innerHTML += `
+          <div style="display:grid; grid-template-columns:1.1fr 85px 95px 1.6fr auto; gap:8px; align-items:end; background:rgba(255,255,255,0.025); padding:10px; border-radius:12px; border:1px solid rgba(255,255,255,0.08); margin-bottom:8px;">
+            <div><label style="font-size:0.72rem; color:#94a3b8;">שם התספורת:</label><input type="text" id="sn_${i}" class="input-field" style="margin:0;" value="${sanitizeStr(s.name, 40)}" /></div>
+            <div><label style="font-size:0.72rem; color:#94a3b8;">מחיר (₪):</label><input type="number" id="sp_${i}" class="input-field" style="margin:0;" value="${s.price}" /></div>
+            <div><label style="font-size:0.72rem; color:#94a3b8;">זמן:</label><input type="text" id="sd_${i}" class="input-field" style="margin:0;" value="${sanitizeStr(s.duration, 20)}" /></div>
+            <div><label style="font-size:0.72rem; color:#94a3b8;">תיאור:</label><input type="text" id="sdesc_${i}" class="input-field" style="margin:0;" value="${sanitizeStr(s.desc, 120)}" /></div>
+            <button type="button" class="btn-outline" style="height:42px; padding:0 12px; border-color:#ef4444; color:#fca5a5;" onclick="deleteServiceFromMenu(${i})">מחק</button>
+          </div>
+        `;
       });
+
+      document.getElementById("slotIntervalSelect").value = String(siteConfig.slotInterval || 30);
+      document.getElementById("slotBufferSelect").value = String(siteConfig.slotBuffer || 0);
 
       const hCont = document.getElementById("hoursEditorRows");
       hCont.innerHTML = "";
       DAYS_HEB.forEach((d, i) => {
         const cfg = weeklySchedule[i];
-        hCont.innerHTML += `<div class="user-row">
-          <label><input type="checkbox" id="da_${i}" ${cfg.active ? "checked" : ""} /> יום ${d}</label>
-          <div style="display:flex; gap:6px;"><input type="time" id="ds_${i}" value="${cfg.start}" class="input-field" style="width:110px; margin:0;" /><input type="time" id="de_${i}" value="${cfg.end}" class="input-field" style="width:110px; margin:0;" /></div>
-        </div>`;
+        hCont.innerHTML += `
+          <div class="user-row" style="background:rgba(255,255,255,0.025); border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:10px 14px; flex-wrap:wrap;">
+            <label style="display:flex; align-items:center; gap:8px; font-weight:900; min-width:110px; cursor:pointer;">
+              <input type="checkbox" id="da_${i}" ${cfg.active ? "checked" : ""} /> יום ${d}
+            </label>
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+              <span style="font-size:0.8rem; color:#cbd5e1;">משעה:</span>
+              <input type="time" id="ds_${i}" value="${cfg.start}" class="input-field" style="width:118px; margin:0; padding:7px;" />
+              <span style="font-size:0.8rem; color:#cbd5e1;">עד שעה:</span>
+              <input type="time" id="de_${i}" value="${cfg.end}" class="input-field" style="width:118px; margin:0; padding:7px;" />
+            </div>
+          </div>
+        `;
       });
     }
 
     function saveServicesAndTitles() {
       siteConfig.title = sanitizeStr(document.getElementById("editSiteTitle").value, 50) || "ILAY BARBERSHOP";
-      siteConfig.subtitle = sanitizeStr(document.getElementById("editSiteSubtitle").value, 90);
-      SERVICES.forEach((s, i) => {
-        s.name = sanitizeStr(document.getElementById(`sn_${i}`).value, 40);
-        s.price = Number(document.getElementById(`sp_${i}`).value) || 70;
-        s.duration = sanitizeStr(document.getElementById(`sd_${i}`).value, 20);
-        s.desc = sanitizeStr(document.getElementById(`sdesc_${i}`).value, 120);
-      });
+      siteConfig.subtitle = sanitizeStr(document.getElementById("editSiteSubtitle").value, 90) || "תספורת נקייה, אווירה טובה וסטייל שיושב בול.";
+      syncEditedServicesFromDOM();
       broadcastCloudState();
-      showToast("המחירון והכותרות עודכנו!");
+      renderEditors();
+      showToast("המחירון והכותרות נשמרו והסתנכרנו עם אתר הלקוחות!");
     }
 
     function saveHoursSettings() {
+      siteConfig.slotInterval = Number(document.getElementById("slotIntervalSelect").value) || 30;
+      siteConfig.slotBuffer = Number(document.getElementById("slotBufferSelect").value) || 0;
       DAYS_HEB.forEach((_, i) => {
         weeklySchedule[i] = {
           active: document.getElementById(`da_${i}`).checked,
@@ -872,7 +983,7 @@
       });
       broadcastCloudState();
       renderCalendarBoard();
-      showToast("שעות הפעילות נשמרו!");
+      showToast("שעות הפעילות, מרווח התורים וההפסקות נשמרו והסתנכרנו עם האתר!");
     }
 
     function renderAllAdmin() {
