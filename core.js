@@ -1,6 +1,5 @@
 /* =====================================================================
-   ILAY BARBERSHOP - CORE ENGINE (REALTIME <3s SYNC, STORAGE, ANALYTICS,
-   NOTIFICATIONS, REMINDERS & 3D SCENE)
+   ILAY BARBERSHOP - CORE ENGINE (REALTIME SYNC, STORAGE, REVENUE & SMS)
    ===================================================================== */
 const TWO_MONTHS_MS = 60 * 24 * 60 * 60 * 1000;
 const DAYS_HEB = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "מוצ״ש"];
@@ -63,7 +62,7 @@ function calcSmsParts(text) {
   return len <= 70 ? 1 : Math.ceil(len / 67);
 }
 
-// --- מסד נתונים מקומי לתמונות (IndexedDB) לשמירה קבועה גם אחרי רענון ---
+// --- שמירת תמונות קבועה ב-IndexedDB ---
 const DB_NAME = "IlayBarbershopPortfolioDB";
 const STORE_NAME = "portfolioStore";
 
@@ -145,7 +144,6 @@ let siteConfig = JSON.parse(localStorage.getItem("ilay_site_cfg") || "null") || 
   slotBuffer: 0,
   reminderHoursBefore: 3,
   smsPackageQuota: 1000,
-  smsCostPerUnit: 0.08,
   ntfyTopic: "ilay_barbershop_alerts",
   barberPhone: "0542223765",
   smsProvider: "textme",
@@ -155,7 +153,8 @@ let siteConfig = JSON.parse(localStorage.getItem("ilay_site_cfg") || "null") || 
 };
 if (!siteConfig.smsPackageQuota) siteConfig.smsPackageQuota = 1000;
 if (!siteConfig.reminderHoursBefore) siteConfig.reminderHoursBefore = 3;
-if (siteConfig.smsCostPerUnit === undefined) siteConfig.smsCostPerUnit = 0.08;
+if (!siteConfig.slotInterval) siteConfig.slotInterval = 30;
+if (siteConfig.slotBuffer === undefined) siteConfig.slotBuffer = 0;
 
 let SERVICES = JSON.parse(localStorage.getItem("ilay_services_v2") || "null") || [
   { name: "תספורת קלאסי", price: 70, duration: "30 דק'", desc: "דירוג (מולט, טייפר, בארסט ועוד..) עם גזירות ואפשרות להוסיף פנס לבחירה." },
@@ -190,7 +189,7 @@ function saveAllStateLocally() {
   localStorage.setItem("ilay_admin_notifs_v1", JSON.stringify(adminNotifications.slice(0, 120)));
 }
 
-// --- מערכת התראות חכמה בזמן אמת (פעמון התראות + ntfy + צליל) ---
+// --- התראות בזמן אמת (פעמון + צליל + ntfy) ---
 function playAlertTone() {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -209,7 +208,7 @@ function playAlertTone() {
 function pushRealtimeNotification(type, title, message, apptId = null, dayIdx = null) {
   const notif = {
     id: "ntf_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6),
-    type, // 'new_booking' | 'canceled' | 'moved' | 'new_user' | 'confirmed' | 'client_msg' | 'sms_failed'
+    type,
     title,
     message,
     apptId,
@@ -239,7 +238,7 @@ function pushRealtimeNotification(type, title, message, apptId = null, dayIdx = 
   if (typeof window.onCoreDataUpdated === "function") window.onCoreDataUpdated();
 }
 
-// --- מנוע שליחת SMS ו-WhatsApp מתועד ---
+// --- מנוע שליחת SMS ---
 async function executeProviderSms(toPhoneRaw, messageText) {
   const toE164 = toE164Phone(toPhoneRaw);
   const toLocal = toIsraeliLocalPhone(toPhoneRaw);
@@ -296,8 +295,8 @@ async function sendTrackedSms(toPhoneRaw, recipientName, messageText, category =
     phone: cleanPhone,
     name: recipientName || cleanPhone,
     message: messageText,
-    category, // 'booking' | 'move' | 'cancel' | 'reminder' | 'broadcast' | 'incoming'
-    channel,  // 'sms' | 'whatsapp'
+    category, // 'booking' | 'move' | 'cancel' | 'reminder' | 'broadcast'
+    channel,
     parts,
     status: result.ok ? "sent" : "failed",
     reason: result.reason,
@@ -348,121 +347,103 @@ async function retryFailedSmsLog(logId) {
   return res.ok;
 }
 
-// --- חישוב סטטיסטיקות מלא ואמיתי מתוך מסד הנתונים (תורים, לקוחות, SMS/WhatsApp) ---
-function computeComprehensiveAnalytics(periodFilter = "all") {
-  const now = Date.now();
-  const periodMsMap = {
-    day: 24 * 3600 * 1000,
-    week: 7 * 24 * 3600 * 1000,
-    month: 30 * 24 * 3600 * 1000,
-    year: 365 * 24 * 3600 * 1000
-  };
-  const cutoffMs = periodMsMap[periodFilter] ? (now - periodMsMap[periodFilter]) : 0;
+// --- חישוב סטטיסטיקות פרקטי + חישוב מחירים והכנסות (היום, השבוע, החודש, ממוצע) ---
+function computeComprehensiveAnalytics(selectedDayFilter = null) {
+  const todayIdx = selectedDayFilter !== null ? Number(selectedDayFilter) : new Date().getDay();
 
-  const filteredAppts = appointments.filter(a => {
-    const ts = a.createdAt || a.startsAtMs || now;
-    return !cutoffMs || ts >= cutoffMs;
+  const dayTotals = [0, 0, 0, 0, 0, 0, 0];
+  const dayCounts = [0, 0, 0, 0, 0, 0, 0];
+  let weeklyRevenue = 0;
+
+  const activeAppts = appointments.filter(a => a.status !== "canceled");
+  activeAppts.forEach(a => {
+    const d = Number(a.dayIdx);
+    const price = Number(a.price) || 70;
+    if (d >= 0 && d < 7) {
+      dayTotals[d] += price;
+      dayCounts[d] += 1;
+      weeklyRevenue += price;
+    }
   });
 
-  const todayIdx = new Date().getDay();
-  const totalAppts = filteredAppts.length;
-  const todayAppts = filteredAppts.filter(a => Number(a.dayIdx) === todayIdx && a.status !== "canceled").length;
-  const weekAppts = appointments.filter(a => a.status !== "canceled").length;
+  const todayRevenue = dayTotals[todayIdx] || 0;
+  const todayAppts = dayCounts[todayIdx] || 0;
+  const weekAppts = activeAppts.length;
+  const monthlyRevenue = Math.round(weeklyRevenue * 4.3);
   const monthAppts = Math.round(weekAppts * 4.3);
 
-  const futureAppts = filteredAppts.filter(a => a.status !== "canceled" && (a.startsAtMs || getTargetTimestamp(a.dayIdx, a.time)) > now).length;
-  const completedAppts = filteredAppts.filter(a => a.status === "confirmed" && (a.startsAtMs || getTargetTimestamp(a.dayIdx, a.time)) <= now).length;
-  const confirmedAppts = filteredAppts.filter(a => a.status === "confirmed").length;
-  const pendingAppts = filteredAppts.filter(a => !a.status || a.status === "pending").length;
-  const canceledAppts = filteredAppts.filter(a => a.status === "canceled").length;
-  const movedAppts = filteredAppts.filter(a => Number(a.movedCount || 0) > 0).length;
-  const noShowAppts = filteredAppts.filter(a => a.status === "noshow").length;
+  const activeDaysCount = weeklySchedule.filter(d => d.active).length || 1;
+  const avgDailyRevenue = Math.round(weeklyRevenue / activeDaysCount);
+  const avgRevenuePerAppt = weekAppts ? Math.round(weeklyRevenue / weekAppts) : 0;
 
-  const activeNonCanceled = Math.max(1, totalAppts - canceledAppts);
-  const cancelRate = totalAppts ? Math.round((canceledAppts / totalAppts) * 100) : 0;
-  const confirmationRate = totalAppts ? Math.round((confirmedAppts / activeNonCanceled) * 100) : 0;
-  const arrivalRate = totalAppts ? Math.round(((activeNonCanceled - noShowAppts) / activeNonCanceled) * 100) : 100;
+  const confirmedAppts = activeAppts.filter(a => a.status === "confirmed").length;
+  const pendingAppts = activeAppts.filter(a => !a.status || a.status === "pending").length;
+  const canceledAppts = appointments.filter(a => a.status === "canceled").length;
+  const movedAppts = activeAppts.filter(a => Number(a.movedCount || 0) > 0).length;
 
-  // סטטיסטיקות לקוחות
+  // לקוחות
   const totalClients = registeredUsers.length;
   const visitCountsByPhone = {};
-  const lastVisitByPhone = {};
-  appointments.forEach(a => {
-    if (a.status === "canceled") return;
+  activeAppts.forEach(a => {
     const p = toIsraeliLocalPhone(a.phone);
     visitCountsByPhone[p] = (visitCountsByPhone[p] || 0) + 1;
-    const ts = a.startsAtMs || now;
-    if (!lastVisitByPhone[p] || ts > lastVisitByPhone[p]) lastVisitByPhone[p] = ts;
   });
 
-  let newClients = 0, returningClients = 0, activeClients = 0, inactiveClients = 0;
-  registeredUsers.forEach(u => {
-    const p = toIsraeliLocalPhone(u.phone);
-    const visits = visitCountsByPhone[p] || 0;
-    if (visits <= 1) newClients++;
-    if (visits >= 2) returningClients++;
-    const lastTs = lastVisitByPhone[p] || u.lastActiveAt || 0;
-    if (now - lastTs <= 30 * 24 * 3600 * 1000) activeClients++;
-    else inactiveClients++;
-  });
-  const avgApptsPerClient = totalClients ? (appointments.filter(a => a.status !== "canceled").length / totalClients).toFixed(1) : "0.0";
-
-  // סטטיסטיקות SMS ו-WhatsApp
-  let smsSent = 0, smsDelivered = 0, smsFailed = 0, smsReceived = 0, remindersSent = 0, waSent = 0, totalPartsUsed = 0;
+  // הודעות SMS
+  let smsDelivered = 0, smsFailed = 0, totalPartsUsed = 0;
   const byCategory = { booking: 0, move: 0, cancel: 0, reminder: 0, broadcast: 0 };
 
   smsLogs.forEach(l => {
-    if (cutoffMs && l.createdAt && l.createdAt < cutoffMs) return;
-    if (l.status === "received") {
-      smsReceived++;
-      return;
-    }
-    if (l.channel === "whatsapp") {
-      waSent++;
-      return;
-    }
-    smsSent++;
+    if (l.status === "received" || l.channel === "whatsapp") return;
     if (l.status === "sent") {
       smsDelivered++;
       const p = Number(l.parts) || 1;
       totalPartsUsed += p;
       if (byCategory[l.category] !== undefined) byCategory[l.category] += p;
-      if (l.category === "reminder") remindersSent++;
     } else {
       smsFailed++;
     }
   });
 
-  const pendingRemindersQueue = appointments.filter(a => a.status === "pending" && !a.reminderSent).length;
   const quota = Number(siteConfig.smsPackageQuota) || 1000;
   const remaining = Math.max(0, quota - totalPartsUsed);
-  const estimatedCost = (totalPartsUsed * (Number(siteConfig.smsCostPerUnit) || 0.08)).toFixed(2);
-
-  // התפלגות יומית לגרפים
-  const apptsByDay = [0, 0, 0, 0, 0, 0, 0];
-  appointments.forEach(a => {
-    if (a.status !== "canceled" && a.dayIdx >= 0 && a.dayIdx < 7) apptsByDay[a.dayIdx]++;
-  });
 
   return {
+    revenue: {
+      todayRevenue,
+      weeklyRevenue,
+      monthlyRevenue,
+      avgDailyRevenue,
+      avgRevenuePerAppt,
+      dayTotals,
+      dayCounts
+    },
     appts: {
-      totalAppts, todayAppts, weekAppts, monthAppts, futureAppts, completedAppts,
-      confirmedAppts, pendingAppts, canceledAppts, movedAppts, noShowAppts,
-      cancelRate, confirmationRate, arrivalRate, apptsByDay
+      todayAppts,
+      weekAppts,
+      monthAppts,
+      confirmedAppts,
+      pendingAppts,
+      canceledAppts,
+      movedAppts,
+      apptsByDay: dayCounts
     },
     clients: {
-      totalClients, newClients, returningClients, activeClients, inactiveClients,
-      avgApptsPerClient, visitCountsByPhone
+      totalClients,
+      visitCountsByPhone
     },
     messages: {
-      smsSent, smsDelivered, smsFailed, smsReceived, remindersSent,
-      pendingRemindersQueue, waSent, totalPartsUsed, quota, remaining,
-      estimatedCost, byCategory
+      smsDelivered,
+      smsFailed,
+      totalPartsUsed,
+      quota,
+      remaining,
+      byCategory
     }
   };
 }
 
-// --- מנוע תזכורות חכם (מונע שליחה כפולה) ---
+// --- תזכורות אוטומטיות ---
 async function checkAndSendUpcomingReminders(forceAllPending = false) {
   const hoursBefore = Number(siteConfig.reminderHoursBefore) || 3;
   const windowMs = hoursBefore * 60 * 60 * 1000;
@@ -479,7 +460,7 @@ async function checkAndSendUpcomingReminders(forceAllPending = false) {
       appt.reminderSent = true;
       const dateStr = appt.dateStr || getFormattedDateForDayIdx(appt.dayIdx);
       const dayName = DAYS_HEB[appt.dayIdx];
-      const msg = `אהלן ${appt.name}, תזכורת מ-Ilay Barbershop: התור שלך ליום ${dayName} (${dateStr}) מתקיים בשעה ${appt.time}. לאישור הגעה מהיר היכנס לאזור האישי: ${publicUrl}`;
+      const msg = `אהלן ${appt.name}, תזכורת מ-Ilay Barbershop: התור שלך ליום ${dayName} (${dateStr}) מתקיים בשעה ${appt.time}. האם אתה מאשר הגעה? לאישור הגעה מהיר היכנס לאזור האישי: ${publicUrl}`;
       await sendTrackedSms(appt.phone, appt.name, msg, "reminder", appt.id, "sms");
       sentCount++;
     }
@@ -492,7 +473,7 @@ async function checkAndSendUpcomingReminders(forceAllPending = false) {
   return sentCount;
 }
 
-// --- סנכרון דו-כיווני מהיר (<3 שניות) דרך WebSockets + BroadcastChannel + Chunked Photos ---
+// --- סנכרון דו-כיווני מהיר (<3 שניות) ---
 const mqttClients = [];
 let lastStateTs = Number(localStorage.getItem("ilay_state_ts") || 0);
 let lastPortfolioTs = Number(localStorage.getItem("ilay_portfolio_ts") || 0);
