@@ -3,1323 +3,596 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="ניהול Ilay" />
   <meta name="theme-color" content="#06080d" />
-  <link id="appleTouchIcon" rel="apple-touch-icon" href="" />
-  <title>אפליקציית ניהול ויומן | Ilay Barbershop</title>
+  <title>ניהול ויומן | Ilay Barbershop</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;800;900&family=Cinzel:wght@700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;800;900&family=Cinzel:wght@700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.3.4/mqtt.min.js"></script>
-  <style>
-    :root {
-      color-scheme: dark;
-      --bg-dark: #060911;
-      --gold: #d4af37;
-      --gold-light: #f7df8b;
-      --text-main: #f8fafc;
-      --text-muted: #94a3b8;
-      --border-gold: rgba(212, 175, 55, 0.35);
-      --safe-top: env(safe-area-inset-top, 0px);
-      --safe-bottom: env(safe-area-inset-bottom, 0px);
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
-    button, a, label, select, input { touch-action: manipulation; }
-    body { font-family: 'Heebo', sans-serif; background: var(--bg-dark); color: var(--text-main); min-height: 100vh; padding: calc(14px + var(--safe-top)) 12px calc(80px + var(--safe-bottom)); }
-
-    select, .input-field { width: 100%; padding: 11px 13px; border-radius: 11px; border: 1px solid rgba(255,255,255,0.16); background: #121724 !important; color: #fff !important; font-family: 'Heebo', sans-serif; font-size: 16px; margin-bottom: 10px; -webkit-user-select: text; user-select: text; }
-    select option { background: #121724 !important; color: #fff !important; font-weight: 700; }
-
-    .app-container { max-width: 1220px; margin: 0 auto; display: none; flex-direction: column; gap: 14px; }
-    .app-container.authenticated { display: flex; }
-
-    .login-screen { min-height: 85vh; display: flex; align-items: center; justify-content: center; padding: 16px; }
-    .login-box { width: 100%; max-width: 400px; background: #101522; border: 2px solid var(--gold); border-radius: 22px; padding: 24px 20px; box-shadow: 0 24px 60px rgba(0,0,0,0.9); text-align: center; }
-
-    .top-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; background: rgba(16, 21, 34, 0.96); border: 1px solid var(--border-gold); border-radius: 18px; padding: 14px 16px; }
-
-    .btn-gold { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 11px 18px; border-radius: 12px; border: none; background: linear-gradient(135deg, var(--gold), #b8860b); color: #090b10; font-family: 'Heebo', sans-serif; font-weight: 900; font-size: 0.9rem; cursor: pointer; }
-    .btn-outline { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 14px; border-radius: 12px; border: 1px solid var(--border-gold); background: rgba(255,255,255,0.04); color: var(--text-main); font-family: 'Heebo', sans-serif; font-weight: 700; font-size: 0.85rem; cursor: pointer; text-decoration: none; }
-
-    .stats-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-    .stat-rev-card { background: linear-gradient(145deg, rgba(20,26,40,0.95), rgba(12,16,25,0.98)); border: 1px solid var(--border-gold); border-radius: 16px; padding: 13px; position: relative; overflow: hidden; }
-    .stat-rev-card::before { content: ""; position: absolute; top: 0; right: 0; width: 4px; height: 100%; background: var(--gold); }
-    .stat-rev-label { font-size: 0.75rem; color: var(--text-muted); font-weight: 700; margin-bottom: 5px; display: flex; align-items: center; justify-content: space-between; }
-    .stat-rev-value { font-size: 1.4rem; font-weight: 900; color: var(--gold-light); }
-    .stat-rev-sub { font-size: 0.72rem; color: #cbd5e1; margin-top: 4px; }
-
-    .admin-tabs-bar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-    .admin-tab-btn { padding: 11px 8px; border-radius: 12px; border: 1px solid rgba(212,175,55,0.3); background: rgba(255,255,255,0.03); color: var(--text-main); font-family: 'Heebo', sans-serif; font-weight: 800; font-size: 0.85rem; cursor: pointer; text-align: center; }
-    .admin-tab-btn.active { background: linear-gradient(135deg, var(--gold), #b8860b); color: #090b10; border-color: var(--gold); }
-
-    .panel-box { background: rgba(14, 18, 28, 0.96); border: 1px solid var(--border-gold); border-radius: 18px; padding: 15px; }
-
-    .live-booking-alert {
-      display: none;
-      background: linear-gradient(135deg, rgba(212, 175, 55, 0.24), rgba(16, 21, 34, 0.98));
-      border: 2px solid var(--gold); border-radius: 16px; padding: 14px 16px; margin-bottom: 14px;
-      box-shadow: 0 14px 36px rgba(0,0,0,0.75);
-      animation: pulseGold 2s infinite;
-    }
-    .live-booking-alert.show { display: block; }
-    @keyframes pulseGold { 0%, 100% { box-shadow: 0 0 0 0 rgba(212,175,55,0.4); } 50% { box-shadow: 0 0 0 8px rgba(212,175,55,0); } }
-
-    .prepared-msg-banner {
-      display: none;
-      background: linear-gradient(135deg, rgba(16, 185, 129, 0.16), rgba(15, 23, 42, 0.96));
-      border: 2px solid #10b981; border-radius: 16px; padding: 14px 16px; margin-bottom: 14px;
-      box-shadow: 0 12px 30px rgba(0,0,0,0.6);
-    }
-    .prepared-msg-banner.show { display: block; }
-    .prepared-msg-text { background: rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.12); border-radius: 10px; padding: 10px 12px; color: #fff; font-weight: 700; font-size: 0.92rem; margin: 8px 0 10px; -webkit-user-select: text; user-select: text; }
-
-    .move-mode-helper { display: none; background: rgba(59, 130, 246, 0.18); border: 2px solid #3b82f6; color: #dbeafe; padding: 10px 14px; border-radius: 12px; margin-bottom: 12px; font-weight: 800; font-size: 0.88rem; align-items: center; justify-content: space-between; gap: 10px; }
-    .move-mode-helper.active { display: flex; }
-
-    .day-filter-pills { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 10px; -webkit-overflow-scrolling: touch; }
-    .day-filter-btn { padding: 8px 13px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.04); color: #fff; font-family: 'Heebo'; font-weight: 800; font-size: 0.8rem; white-space: nowrap; cursor: pointer; }
-    .day-filter-btn.active { background: var(--gold); color: #090b10; border-color: var(--gold); }
-
-    .cal-grid-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 10px; border-radius: 14px; }
-    .cal-board { display: grid; gap: 7px; width: 100%; }
-    .cal-board.cols-7 { grid-template-columns: 74px repeat(7, minmax(148px, 1fr)); min-width: 1100px; }
-    .cal-board.cols-1 { grid-template-columns: 78px 1fr; min-width: 100%; }
-
-    .cal-col-header { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(212, 175, 55, 0.35); border-radius: 12px; padding: 10px 6px; text-align: center; font-weight: 900; font-size: 0.86rem; color: var(--gold-light); position: sticky; top: 0; z-index: 10; }
-    .cal-col-header small { display: block; font-size: 0.72rem; color: #cbd5e1; font-weight: 600; margin-top: 2px; }
-    .cal-time-label { display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; font-weight: 900; font-size: 0.88rem; color: var(--gold-light); min-height: 92px; }
-
-    .cal-slot { min-height: 92px; border-radius: 12px; border: 1.5px dashed rgba(255, 255, 255, 0.15); background: rgba(255, 255, 255, 0.02); padding: 6px; position: relative; display: flex; flex-direction: column; justify-content: center; transition: all 0.16s ease; }
-    .cal-slot.drag-over { border: 2.5px solid var(--gold) !important; background: rgba(212, 175, 55, 0.24) !important; }
-    .cal-slot.tap-target-ready { border: 2px dashed #3b82f6; background: rgba(59, 130, 246, 0.08); cursor: pointer; }
-
-    .slot-empty-add { font-size: 0.76rem; font-weight: 700; color: rgba(148, 163, 184, 0.7); text-align: center; cursor: pointer; padding: 18px 4px; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
-
-    .appt-card { width: 100%; background: linear-gradient(135deg, #1b253b, #111827); border: 1.5px solid var(--gold); border-right: 5px solid var(--gold); border-radius: 10px; padding: 8px 9px; cursor: grab; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.55); touch-action: none; }
-    .appt-card.selected-for-move { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.4); }
-    .appt-top { display: flex; align-items: center; justify-content: space-between; gap: 4px; margin-bottom: 4px; }
-    .appt-drag-handle { font-size: 0.72rem; font-weight: 900; color: var(--gold-light); background: rgba(212,175,55,0.18); padding: 2px 6px; border-radius: 5px; }
-    .appt-actions { display: flex; gap: 4px; }
-    .appt-btn-mini { border-radius: 5px; font-size: 0.68rem; font-weight: 800; padding: 2px 6px; cursor: pointer; font-family: 'Heebo'; border: 1px solid transparent; }
-    .appt-btn-move { background: rgba(59,130,246,0.22); border-color: rgba(59,130,246,0.5); color: #93c5fd; }
-    .appt-btn-cancel { background: rgba(214,40,40,0.22); border-color: rgba(214,40,40,0.5); color: #fca5a5; }
-    .appt-client-name { font-size: 0.88rem; font-weight: 900; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .appt-phone { font-size: 0.76rem; color: #93c5fd; font-weight: 700; direction: ltr; text-align: right; }
-    .appt-service-tag { font-size: 0.72rem; color: var(--gold-light); margin-top: 2px; font-weight: 700; }
-    .appt-note-tag { font-size: 0.7rem; color: #fde68a; background: rgba(212,175,55,0.12); border-radius: 5px; padding: 2px 5px; margin-top: 3px; }
-
-    .service-edit-row, .add-service-grid { display: grid; grid-template-columns: 1.2fr 0.65fr 0.75fr 1.8fr auto; gap: 10px; align-items: end; background: rgba(0,0,0,0.35); padding: 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 10px; }
-    .service-edit-row input, .add-service-grid input { margin-bottom: 0 !important; }
-    .delete-srv-btn { height: 42px; padding: 0 12px; border-radius: 10px; border: 1px solid rgba(239,68,68,0.45); background: rgba(239,68,68,0.15); color: #fca5a5; font-family: 'Heebo'; font-weight: 800; font-size: 0.82rem; cursor: pointer; }
-
-    .admin-portfolio-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; margin-top: 12px; }
-    .admin-photo-item { position: relative; aspect-ratio: 3 / 4; border-radius: 12px; overflow: hidden; border: 1px solid var(--border-gold); background: #0d1017; }
-    .admin-photo-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .admin-photo-actions { position: absolute; inset: auto 0 0 0; padding: 6px 8px; background: linear-gradient(to top, rgba(0,0,0,0.92), transparent); display: flex; justify-content: space-between; align-items: center; }
-
-    .sr-file-input { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; clip: rect(0,0,0,0); }
-
-    .modal-backdrop { position: fixed; inset: 0; background: rgba(4,6,11,0.88); backdrop-filter: blur(12px); z-index: 3500; display: none; overflow-y: auto; padding: 16px 14px 100px; }
-    .modal-backdrop.open { display: block; }
-    .square-modal { width: 100%; max-width: 440px; background: #111520; border: 2px solid var(--gold); border-radius: 22px; padding: 20px; margin: 20px auto; }
-    .modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.08); }
-    .modal-close { width: 34px; height: 34px; border-radius: 9px; border: 1px solid rgba(255,255,255,0.16); background: rgba(255,255,255,0.05); color: #fff; cursor: pointer; font-weight: 800; }
-
-    .toast-popup { position: fixed; bottom: 24px; right: 16px; left: 16px; max-width: 420px; margin: 0 auto; z-index: 4000; background: rgba(15,20,30,0.98); border: 2px solid var(--gold); border-radius: 14px; padding: 12px 16px; color: #fff; text-align: center; display: none; }
-    .toast-popup.show { display: block; }
-
-    @media (max-width: 760px) {
-      .stats-grid-4, .admin-tabs-bar { grid-template-columns: repeat(2, 1fr); }
-      .service-edit-row, .add-service-grid { grid-template-columns: 1fr; }
-    }
-  </style>
 </head>
 <body>
 
+  <div class="barber-pole-strip"></div>
+
+  <!-- מסך כניסה למנהל -->
   <div class="login-screen" id="loginScreen">
     <div class="login-box">
-      <div style="font-size:2rem; margin-bottom:6px;">💈</div>
-      <div style="font-size:0.76rem; color:var(--gold-light); font-weight:700;">ILAY BARBERSHOP • WEB APP</div>
-      <h1 style="font-size:1.35rem; font-weight:900; margin:4px 0 16px;">כניסה לאפליקציית ניהול ויומן</h1>
+      <div style="font-size:0.76rem; color:var(--gold-bright); font-weight:800; letter-spacing:2px; font-family:'Cinzel',serif;">ILAY BARBERSHOP</div>
+      <h1 style="font-size:1.35rem; font-weight:900; margin:6px 0 18px;">כניסה למערכת הניהול</h1>
       <input type="text" id="barberUser" class="input-field" placeholder="שם משתמש" autocomplete="off" />
       <input type="password" id="barberPass" class="input-field" placeholder="סיסמה" autocomplete="off" onkeydown="if(event.key==='Enter') verifyBarberLogin()" />
-      <label style="display:flex; align-items:center; justify-content:center; gap:7px; font-size:0.82rem; color:#cbd5e1; margin:4px 0 14px; cursor:pointer;">
-        <input type="checkbox" id="rememberAdminSession" checked />
-        זכור אותי באפליקציה באייפון
+      <label style="display:flex; align-items:center; justify-content:center; gap:7px; font-size:0.82rem; color:#cbd5e1; margin:4px 0 14px;">
+        <input type="checkbox" id="rememberAdmin" checked /> שמור חיבור במכשיר זה
       </label>
-      <div id="loginError" style="color:#f87171; font-size:0.82rem; margin-bottom:10px; display:none;">שם המשתמש או הסיסמה אינם נכונים.</div>
-      <button type="button" class="btn-gold" style="width:100%; padding:13px;" onclick="verifyBarberLogin()">כניסה לאפליקציית הניהול</button>
+      <div id="loginError" style="color:#f87171; font-size:0.82rem; margin-bottom:10px; display:none;">שם המשתמש או הסיסמה שגויים.</div>
+      <button type="button" class="btn-gold" style="width:100%; padding:13px;" onclick="verifyBarberLogin()">כניסה לניהול</button>
     </div>
   </div>
 
+  <!-- אפליקציית הניהול -->
   <div class="app-container" id="adminApp">
-    <header class="top-header">
+    <header class="panel-box" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
       <div>
-        <h1 style="font-size:1.28rem; font-weight:900;" id="adminHeaderTitle">אפליקציית ניהול - Ilay Barbershop</h1>
+        <div style="font-size:0.72rem; color:var(--gold); font-weight:800; letter-spacing:1.5px; font-family:'Cinzel',serif;">ILAY BARBERSHOP • ADMIN</div>
+        <h1 style="font-size:1.25rem; font-weight:900;" id="adminHeaderTitle">יומן וניהול • עילי בן הרוש</h1>
       </div>
-      <div style="display:flex; gap:8px; flex-wrap:wrap; width:100%;">
-        <button type="button" class="btn-gold" style="flex:1;" onclick="openManualAddModal()">+ שבץ תור חדש</button>
-        <button type="button" class="btn-outline" onclick="document.getElementById('pwaGuideModal').classList.add('open')">📲 הוסף למסך הבית</button>
-        <button type="button" class="btn-outline" style="border-color:#f59e0b; color:#fde68a;" onclick="clearAllAppointments()">איפוס יומן</button>
-        <button type="button" class="btn-outline" style="border-color:#ef4444; color:#fca5a5;" onclick="logoutBarber()">התנתק</button>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button type="button" class="btn-gold" onclick="openManualAddModal()">+ שבץ תור חדש</button>
+        <button type="button" class="btn-outline" onclick="switchTab('sms')">📩 סטטיסטיקות SMS ותפוצה</button>
+        <button type="button" class="btn-outline" style="border-color:#f59e0b; color:#fde68a;" onclick="if(confirm('לאפס את כל התורים ביומן?')){appointments=[];broadcastCloudState();renderAllAdmin();}">איפוס יומן</button>
+        <button type="button" class="btn-outline" style="border-color:#ef4444; color:#fca5a5;" onclick="localStorage.removeItem('ilay_saved_admin_label'); location.reload();">התנתק</button>
       </div>
     </header>
 
-    <div class="live-booking-alert" id="liveBookingAlert">
-      <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
-        <strong style="color:var(--gold-light); font-size:0.96rem;">💈 תור חדש נקבע עכשיו באתר!</strong>
-        <button type="button" style="background:none; border:none; color:#94a3b8; font-weight:800; cursor:pointer;" onclick="document.getElementById('liveBookingAlert').classList.remove('show')">✕</button>
-      </div>
-      <div id="liveBookingDetails" style="font-size:0.9rem; color:#fff; margin:6px 0 10px; font-weight:700;"></div>
-      <button type="button" class="btn-gold" style="padding:8px 14px; font-size:0.82rem;" onclick="jumpToBookedDay()">📅 הצג ביומן עכשיו</button>
-    </div>
-
+    <!-- 4 כרטיסי על: הכנסות, אישורי הגעה ויתרת SMS בחבילה -->
     <div class="stats-grid-4">
       <div class="stat-rev-card">
-        <div class="stat-rev-label">
-          <span>הכנסה יומית</span>
-          <select id="statDayFilter" onchange="renderAdminStats()" style="width:auto; margin:0; padding:2px 6px; font-size:0.75rem; font-weight:800;">
-            <option value="0">ראשון</option>
-            <option value="1">שני</option>
-            <option value="2">שלישי</option>
-            <option value="3">רביעי</option>
-            <option value="4">חמישי</option>
-            <option value="5">שישי</option>
-            <option value="6">מוצ״ש</option>
-          </select>
-        </div>
-        <div class="stat-rev-value" id="statDailyMoney">0 ₪</div>
-        <div class="stat-rev-sub" id="statDailyCount">0 תורים ביום זה</div>
-      </div>
-
-      <div class="stat-rev-card">
-        <div class="stat-rev-label"><span>הכנסה שבועית</span><span>שבועי</span></div>
+        <div style="font-size:0.75rem; color:var(--text-muted); font-weight:700;">הכנסה שבועית פעילה</div>
         <div class="stat-rev-value" id="statWeeklyMoney">0 ₪</div>
-        <div class="stat-rev-sub" id="statWeeklyCount">סה״כ 0 תורים השבוע</div>
+        <div class="stat-rev-sub" id="statWeeklyCount">0 תורים פעילים</div>
       </div>
-
-      <div class="stat-rev-card">
-        <div class="stat-rev-label"><span>צפי חודשי</span><span>×4.3</span></div>
-        <div class="stat-rev-value" id="statMonthlyMoney">0 ₪</div>
-        <div class="stat-rev-sub" id="statMonthlyCount">לפי קצב שבועי</div>
+      <div class="stat-rev-card" style="border-right-color:var(--status-green);">
+        <div style="font-size:0.75rem; color:var(--text-muted); font-weight:700;">סטטוס אישורי הגעה</div>
+        <div class="stat-rev-value" id="statConfirmedRatio" style="color:#34d399;">0 אושרו</div>
+        <div class="stat-rev-sub" id="statPendingRatio">0 ממתינים | 0 בוטלו</div>
       </div>
-
       <div class="stat-rev-card">
-        <div class="stat-rev-label"><span>מרווח תורים</span><span id="statIntervalBadge">30 דק'</span></div>
-        <div class="stat-rev-value" id="statAvgDayMoney">0 ₪</div>
-        <div class="stat-rev-sub" id="statCapacityInfo">ממוצע ליום פעיל</div>
+        <div style="font-size:0.75rem; color:var(--text-muted); font-weight:700;">יתרת הודעות SMS בחבילה</div>
+        <div class="stat-rev-value" id="statSmsRemaining">1,000</div>
+        <div class="stat-rev-sub" id="statSmsSentSub">נשלחו: 0 | נכשלו: 0</div>
+      </div>
+      <div class="stat-rev-card">
+        <div style="font-size:0.75rem; color:var(--text-muted); font-weight:700;">לקוחות רשומים במועדון</div>
+        <div class="stat-rev-value" id="statClubCount">0</div>
+        <div class="stat-rev-sub">זמינים לקבלת תפוצה ותזכורות</div>
       </div>
     </div>
 
+    <!-- לשוניות -->
     <div class="admin-tabs-bar">
-      <button type="button" class="admin-tab-btn active" id="subtab-btn-cal" onclick="switchAdminSubTab('cal')">📅 יומן משבצות</button>
-      <button type="button" class="admin-tab-btn" id="subtab-btn-portfolio" onclick="switchAdminSubTab('portfolio')">📸 תיק עבודות (<span id="adminTabPhotoCount">6</span>)</button>
-      <button type="button" class="admin-tab-btn" id="subtab-btn-edit" onclick="switchAdminSubTab('edit')">✂️ תספורות וכותרת</button>
-      <button type="button" class="admin-tab-btn" id="subtab-btn-hours" onclick="switchAdminSubTab('hours')">⚙️ שעות והתראות</button>
+      <button type="button" class="admin-tab-btn active" id="tabbtn-cal" onclick="switchTab('cal')">📅 יומן וסטטוס הגעה</button>
+      <button type="button" class="admin-tab-btn" id="tabbtn-sms" onclick="switchTab('sms')">📩 מערכת SMS, תזכורות וסטטיסטיקות</button>
+      <button type="button" class="admin-tab-btn" id="tabbtn-portfolio" onclick="switchTab('portfolio')">📸 תיק עבודות</button>
+      <button type="button" class="admin-tab-btn" id="tabbtn-edit" onclick="switchTab('edit')">✂️ מחירון וכותרת</button>
+      <button type="button" class="admin-tab-btn" id="tabbtn-hours" onclick="switchTab('hours')">🕒 שעות פעילות</button>
     </div>
 
-    <div id="admin-sub-cal" class="panel-box">
-      <div class="prepared-msg-banner" id="preparedMsgBanner">
-        <div style="display:flex; align-items:center; justify-content:space-between;">
-          <strong id="preparedMsgTitle" style="color:#34d399; font-size:0.9rem;">✅ ההודעה מוכנה לשליחה ללקוח:</strong>
-          <button type="button" style="background:none; border:none; color:#94a3b8; font-weight:800; cursor:pointer;" onclick="document.getElementById('preparedMsgBanner').classList.remove('show')">✕</button>
+    <!-- לשונית 1: יומן תורים עם סטטוסים (ירוק = אושר, אפור = ממתין, אדום = בוטל) -->
+    <div id="tab-cal" class="panel-box">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <span class="status-pill confirmed">🟢 אושר ע"י הלקוח</span>
+          <span class="status-pill pending">⚪ ממתין לאישור הגעה</span>
+          <span class="status-pill canceled">🔴 בוטל</span>
         </div>
-        <div class="prepared-msg-text" id="preparedMsgText"></div>
-        <div style="display:flex; gap:8px; flex-wrap:wrap;">
-          <a id="preparedWhatsappBtn" href="#" target="_blank" class="btn-gold" style="text-decoration:none; flex:1;">📲 שלח בוואטסאפ ללקוח</a>
-          <button type="button" class="btn-outline" onclick="copyPreparedMessage()">📋 העתק הודעה</button>
+        <div style="display:flex; gap:10px; align-items:center;">
+          <label style="font-size:0.8rem; color:#cbd5e1; cursor:pointer;">
+            <input type="checkbox" id="showCanceledInCal" checked onchange="renderCalendarBoard()" /> הצג תורים שבוטלו (באדום)
+          </label>
+          <button type="button" class="btn-outline" style="padding:6px 12px; font-size:0.78rem; border-color:#10b981; color:#34d399;" onclick="triggerManualRemindersNow()">⏰ שלח תזכורת SMS לתורים הקרובים</button>
         </div>
       </div>
 
-      <div class="move-mode-helper" id="moveModeHelper">
-        <span id="moveModeText">בחר עכשיו כל משבצת פנויה בלוח כדי להעביר לשם את התור</span>
-        <button type="button" class="btn-outline" style="padding:5px 10px; font-size:0.78rem;" onclick="cancelTapMoveMode()">ביטול הזזה</button>
+      <div id="dayFilterBar" style="display:flex; gap:6px; overflow-x:auto; padding-bottom:8px; margin-bottom:10px;"></div>
+      <div class="cal-grid-scroll"><div class="cal-board cols-7" id="calendarBoard"></div></div>
+    </div>
+
+    <!-- לשונית 2: מערכת SMS חכמה, מונה הודעות לפי הזזות/תזכורות, תפוצה והיסטוריה -->
+    <div id="tab-sms" class="panel-box" style="display:none;">
+      <!-- לוח מונה הודעות וסטטיסטיקות חכם -->
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:10px; margin-bottom:16px;">
+        <div class="hub-card" style="text-align:center;">
+          <div style="font-size:0.74rem; color:var(--text-muted);">מכסת חבילת SMS</div>
+          <div style="font-size:1.3rem; font-weight:900; color:#fff;" id="smsBoxQuota">1,000</div>
+        </div>
+        <div class="hub-card" style="text-align:center; border-color:#10b981;">
+          <div style="font-size:0.74rem; color:#34d399;">נותרו בחבילה</div>
+          <div style="font-size:1.3rem; font-weight:900; color:#34d399;" id="smsBoxRemaining">1,000</div>
+        </div>
+        <div class="hub-card" style="text-align:center;">
+          <div style="font-size:0.74rem; color:var(--gold-bright);">סה"כ נשלחו בהצלחה</div>
+          <div style="font-size:1.3rem; font-weight:900; color:var(--gold-bright);" id="smsBoxSent">0</div>
+        </div>
+        <div class="hub-card" style="text-align:center; border-color:#ef4444;">
+          <div style="font-size:0.74rem; color:#fca5a5;">הודעות שנכשלו</div>
+          <div style="font-size:1.3rem; font-weight:900; color:#fca5a5;" id="smsBoxFailed">0</div>
+        </div>
+        <div class="hub-card" style="text-align:center;">
+          <div style="font-size:0.72rem; color:#cbd5e1;">לפי שימוש (יח' SMS)</div>
+          <div style="font-size:0.75rem; font-weight:800; color:var(--gold-bright); margin-top:4px;" id="smsBoxBreakdown">הזזות: 0 | תזכורות: 0 | תפוצה: 0</div>
+        </div>
       </div>
 
-      <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
-        <span style="font-size:0.84rem; color:var(--gold-light); font-weight:800;">✋ גרור תור להזזה, או לחץ ✕ לביטול תור ושליחת הודעה ללקוח:</span>
-        <label style="display:flex; align-items:center; gap:6px; font-size:0.8rem; color:#cbd5e1; cursor:pointer;">
-          <input type="checkbox" id="autoOpenWhatsapp" checked />
-          פתח וואטסאפ אוטומטית בהזזה או ביטול תור
-        </label>
+      <div class="sms-hub-grid">
+        <!-- שליחת תפוצה לכלל המשתמשים -->
+        <div class="hub-card">
+          <h3 style="font-size:1.05rem; font-weight:900; color:var(--gold-bright); margin-bottom:6px;">📣 שליחת הודעת SMS לכלל המשתמשים הרשומים</h3>
+          <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">ניתן לשלב <code>{שם}</code> להכנסת שם הלקוח אוטומטית.</p>
+          <textarea id="broadcastInput" class="input-field" placeholder="אהלן {שם}, פתחנו תורים חדשים להשבוע במספרה של עיליי!"></textarea>
+          <button type="button" class="btn-gold" style="width:100%; padding:12px;" onclick="sendBroadcastToAll()">שלח SMS לכלל הלקוחות (<span id="btnBroadcastCount">0</span>)</button>
+
+          <hr style="border:none; border-top:1px solid rgba(255,255,255,0.08); margin:14px 0;" />
+          <h4 style="font-size:0.92rem; font-weight:900; color:#fff; margin-bottom:8px;">📋 יומן היסטוריית הודעות ושליחה חוזרת (Retry)</h4>
+          <div class="users-list-scroll" id="smsHistoryContainer" style="max-height:210px;"></div>
+        </div>
+
+        <!-- רשימת לקוחות ומעקב -->
+        <div class="hub-card">
+          <h3 style="font-size:1.05rem; font-weight:900; margin-bottom:8px;">👥 לקוחות רשומים במועדון (<span id="clubListCount">0</span>)</h3>
+          <div style="display:grid; grid-template-columns:1fr 1fr auto; gap:6px; margin-bottom:10px;">
+            <input type="text" id="manualClubName" class="input-field" style="margin:0;" placeholder="שם מלא ייחודי" />
+            <input type="tel" id="manualClubPhone" class="input-field" style="margin:0;" placeholder="טלפון נייד" />
+            <button type="button" class="btn-gold" style="padding:0 12px;" onclick="addManualClubUser()">+ הוסף</button>
+          </div>
+          <div class="users-list-scroll" id="clubUsersContainer"></div>
+        </div>
       </div>
 
-      <div class="day-filter-pills" id="calBoardFilterBar"></div>
-
-      <div class="cal-grid-scroll" id="calGridScrollWrap">
-        <div class="cal-board cols-7" id="calendarBoard"></div>
+      <!-- הגדרות חיבור API + כמות שעות לתזכורת אוטומטית + מכסת חבילה -->
+      <div class="hub-card">
+        <h3 style="font-size:1.02rem; font-weight:900; color:var(--gold-bright); margin-bottom:10px;">⚙️ הגדרות TextMe API, מכסת חבילה ותזכורת אוטומטית לפני תור</h3>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(175px, 1fr)); gap:10px;">
+          <div><label style="font-size:0.74rem; color:#94a3b8;">ספק SMS:</label><select id="smsProviderSelect" class="input-field"><option value="textme">TextMe (ישראל)</option><option value="clicksend">ClickSend</option><option value="twilio">Twilio</option></select></div>
+          <div><label style="font-size:0.74rem; color:#94a3b8;">שם שולח (עד 11 תווים):</label><input type="text" id="smsSenderIdInput" class="input-field" value="Ilay" /></div>
+          <div><label style="font-size:0.74rem; color:#94a3b8;">שם משתמש ב-TextMe:</label><input type="text" id="smsApiUserInput" class="input-field" placeholder="Username / Email" /></div>
+          <div><label style="font-size:0.74rem; color:#94a3b8;">מפתח API Token:</label><input type="password" id="smsApiKeyInput" class="input-field" placeholder="Bearer Token" /></div>
+          <div><label style="font-size:0.74rem; color:#94a3b8;">כמות הודעות בחבילה שלך:</label><input type="number" id="smsQuotaInput" class="input-field" value="1000" /></div>
+          <div><label style="font-size:0.74rem; color:#94a3b8;">תזכורת אוטומטית (שעות לפני תור):</label><input type="number" id="reminderHoursInput" class="input-field" value="3" min="1" max="48" /></div>
+        </div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:8px;">
+          <button type="button" class="btn-gold" style="flex:1;" onclick="saveSmsSettings()">💾 שמור הגדרות SMS וחבילה</button>
+          <button type="button" class="btn-outline" onclick="sendTrackedSms(siteConfig.barberPhone, 'בדיקה', 'בדיקת מערכת SMS מאת Ilay Barbershop', 'booking').then(ok=>showToast(ok?'נשלח בהצלחה!':'נכשל - בדוק מפתחות'))">📨 שלח SMS בדיקה</button>
+        </div>
       </div>
     </div>
 
-    <div id="admin-sub-portfolio" class="panel-box" style="display:none;">
-      <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
-        <h3 style="font-size:1.1rem; font-weight:900; color:var(--gold-light);">ניהול תיק עבודות</h3>
-      </div>
-      <p style="font-size:0.84rem; color:var(--text-muted); margin-bottom:12px;">כל הוספה או מחיקה של תמונה מתעדכנת אוטומטית ובזמן אמת באתר הלקוחות בכל המכשירים.</p>
-      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px;">
-        <label for="replaceAllPortfolioInput" class="btn-gold" style="flex:1; min-width:160px; cursor:pointer;">🔄 החלף את כל התמונות בתיק</label>
-        <input type="file" id="replaceAllPortfolioInput" class="sr-file-input" multiple accept="image/*" onchange="handlePortfolioUpload(event, true)" />
-        <label for="addPortfolioInput" class="btn-outline" style="flex:1; min-width:160px; cursor:pointer;">+ הוסף עוד תמונות לתיק</label>
-        <input type="file" id="addPortfolioInput" class="sr-file-input" multiple accept="image/*" onchange="handlePortfolioUpload(event, false)" />
-      </div>
-      <div class="admin-portfolio-grid" id="adminPortfolioGrid"></div>
+    <!-- לשונית 3: תיק עבודות -->
+    <div id="tab-portfolio" class="panel-box" style="display:none;">
+      <h3 style="font-size:1.08rem; font-weight:900; color:var(--gold-bright); margin-bottom:10px;">ניהול תמונות תיק עבודות</h3>
+      <input type="text" id="newPhotoUrlInput" class="input-field" placeholder="הדבק קישור לתמונה או העלה מהמכשיר..." />
+      <div id="adminPortfolioGrid" class="portfolio-grid" style="margin-top:12px;"></div>
     </div>
 
-    <div id="admin-sub-edit" class="panel-box" style="display:none;">
-      <h3 style="font-size:1.05rem; font-weight:900; color:var(--gold-light); margin-bottom:10px;">כותרת ראשית באתר הלקוחות</h3>
-      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:10px; margin-bottom:16px;">
-        <input type="text" id="editSiteTitle" class="input-field" placeholder="כותרת ראשית" />
+    <!-- לשונית 4: מחירון וכותרת -->
+    <div id="tab-edit" class="panel-box" style="display:none;">
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px;">
+        <input type="text" id="editSiteTitle" class="input-field" placeholder="כותרת האתר" />
         <input type="text" id="editSiteSubtitle" class="input-field" placeholder="תת-כותרת" />
       </div>
-
-      <h3 style="font-size:1.05rem; font-weight:900; color:var(--gold-light); margin-bottom:10px;">עריכת תספורות והוספת תספורת חדשה</h3>
       <div id="servicesEditorContainer"></div>
-
-      <div style="border:1px dashed var(--gold); border-radius:14px; padding:14px; margin-top:12px;">
-        <div style="font-size:0.9rem; font-weight:900; color:var(--gold-light); margin-bottom:8px;">+ הוספת תספורת חדשה:</div>
-        <div class="add-service-grid">
-          <input type="text" id="newSrvName" class="input-field" placeholder="שם התספורת..." />
-          <input type="number" id="newSrvPrice" class="input-field" placeholder="מחיר (₪)" />
-          <input type="text" id="newSrvTime" class="input-field" placeholder="זמן (30 דק')" />
-          <input type="text" id="newSrvDesc" class="input-field" placeholder="תיאור התספורת..." />
-          <button type="button" class="btn-gold" style="height:42px;" onclick="addNewCustomService()">+ הוסף</button>
-        </div>
-      </div>
-      <button type="button" class="btn-gold" style="width:100%; margin-top:14px; padding:14px;" onclick="saveSiteAndServicesChanges()">שמור ועדכן הכל באתר הלקוחות</button>
+      <button type="button" class="btn-gold" style="width:100%; margin-top:12px;" onclick="saveServicesAndTitles()">שמור מחירון וכותרות</button>
     </div>
 
-    <div id="admin-sub-hours" class="panel-box" style="display:none;">
-      <div style="background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.35); border-radius:14px; padding:14px; margin-bottom:18px;">
-        <h3 style="font-size:1.02rem; font-weight:900; color:#34d399; margin-bottom:6px;">🔔 התראות פוש אוטומטיות לטלפון על תור חדש (ntfy)</h3>
-        <p style="font-size:0.82rem; color:#cbd5e1; line-height:1.6; margin-bottom:10px;">
-          כדי לקבל התראה קופצת לטלפון גם כשהאפליקציה סגורה לגמרי:<br>
-          1. הורד לאייפון/אנדרואיד את האפליקציה החינמית <strong>ntfy</strong>.<br>
-          2. לחץ על <strong>+</strong> באפליקציה והקלד את שם הערוץ: <strong><code>ilay_barbershop_alerts</code></strong> (ובאייפון רשום ב-Server כתובת <code>https://ntfy.sh</code>).
-        </p>
-        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-          <input type="text" id="ntfyTopicInput" class="input-field" value="ilay_barbershop_alerts" style="max-width:280px; margin:0;" placeholder="ilay_barbershop_alerts" />
-          <button type="button" class="btn-outline" style="border-color:#10b981; color:#34d399;" onclick="testNtfyNotification()">🔔 שלח התראת בדיקה לטלפון עכשיו</button>
-        </div>
-      </div>
-
-      <h3 style="font-size:1.05rem; font-weight:900; color:var(--gold-light); margin-bottom:10px;">זמן בין תספורת לתספורת</h3>
-      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:10px; margin-bottom:16px;">
-        <div>
-          <label style="font-size:0.8rem; color:#cbd5e1;">מרווח תורים:</label>
-          <select id="slotIntervalSelect" class="input-field">
-            <option value="15">כל 15 דקות</option>
-            <option value="20">כל 20 דקות</option>
-            <option value="25">כל 25 דקות</option>
-            <option value="30">כל 30 דקות</option>
-            <option value="40">כל 40 דקות</option>
-            <option value="45">כל 45 דקות</option>
-            <option value="60">כל 60 דקות</option>
-          </select>
-        </div>
-        <div>
-          <label style="font-size:0.8rem; color:#cbd5e1;">זמן הפסקה/התארגנות בין תורים:</label>
-          <select id="slotBufferSelect" class="input-field">
-            <option value="0">ללא הפסקה (0 דק')</option>
-            <option value="5">5 דקות התארגנות</option>
-            <option value="10">10 דקות התארגנות</option>
-            <option value="15">15 דקות הפסקה</option>
-          </select>
-        </div>
-      </div>
-      <h3 style="font-size:1.05rem; font-weight:900; color:var(--gold-light); margin-bottom:10px;">שעות פעילות שבועיות</h3>
+    <!-- לשונית 5: שעות פעילות -->
+    <div id="tab-hours" class="panel-box" style="display:none;">
       <div id="hoursEditorRows" style="display:flex; flex-direction:column; gap:8px; margin-bottom:14px;"></div>
-      <button type="button" class="btn-gold" style="width:100%; padding:14px;" onclick="saveWeeklyHours()">שמור הגדרות, התראות ושעות פעילות</button>
+      <button type="button" class="btn-gold" style="width:100%;" onclick="saveHoursSettings()">שמור שעות פעילות</button>
     </div>
   </div>
 
+  <!-- מודאל שיבוץ תור ידני -->
   <div class="modal-backdrop" id="manualAddModal" onclick="if(event.target===this) this.classList.remove('open')">
     <div class="square-modal">
       <div class="modal-head">
-        <h3 style="font-size:1.12rem; font-weight:900; color:var(--gold-light);">שיבוץ תור חדש במשבצת</h3>
+        <h3 style="font-size:1.1rem; font-weight:900; color:var(--gold-bright);">שיבוץ תור חדש ביומן</h3>
         <button type="button" class="modal-close" onclick="document.getElementById('manualAddModal').classList.remove('open')">✕</button>
       </div>
       <select id="manualDaySelect" class="input-field"></select>
       <select id="manualHourSelect" class="input-field"></select>
       <select id="manualServiceSelect" class="input-field"></select>
-      <input type="text" id="manualNameInput" class="input-field" placeholder="שם הלקוח (לפחות 2 אותיות)" />
-      <input type="tel" id="manualPhoneInput" class="input-field" inputmode="numeric" oninput="this.value=this.value.replace(/[^0-9]/g,'')" placeholder="מספר טלפון (ספרות בלבד)" />
+      <input type="text" id="manualNameInput" class="input-field" placeholder="שם מלא של הלקוח" />
+      <input type="tel" id="manualPhoneInput" class="input-field" placeholder="מספר טלפון נייד" />
       <input type="text" id="manualNoteInput" class="input-field" placeholder="הערות לתור" />
-      <button type="button" class="btn-gold" style="width:100%; padding:13px;" onclick="saveManualAppointment()">שמור תור במשבצת</button>
-    </div>
-  </div>
-
-  <div class="modal-backdrop" id="pwaGuideModal" onclick="if(event.target===this) this.classList.remove('open')">
-    <div class="square-modal">
-      <div class="modal-head">
-        <h3 style="font-size:1.1rem; font-weight:900; color:var(--gold-light);">📲 הפיכת היומן לאפליקציה באייפון</h3>
-        <button type="button" class="modal-close" onclick="document.getElementById('pwaGuideModal').classList.remove('open')">✕</button>
-      </div>
-      <div style="font-size:0.9rem; color:#cbd5e1; line-height:1.7;">
-        <p style="margin-bottom:8px;">1. פתח את הקישור של הניהול (<code>/admin.html</code>) בדפדפן <strong>Safari</strong> באייפון.</p>
-        <p style="margin-bottom:8px;">2. לחץ בתחתית המסך על כפתור ה<strong>שיתוף (Share)</strong>.</p>
-        <p style="margin-bottom:8px;">3. בחר <strong>"הוסף למסך הבית" (Add to Home Screen)</strong>.</p>
-        <p>4. יופיע לך אייקון <strong>ניהול Ilay</strong> על מסך הבית באייפון שפותח ישירות את יומן המשבצות במסך מלא!</p>
-      </div>
+      <button type="button" class="btn-gold" style="width:100%; padding:13px;" onclick="saveManualAppointment()">שבץ תור ושלח SMS ללקוח</button>
     </div>
   </div>
 
   <div class="toast-popup" id="toastPopup"></div>
 
+  <script src="core.js"></script>
   <script>
-    function sanitizeStr(str, maxLen = 120) {
-      if (typeof str !== "string") return "";
-      return str.slice(0, maxLen).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;").trim();
-    }
-
-    function encodeShift(str) {
-      return Array.from(str).map(ch => ch.charCodeAt(0) + 7).join("-");
-    }
-
     const SECURE_ADMINS = [
-      { u: "112-115-104-128-105-108-117-104-121-121-118-106-111", p: "80-115-104-128-56-58-63-61-40", label: "עילי בן הרוש" },
-      { u: "104-121-112-107-108-125", p: "60-58-60-59-61-58-58", label: "AriDev" }
+      { u: "ilaybenharosh", p: "Ilay2947!", label: "עילי בן הרוש" },
+      { u: "aridev", p: "5354633", label: "AriDev" }
     ];
+    let boardFilterMode = "all";
 
-    (function setupAppIcon() {
-      const c = document.createElement("canvas");
-      c.width = 180; c.height = 180;
-      const ctx = c.getContext("2d");
-      ctx.fillStyle = "#080b12"; ctx.fillRect(0, 0, 180, 180);
-      ctx.strokeStyle = "#d4af37"; ctx.lineWidth = 8; ctx.strokeRect(10, 10, 160, 160);
-      ctx.fillStyle = "#f7df8b"; ctx.font = "900 26px Cinzel, serif"; ctx.textAlign = "center";
-      ctx.fillText("ILAY", 90, 75);
-      ctx.font = "800 20px Heebo, sans-serif";
-      ctx.fillText("ADMIN", 90, 115);
-      document.getElementById("appleTouchIcon").href = c.toDataURL("image/png");
-    })();
-
-    const DB_NAME = "IlayBarbershopPortfolioDB";
-    const STORE_NAME = "portfolioStore";
-
-    function openPortfolioDB() {
-      return new Promise((resolve, reject) => {
-        if (!window.indexedDB) return reject("No IndexedDB");
-        const req = indexedDB.open(DB_NAME, 1);
-        req.onupgradeneeded = e => {
-          const db = e.target.result;
-          if (!db.objectStoreNames.contains(STORE_NAME)) db.createObjectStore(STORE_NAME);
-        };
-        req.onsuccess = e => resolve(e.target.result);
-        req.onerror = e => reject(e.target.error);
-      });
-    }
-
-    function compressImageFile(file) {
-      return new Promise(resolve => {
-        const objUrl = URL.createObjectURL(file);
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement("canvas");
-          const maxDim = 480;
-          let w = img.width || 480, h = img.height || 640;
-          if (w > h && w > maxDim) { h = Math.round((h * maxDim) / w); w = maxDim; }
-          else if (h > maxDim) { w = Math.round((w * maxDim) / h); h = maxDim; }
-          canvas.width = w; canvas.height = h;
-          canvas.getContext("2d").drawImage(img, 0, 0, w, h);
-          URL.revokeObjectURL(objUrl);
-          resolve(canvas.toDataURL("image/jpeg", 0.64));
-        };
-        img.onerror = () => {
-          URL.revokeObjectURL(objUrl);
-          const reader = new FileReader();
-          reader.onload = e => resolve(e.target.result);
-          reader.readAsDataURL(file);
-        };
-        img.src = objUrl;
-      });
-    }
-
-    async function savePortfolioLocally(list) {
-      try { localStorage.setItem("ilay_portfolio_list_v5", JSON.stringify(list)); } catch (_) {}
-      try {
-        const db = await openPortfolioDB();
-        await new Promise((resolve, reject) => {
-          const tx = db.transaction(STORE_NAME, "readwrite");
-          tx.objectStore(STORE_NAME).put(list, "custom_photos");
-          tx.oncomplete = () => resolve();
-          tx.onerror = e => reject(e);
-        });
-      } catch (_) {}
-    }
-
-    async function loadPortfolioFromDB() {
-      try {
-        const savedLS = localStorage.getItem("ilay_portfolio_list_v5") || localStorage.getItem("ilay_portfolio_list_v4");
-        if (savedLS) {
-          const parsed = JSON.parse(savedLS);
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-        }
-      } catch (_) {}
-      try {
-        const db = await openPortfolioDB();
-        return await new Promise(resolve => {
-          const tx = db.transaction(STORE_NAME, "readonly");
-          const req = tx.objectStore(STORE_NAME).get("custom_photos");
-          req.onsuccess = () => resolve(req.result || null);
-          req.onerror = () => resolve(null);
-        });
-      } catch (_) { return null; }
-    }
-
-    let siteConfig = JSON.parse(localStorage.getItem("ilay_site_cfg") || "null") || {
-      title: "ILAY BARBERSHOP",
-      subtitle: "תספורת נקייה, אווירה טובה וסטייל שיושב בול.",
-      slotInterval: 30,
-      slotBuffer: 0,
-      ntfyTopic: "ilay_barbershop_alerts"
-    };
-    if (!siteConfig.ntfyTopic) siteConfig.ntfyTopic = "ilay_barbershop_alerts";
-
-    let SERVICES = JSON.parse(localStorage.getItem("ilay_services_v2") || "null") || [
-      { name: "תספורת קלאסי", price: 70, duration: "30 דק'", desc: "דירוג (מולט, טייפר, בארסט ועוד..) עם גזירות ואפשרות להוסיף פנס לבחירה." },
-      { name: "תספורת מוגזם", price: 90, duration: "45 דק'", desc: "לא הסתפרת הרבה זמן ורוצה לעשות שינוי, תספורת גזירות מלאה." },
-      { name: "תספורת קלאסי + זקן", price: 80, duration: "35 דק'", desc: "דירוג נקי (מולט, טייפר, בארסט ועוד) עם גזירות, פנס לבחירה וסידור זקן מדויק." },
-      { name: "תספורת מוגזם + זקן", price: 100, duration: "50 דק'", desc: "שינוי לוק מלא בגזירות ודירוג למי שלא הסתפר הרבה זמן, כולל עיצוב וסידור זקן." }
-    ];
-
-    const DAYS = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "מוצ״ש"];
-    const DEFAULT_PORTFOLIO = [
-      "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=600&q=80",
-      "https://images.unsplash.com/photo-1599351431202-1e0f0137899a?auto=format&fit=crop&w=600&q=80",
-      "https://images.unsplash.com/photo-1621607512214-68297480165e?auto=format&fit=crop&w=600&q=80",
-      "https://images.unsplash.com/photo-1585747860715-2ba37e788b70?auto=format&fit=crop&w=600&q=80",
-      "https://images.unsplash.com/photo-1622286342621-4bd786c2447c?auto=format&fit=crop&w=600&q=80",
-      "https://images.unsplash.com/photo-1517832607067-4db24a2ae47c?auto=format&fit=crop&w=600&q=80"
-    ];
-
-    let portfolioList = [...DEFAULT_PORTFOLIO];
-    let hasCustomUploadedPhotos = localStorage.getItem("ilay_has_custom_photos") === "1";
-
-    let weeklySchedule = JSON.parse(localStorage.getItem("ilay_weekly_hours") || "null") || [
-      { active: true, start: "10:00", end: "20:00" },
-      { active: true, start: "10:00", end: "20:00" },
-      { active: true, start: "10:00", end: "20:00" },
-      { active: true, start: "10:00", end: "20:00" },
-      { active: true, start: "10:00", end: "21:00" },
-      { active: true, start: "09:00", end: "15:00" },
-      { active: false, start: "19:30", end: "22:00" }
-    ];
-
-    let appointments = JSON.parse(localStorage.getItem("ilay_appointments_clean_v1") || "[]");
-
-    // --- מנוע סנכרון ענן בזמן אמת ---
-    const CLOUD_TOPIC_BASE = "ilay_barbershop_gt_2026_live_v7";
-    const CLOUD_BROKERS = [
-      "wss://broker.emqx.io:8084/mqtt",
-      "wss://test.mosquitto.org:8081/mqtt",
-      "wss://broker.hivemq.com:8884/mqtt"
-    ];
-    const mqttClients = [];
-    let lastStateTimestamp = Number(localStorage.getItem("ilay_state_ts") || 0);
-    let lastPortfolioTimestamp = Number(localStorage.getItem("ilay_portfolio_ts") || 0);
-    let lastPortfolioBatchId = localStorage.getItem("ilay_portfolio_batch") || "";
-    let lastNotifiedBookingId = localStorage.getItem("ilay_last_notified_appt") || "";
-    let latestBookedDayIdx = 0;
-
-    const batchMetaMap = {};
-    const batchChunksMap = {};
-
-    function playNotificationSound() {
-      try {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = "sine";
-        osc.frequency.setValueAtTime(587.33, ctx.currentTime);
-        osc.frequency.setValueAtTime(880, ctx.currentTime + 0.14);
-        gain.gain.setValueAtTime(0.18, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.45);
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start();
-        osc.stop(ctx.currentTime + 0.45);
-      } catch (_) {}
-    }
-
-    function showLiveBookingAlertOnAdmin(appt) {
-      if (!appt || !appt.id || appt.id === lastNotifiedBookingId) return;
-      lastNotifiedBookingId = appt.id;
-      localStorage.setItem("ilay_last_notified_appt", appt.id);
-      latestBookedDayIdx = Number(appt.dayIdx) || 0;
-
-      const dateStr = getFormattedDateForDayIdx(latestBookedDayIdx);
-      const dayName = DAYS[latestBookedDayIdx];
-      document.getElementById("liveBookingDetails").textContent =
-        `${appt.name} (${appt.phone}) קבע תור ל${appt.service} ביום ${dayName} (${dateStr}) בשעה ${appt.time}`;
-      document.getElementById("liveBookingAlert").classList.add("show");
-      playNotificationSound();
-    }
-
-    function jumpToBookedDay() {
-      switchAdminSubTab("cal");
-      boardFilterMode = latestBookedDayIdx;
-      renderCalendarBoard();
-      document.getElementById("liveBookingAlert").classList.remove("show");
-    }
-
-    function tryAssembleAdminPortfolioBatch(batchId) {
-      if (!batchId || batchId === lastPortfolioBatchId || !batchMetaMap[batchId]) return;
-      const meta = batchMetaMap[batchId];
-      if (meta.updatedAt <= lastPortfolioTimestamp) return;
-      const chunks = batchChunksMap[batchId] || {};
-      const assembled = [];
-      for (let i = 0; i < meta.count; i++) {
-        if (chunks[i]) assembled.push(chunks[i]);
-      }
-      if (assembled.length === meta.count && assembled.length > 0) {
-        portfolioList = assembled;
-        hasCustomUploadedPhotos = true;
-        localStorage.setItem("ilay_has_custom_photos", "1");
-        lastPortfolioTimestamp = meta.updatedAt;
-        lastPortfolioBatchId = batchId;
-        localStorage.setItem("ilay_portfolio_ts", String(lastPortfolioTimestamp));
-        localStorage.setItem("ilay_portfolio_batch", batchId);
-        savePortfolioLocally(portfolioList);
-        renderAdminPortfolioManager();
-        renderAdminStats();
-      }
-    }
-
-    function broadcastStateToCloud() {
-      const now = Date.now();
-      lastStateTimestamp = now;
-      localStorage.setItem("ilay_state_ts", String(now));
-
-      const payload = JSON.stringify({
-        updatedAt: now,
-        siteConfig,
-        services: SERVICES,
-        weeklySchedule,
-        appointments
-      });
-
-      mqttClients.forEach(c => {
-        try {
-          if (c.connected) {
-            c.publish(`${CLOUD_TOPIC_BASE}/state`, payload, { qos: 1, retain: true });
-          }
-        } catch (_) {}
-      });
-    }
-
-    function broadcastPortfolioToCloud(list) {
-      if (!Array.isArray(list) || !list.length) return;
-      const now = Date.now();
-      const batchId = "b_" + now + "_" + Math.random().toString(36).slice(2, 6);
-      lastPortfolioTimestamp = now;
-      lastPortfolioBatchId = batchId;
-      localStorage.setItem("ilay_portfolio_ts", String(now));
-      localStorage.setItem("ilay_portfolio_batch", batchId);
-
-      const metaPayload = JSON.stringify({ batchId, updatedAt: now, count: list.length });
-
-      mqttClients.forEach(c => {
-        try {
-          if (c.connected) {
-            list.forEach((src, idx) => {
-              c.publish(`${CLOUD_TOPIC_BASE}/photo/${idx}`, JSON.stringify({ batchId, idx, src, updatedAt: now }), { qos: 1, retain: true });
-            });
-            for (let oldIdx = list.length; oldIdx < 24; oldIdx++) {
-              c.publish(`${CLOUD_TOPIC_BASE}/photo/${oldIdx}`, "", { qos: 1, retain: true });
-            }
-            c.publish(`${CLOUD_TOPIC_BASE}/portfolio_meta`, metaPayload, { qos: 1, retain: true });
-          }
-        } catch (_) {}
-      });
-    }
-
-    function initRealtimeCloudSync() {
-      window.addEventListener("storage", () => {
-        appointments = JSON.parse(localStorage.getItem("ilay_appointments_clean_v1") || "[]");
-        renderCalendarBoard();
-        renderAdminStats();
-      });
-
-      if (!window.mqtt) return;
-
-      CLOUD_BROKERS.forEach(brokerUrl => {
-        try {
-          const client = mqtt.connect(brokerUrl, {
-            clientId: "ilay_admin_" + Math.random().toString(16).slice(2, 10),
-            clean: true,
-            reconnectPeriod: 2500
-          });
-
-          client.on("connect", () => {
-            client.subscribe(`${CLOUD_TOPIC_BASE}/#`, { qos: 1 });
-          });
-
-          client.on("message", (topic, payload) => {
-            try {
-              const str = payload.toString();
-              if (!str) return;
-              const data = JSON.parse(str);
-
-              if (topic === `${CLOUD_TOPIC_BASE}/new_booking`) {
-                if (data && data.appt && data.appt.id) {
-                  const exists = appointments.some(a => a.id === data.appt.id);
-                  if (!exists) {
-                    appointments.push(data.appt);
-                    localStorage.setItem("ilay_appointments_clean_v1", JSON.stringify(appointments));
-                    renderCalendarBoard();
-                    renderAdminStats();
-                    showLiveBookingAlertOnAdmin(data.appt);
-                  }
-                }
-              } else if (topic === `${CLOUD_TOPIC_BASE}/state`) {
-                if (!data.updatedAt || data.updatedAt <= lastStateTimestamp) return;
-                const oldApptIds = new Set(appointments.map(a => a.id));
-                lastStateTimestamp = data.updatedAt;
-                localStorage.setItem("ilay_state_ts", String(lastStateTimestamp));
-
-                if (data.siteConfig) { siteConfig = { ...siteConfig, ...data.siteConfig }; localStorage.setItem("ilay_site_cfg", JSON.stringify(siteConfig)); }
-                if (data.services) { SERVICES = data.services; localStorage.setItem("ilay_services_v2", JSON.stringify(SERVICES)); }
-                if (data.weeklySchedule) { weeklySchedule = data.weeklySchedule; localStorage.setItem("ilay_weekly_hours", JSON.stringify(weeklySchedule)); }
-                if (Array.isArray(data.appointments)) {
-                  const newlyAdded = data.appointments.find(a => !oldApptIds.has(a.id));
-                  appointments = data.appointments;
-                  localStorage.setItem("ilay_appointments_clean_v1", JSON.stringify(appointments));
-                  if (newlyAdded) showLiveBookingAlertOnAdmin(newlyAdded);
-                }
-
-                renderCalendarBoard();
-                renderAdminStats();
-                renderAdminEditors();
-              } else if (topic === `${CLOUD_TOPIC_BASE}/portfolio_meta`) {
-                if (!data.batchId || data.batchId === lastPortfolioBatchId || !data.updatedAt || data.updatedAt <= lastPortfolioTimestamp) return;
-                batchMetaMap[data.batchId] = { count: Number(data.count) || 0, updatedAt: data.updatedAt };
-                tryAssembleAdminPortfolioBatch(data.batchId);
-              } else if (topic.startsWith(`${CLOUD_TOPIC_BASE}/photo/`)) {
-                if (!data || !data.batchId || data.batchId === lastPortfolioBatchId || !data.src) return;
-                if (!batchChunksMap[data.batchId]) batchChunksMap[data.batchId] = {};
-                batchChunksMap[data.batchId][Number(data.idx)] = data.src;
-                tryAssembleAdminPortfolioBatch(data.batchId);
-              }
-            } catch (_) {}
-          });
-
-          mqttClients.push(client);
-        } catch (_) {}
-      });
-    }
-
-    async function testNtfyNotification() {
-      const topic = document.getElementById("ntfyTopicInput").value.trim() || "ilay_barbershop_alerts";
-      siteConfig.ntfyTopic = topic;
-      localStorage.setItem("ilay_site_cfg", JSON.stringify(siteConfig));
-      broadcastStateToCloud();
-
-      const adminUrl = window.location.href.split("?")[0];
-      try {
-        await fetch("https://ntfy.sh", {
-          method: "POST",
-          body: JSON.stringify({
-            topic: topic,
-            title: "💈 בדיקת התראה - Ilay Barbershop!",
-            message: "החיבור לערוץ " + topic + " פועל! כל תור חדש שייקבע באתר יקפיץ לך התראה כזו לטלפון.",
-            priority: 5,
-            tags: ["barber", "white_check_mark"],
-            click: adminUrl
-          })
-        });
-        showToast(`🔔 התראת בדיקה נשלחה לערוץ ${topic}!`);
-      } catch (_) {
-        showToast("⚠️ שגיאה בשליחת ההתראה");
-      }
-    }
-
-    function getFormattedDateForDayIdx(dayIdx) {
-      const now = new Date();
-      const currentDay = now.getDay();
-      let diff = dayIdx - currentDay;
-      if (diff < 0) diff += 7;
-      const target = new Date(now);
-      target.setDate(now.getDate() + diff);
-      const dd = String(target.getDate()).padStart(2, "0");
-      const mm = String(target.getMonth() + 1).padStart(2, "0");
-      return `${dd}/${mm}`;
+    function showToast(msg) {
+      const t = document.getElementById("toastPopup");
+      t.textContent = msg; t.classList.add("show");
+      clearTimeout(window._admToast);
+      window._admToast = setTimeout(() => t.classList.remove("show"), 3600);
     }
 
     function verifyBarberLogin() {
-      const uEnc = encodeShift(document.getElementById("barberUser").value.trim().toLowerCase());
-      const pEnc = encodeShift(document.getElementById("barberPass").value.trim());
-      const matched = SECURE_ADMINS.find(a => a.u === uEnc && a.p === pEnc);
-
-      if (matched) {
-        if (document.getElementById("rememberAdminSession").checked) {
-          localStorage.setItem("ilay_saved_admin_label", matched.label);
-        }
-        unlockAdminApp(matched.label);
-      } else {
-        document.getElementById("loginError").style.display = "block";
-      }
+      const u = document.getElementById("barberUser").value.trim().toLowerCase();
+      const p = document.getElementById("barberPass").value.trim();
+      const matched = SECURE_ADMINS.find(a => a.u === u && a.p === p);
+      if (!matched) { document.getElementById("loginError").style.display = "block"; return; }
+      if (document.getElementById("rememberAdmin").checked) localStorage.setItem("ilay_saved_admin_label", matched.label);
+      unlockAdmin(matched.label);
     }
 
-    function unlockAdminApp(label) {
+    function unlockAdmin(label) {
       document.getElementById("loginScreen").style.display = "none";
       document.getElementById("adminApp").classList.add("authenticated");
       document.getElementById("adminHeaderTitle").textContent = `ניהול ויומן • ${label}`;
-      renderCalendarBoard();
-      renderAdminStats();
-      renderAdminEditors();
+      renderAllAdmin();
     }
 
-    function logoutBarber() {
-      localStorage.removeItem("ilay_saved_admin_label");
-      document.getElementById("adminApp").classList.remove("authenticated");
-      document.getElementById("loginScreen").style.display = "flex";
-    }
-
-    function getEffectiveStepMinutes() {
-      return Math.max(10, (Number(siteConfig.slotInterval) || 30) + (Number(siteConfig.slotBuffer) || 0));
-    }
-
-    function buildDaySlots(startStr, endStr) {
-      const step = getEffectiveStepMinutes();
-      const [sh, sm] = startStr.split(":").map(Number);
-      const [eh, em] = endStr.split(":").map(Number);
-      const out = [];
-      for (let cur = sh * 60 + sm; cur < eh * 60 + em; cur += step) {
-        out.push(`${String(Math.floor(cur / 60)).padStart(2, "0")}:${String(cur % 60).padStart(2, "0")}`);
-      }
-      return out;
+    function switchTab(tab) {
+      document.querySelectorAll(".admin-tab-btn").forEach(b => b.classList.remove("active"));
+      document.getElementById("tabbtn-" + tab)?.classList.add("active");
+      ["cal", "sms", "portfolio", "edit", "hours"].forEach(t => {
+        document.getElementById("tab-" + t).style.display = t === tab ? "block" : "none";
+      });
     }
 
     function generateCalendarHours() {
-      const step = getEffectiveStepMinutes();
-      const hours = [];
-      for (let cur = 9 * 60; cur <= 21 * 60 + 30; cur += step) {
-        hours.push(`${String(Math.floor(cur / 60)).padStart(2, "0")}:${String(cur % 60).padStart(2, "0")}`);
+      const step = Math.max(10, (Number(siteConfig.slotInterval) || 30) + (Number(siteConfig.slotBuffer) || 0));
+      const out = [];
+      for (let cur = 9 * 60; cur <= 21 * 60; cur += step) {
+        out.push(`${String(Math.floor(cur / 60)).padStart(2, "0")}:${String(cur % 60).padStart(2, "0")}`);
       }
-      appointments.forEach(a => { if (a.time && !hours.includes(a.time)) hours.push(a.time); });
-      return hours.sort();
+      appointments.forEach(a => { if (a.time && !out.includes(a.time)) out.push(a.time); });
+      return out.sort();
     }
 
-    function saveAppointments() {
-      localStorage.setItem("ilay_appointments_clean_v1", JSON.stringify(appointments));
-      broadcastStateToCloud();
-      renderAdminStats();
+    // מעבר סטטוס תור מהיר בלחיצה (אפור = ממתין -> ירוק = אושר)
+    function toggleApptStatusAdmin(apptId, ev) {
+      if (ev) ev.stopPropagation();
+      const appt = appointments.find(a => a.id === apptId);
+      if (!appt) return;
+      appt.status = appt.status === "confirmed" ? "pending" : "confirmed";
+      broadcastCloudState();
+      renderAllAdmin();
+      showToast(`סטטוס התור של ${appt.name} עודכן ל-${appt.status === "confirmed" ? "אושר (ירוק)" : "ממתין לאישור (אפור)"}`);
     }
 
-    function clearAllAppointments() {
-      appointments = [];
-      saveAppointments();
-      renderCalendarBoard();
-      showToast("כל התורים ביומן אופסו ל-0!");
+    // הזזת תור ושליחת SMS אוטומטית + חישוב במונה הזזות
+    async function moveAppointmentToSlot(apptId, newDayIdx, newTime) {
+      const appt = appointments.find(a => a.id === apptId);
+      if (!appt || (Number(appt.dayIdx) === Number(newDayIdx) && appt.time === newTime)) return;
+      const occupied = appointments.find(a => Number(a.dayIdx) === Number(newDayIdx) && a.time === newTime && a.status !== "canceled" && a.id !== apptId);
+      if (occupied) return showToast("המשבצת תפוסה על ידי " + occupied.name);
+
+      appt.dayIdx = Number(newDayIdx);
+      appt.dateStr = getFormattedDateForDayIdx(newDayIdx);
+      appt.time = newTime;
+      appt.startsAtMs = getTargetTimestamp(newDayIdx, newTime);
+      appt.status = "pending"; // חוזר לממתין לאישור לאחר הזזה
+      appt.reminderSent = false;
+      broadcastCloudState();
+      renderAllAdmin();
+
+      const publicUrl = `${window.location.origin}/ilay.html#personal-area`;
+      const msg = `אהלן ${appt.name}, עדכון מהמספרה של עיליי (Ilay Barbershop): התור שלך הוזז ליום ${DAYS_HEB[newDayIdx]} (${appt.dateStr}) בשעה ${newTime}. לאישור הגעה היכנס לאזור האישי: ${publicUrl}`;
+      await sendTrackedSms(appt.phone, appt.name, msg, "move", appt.id);
+      showToast(`התור של ${appt.name} הוזז ונשלחה הודעת SMS!`);
     }
 
-    function renderAdminStats() {
-      const selectedDayIdx = Number(document.getElementById("statDayFilter")?.value || 0);
-      const stepMin = getEffectiveStepMinutes();
-      let weeklyRevenue = 0;
-      const dayTotals = [0, 0, 0, 0, 0, 0, 0], dayCounts = [0, 0, 0, 0, 0, 0, 0], dayMaxSlots = [0, 0, 0, 0, 0, 0, 0];
+    // ביטול תור -> מסמן באדום (בוטל) ביומן ושולח SMS ביטול
+    async function cancelAppointmentAdmin(apptId, ev) {
+      if (ev) ev.stopPropagation();
+      const appt = appointments.find(a => a.id === apptId);
+      if (!appt) return;
+      if (appt.status === "canceled") {
+        // מחיקה סופית אם כבר בוטל
+        appointments = appointments.filter(a => a.id !== apptId);
+        broadcastCloudState();
+        renderAllAdmin();
+        return;
+      }
+      appt.status = "canceled";
+      broadcastCloudState();
+      renderAllAdmin();
 
-      DAYS.forEach((_, idx) => {
-        const cfg = weeklySchedule[idx];
-        if (cfg && cfg.active) dayMaxSlots[idx] = buildDaySlots(cfg.start, cfg.end).length;
-      });
-
-      appointments.forEach(appt => {
-        const d = Number(appt.dayIdx);
-        const price = Number(appt.price) || 70;
-        if (d >= 0 && d < 7) { dayTotals[d] += price; dayCounts[d] += 1; weeklyRevenue += price; }
-      });
-
-      const totalAppts = appointments.length;
-      const totalWeeklyCapacity = dayMaxSlots.reduce((a, b) => a + b, 0) || 1;
-      const occupancyPct = Math.min(100, Math.round((totalAppts / totalWeeklyCapacity) * 100));
-      const monthlyRevenue = Math.round(weeklyRevenue * 4.3);
-      const activeDaysCount = weeklySchedule.filter(d => d.active).length || 1;
-
-      document.getElementById("statDailyMoney").textContent = `${dayTotals[selectedDayIdx].toLocaleString()} ₪`;
-      document.getElementById("statDailyCount").textContent = `${dayCounts[selectedDayIdx]} מתוך ${dayMaxSlots[selectedDayIdx]} תורים ביום ${DAYS[selectedDayIdx]}`;
-      document.getElementById("statWeeklyMoney").textContent = `${weeklyRevenue.toLocaleString()} ₪`;
-      document.getElementById("statWeeklyCount").textContent = `סה״כ ${totalAppts} תורים השבוע (${occupancyPct}% תפוסה)`;
-      document.getElementById("statMonthlyMoney").textContent = `${monthlyRevenue.toLocaleString()} ₪`;
-      document.getElementById("statMonthlyCount").textContent = `כ-${Math.round(totalAppts * 4.3)} תורים בחודש`;
-      document.getElementById("statIntervalBadge").textContent = `כל ${stepMin} דק'`;
-      document.getElementById("statAvgDayMoney").textContent = `${Math.round(weeklyRevenue / activeDaysCount).toLocaleString()} ₪ / יום`;
-      document.getElementById("adminTabPhotoCount").textContent = portfolioList.length;
-    }
-
-    let boardFilterMode = "all";
-    let tapMoveApptId = null;
-
-    function renderBoardFilterBar() {
-      const bar = document.getElementById("calBoardFilterBar");
-      bar.innerHTML = "";
-
-      const allBtn = document.createElement("button");
-      allBtn.type = "button";
-      allBtn.className = "day-filter-btn" + (boardFilterMode === "all" ? " active" : "");
-      allBtn.textContent = "🗓️ לוח משבצות מלא (כל השבוע)";
-      allBtn.onclick = () => { boardFilterMode = "all"; renderCalendarBoard(); };
-      bar.appendChild(allBtn);
-
-      DAYS.forEach((dName, idx) => {
-        const count = appointments.filter(a => Number(a.dayIdx) === idx).length;
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "day-filter-btn" + (boardFilterMode === idx ? " active" : "");
-        btn.textContent = `יום ${dName} (${getFormattedDateForDayIdx(idx)}) • ${count}`;
-        btn.onclick = () => { boardFilterMode = idx; renderCalendarBoard(); };
-        bar.appendChild(btn);
-      });
+      const dateStr = appt.dateStr || getFormattedDateForDayIdx(appt.dayIdx);
+      const msg = `אהלן ${appt.name}, הודעה מהמספרה של עיליי (Ilay Barbershop): התור שלך ליום ${DAYS_HEB[appt.dayIdx]} (${dateStr}) בשעה ${appt.time} בוטל. לקביעת מועד חדש היכנס לאתר המספרה.`;
+      await sendTrackedSms(appt.phone, appt.name, msg, "cancel", appt.id);
+      showToast(`התור של ${appt.name} סומן כבוטל (אדום) ונשלח SMS!`);
     }
 
     function renderCalendarBoard() {
-      renderBoardFilterBar();
-      const board = document.getElementById("calendarBoard");
-      board.innerHTML = "";
-
-      const activeDayIndices = boardFilterMode === "all" ? [0, 1, 2, 3, 4, 5, 6] : [Number(boardFilterMode)];
-      board.className = "cal-board " + (activeDayIndices.length === 1 ? "cols-1" : "cols-7");
-
-      const corner = document.createElement("div");
-      corner.className = "cal-col-header";
-      corner.innerHTML = `שעה / יום<small>גרור משבצת</small>`;
-      board.appendChild(corner);
-
-      activeDayIndices.forEach(dIdx => {
-        const head = document.createElement("div");
-        head.className = "cal-col-header";
-        const sched = weeklySchedule[dIdx];
-        const dateStr = getFormattedDateForDayIdx(dIdx);
-        head.innerHTML = `יום ${DAYS[dIdx]} (${dateStr})<small>${sched.active ? sched.start + " - " + sched.end : "סגור"}</small>`;
-        board.appendChild(head);
+      const showCanceled = document.getElementById("showCanceledInCal")?.checked ?? true;
+      const bar = document.getElementById("dayFilterBar");
+      bar.innerHTML = `<button type="button" class="day-chip ${boardFilterMode === 'all' ? 'active' : ''}" style="padding:6px 12px;" onclick="boardFilterMode='all';renderCalendarBoard()">כל השבוע</button>`;
+      DAYS_HEB.forEach((d, idx) => {
+        bar.innerHTML += `<button type="button" class="day-chip ${boardFilterMode === idx ? 'active' : ''}" style="padding:6px 12px;" onclick="boardFilterMode=${idx};renderCalendarBoard()">יום ${d} (${getFormattedDateForDayIdx(idx)})</button>`;
       });
 
-      const allHours = generateCalendarHours();
+      const board = document.getElementById("calendarBoard");
+      board.innerHTML = "";
+      const activeDays = boardFilterMode === "all" ? [0, 1, 2, 3, 4, 5, 6] : [Number(boardFilterMode)];
+      board.className = "cal-board " + (activeDays.length === 1 ? "cols-1" : "cols-7");
 
-      allHours.forEach(hourStr => {
-        const timeCell = document.createElement("div");
-        timeCell.className = "cal-time-label";
-        timeCell.textContent = hourStr;
-        board.appendChild(timeCell);
+      board.innerHTML += `<div class="cal-col-header">שעה / יום</div>`;
+      activeDays.forEach(dIdx => {
+        board.innerHTML += `<div class="cal-col-header">יום ${DAYS_HEB[dIdx]}<small>${getFormattedDateForDayIdx(dIdx)}</small></div>`;
+      });
 
-        activeDayIndices.forEach(dIdx => {
+      generateCalendarHours().forEach(hourStr => {
+        const tCell = document.createElement("div");
+        tCell.className = "cal-time-label";
+        tCell.textContent = hourStr;
+        board.appendChild(tCell);
+
+        activeDays.forEach(dIdx => {
           const slot = document.createElement("div");
-          slot.className = "cal-slot" + (tapMoveApptId ? " tap-target-ready" : "");
+          slot.className = "cal-slot";
           slot.dataset.dayIdx = dIdx;
           slot.dataset.time = hourStr;
+          slot.ondragover = e => { e.preventDefault(); slot.classList.add("drag-over"); };
+          slot.ondragleave = () => slot.classList.remove("drag-over");
+          slot.ondrop = e => {
+            e.preventDefault(); slot.classList.remove("drag-over");
+            const id = e.dataTransfer.getData("text/plain");
+            if (id) moveAppointmentToSlot(id, dIdx, hourStr);
+          };
 
-          slot.addEventListener("dragover", e => { e.preventDefault(); slot.classList.add("drag-over"); });
-          slot.addEventListener("dragleave", () => slot.classList.remove("drag-over"));
-          slot.addEventListener("drop", e => {
-            e.preventDefault();
-            slot.classList.remove("drag-over");
-            const draggedId = e.dataTransfer.getData("text/plain");
-            if (draggedId) moveAppointmentToSlot(draggedId, dIdx, hourStr);
-          });
-
-          const found = appointments.find(a => Number(a.dayIdx) === dIdx && a.time === hourStr);
-          if (found) {
-            slot.appendChild(createAppointmentCard(found));
+          const slotAppts = appointments.filter(a => Number(a.dayIdx) === dIdx && a.time === hourStr && (showCanceled || a.status !== "canceled"));
+          if (slotAppts.length) {
+            slotAppts.forEach(appt => {
+              const st = appt.status || "pending";
+              const stLabel = st === "confirmed" ? "🟢 אושר" : st === "canceled" ? "🔴 בוטל" : "⚪ ממתין לאישור";
+              const card = document.createElement("div");
+              card.className = `appt-card status-${st}`;
+              card.draggable = st !== "canceled";
+              card.ondragstart = e => e.dataTransfer.setData("text/plain", appt.id);
+              card.innerHTML = `
+                <div class="appt-top">
+                  <button type="button" class="appt-btn-mini" onclick="toggleApptStatusAdmin('${appt.id}', event)" title="לחץ לשינוי סטטוס הגעה">${stLabel}</button>
+                  <button type="button" class="appt-btn-mini" style="color:#fca5a5;" onclick="cancelAppointmentAdmin('${appt.id}', event)" title="ביטול תור">✕</button>
+                </div>
+                <div style="font-weight:900; font-size:0.86rem; color:#fff;">${sanitizeStr(appt.name, 30)}</div>
+                <div style="font-size:0.75rem; color:#93c5fd; direction:ltr; text-align:right;">${sanitizeStr(appt.phone, 15)}</div>
+                <div style="font-size:0.72rem; color:var(--gold-bright);">${sanitizeStr(appt.service, 40)}</div>
+                ${appt.reminderSent ? `<div style="font-size:0.65rem; color:#34d399; margin-top:2px;">✓ נשלחה תזכורת SMS</div>` : ""}
+              `;
+              slot.appendChild(card);
+            });
           } else {
-            const emptyHint = document.createElement("div");
-            emptyHint.className = "slot-empty-add";
-            emptyHint.textContent = tapMoveApptId ? "📍 לחץ כאן להעברה" : "+ פנוי";
-            emptyHint.onclick = () => {
-              if (tapMoveApptId) {
-                const idToMove = tapMoveApptId;
-                cancelTapMoveMode();
-                moveAppointmentToSlot(idToMove, dIdx, hourStr);
-              } else {
-                quickOpenManualSlot(dIdx, hourStr);
-              }
-            };
-            slot.appendChild(emptyHint);
+            const empty = document.createElement("div");
+            empty.style.cssText = "text-align:center; font-size:0.75rem; color:rgba(148,163,184,0.6); cursor:pointer; padding:16px 4px;";
+            empty.textContent = "+ פנוי";
+            empty.onclick = () => { openManualAddModal(); document.getElementById("manualDaySelect").value = String(dIdx); document.getElementById("manualHourSelect").value = hourStr; };
+            slot.appendChild(empty);
           }
-
           board.appendChild(slot);
         });
       });
     }
 
-    function createAppointmentCard(appt) {
-      const card = document.createElement("div");
-      card.className = "appt-card" + (tapMoveApptId === appt.id ? " selected-for-move" : "");
-      card.draggable = true;
-      card.dataset.id = appt.id;
+    function renderStatsAndSmsHub() {
+      const activeAppts = appointments.filter(a => a.status !== "canceled");
+      const confirmedCount = activeAppts.filter(a => a.status === "confirmed").length;
+      const pendingCount = activeAppts.filter(a => !a.status || a.status === "pending").length;
+      const canceledCount = appointments.filter(a => a.status === "canceled").length;
+      const weeklyMoney = activeAppts.reduce((sum, a) => sum + (Number(a.price) || 70), 0);
 
-      card.innerHTML = `
-        <div class="appt-top">
-          <span class="appt-drag-handle">✋ ${sanitizeStr(appt.time, 10)}</span>
-          <div class="appt-actions">
-            <button type="button" class="appt-btn-mini appt-btn-move" onclick="startTapMoveMode('${sanitizeStr(appt.id, 40)}', event)">הזז</button>
-            <button type="button" class="appt-btn-mini appt-btn-cancel" onclick="cancelAppointment('${sanitizeStr(appt.id, 40)}', event)">✕</button>
+      document.getElementById("statWeeklyMoney").textContent = `${weeklyMoney.toLocaleString()} ₪`;
+      document.getElementById("statWeeklyCount").textContent = `${activeAppts.length} תורים פעילים השבוע`;
+      document.getElementById("statConfirmedRatio").textContent = `🟢 ${confirmedCount} אושרו`;
+      document.getElementById("statPendingRatio").textContent = `⚪ ${pendingCount} ממתינים | 🔴 ${canceledCount} בוטלו`;
+      document.getElementById("statClubCount").textContent = registeredUsers.length;
+      document.getElementById("btnBroadcastCount").textContent = registeredUsers.length;
+      document.getElementById("clubListCount").textContent = registeredUsers.length;
+
+      const smsStat = computeSmsAnalytics();
+      document.getElementById("statSmsRemaining").textContent = smsStat.remaining.toLocaleString();
+      document.getElementById("statSmsSentSub").textContent = `נשלחו: ${smsStat.sentParts} | נכשלו: ${smsStat.failedMsgs}`;
+      document.getElementById("smsBoxQuota").textContent = smsStat.quota.toLocaleString();
+      document.getElementById("smsBoxRemaining").textContent = smsStat.remaining.toLocaleString();
+      document.getElementById("smsBoxSent").textContent = smsStat.sentParts.toLocaleString();
+      document.getElementById("smsBoxFailed").textContent = smsStat.failedMsgs.toLocaleString();
+      document.getElementById("smsBoxBreakdown").textContent =
+        `הזזות: ${smsStat.byCategory.move} | תזכורות: ${smsStat.byCategory.reminder} | קביעה/ביטול: ${smsStat.byCategory.booking + smsStat.byCategory.cancel} | תפוצה: ${smsStat.byCategory.broadcast}`;
+
+      // היסטוריית SMS + כפתור שליחה חוזרת
+      const histBox = document.getElementById("smsHistoryContainer");
+      histBox.innerHTML = smsLogs.length ? "" : `<div style="padding:14px; text-align:center; color:var(--text-muted); font-size:0.8rem;">עדיין לא נשלחו הודעות SMS.</div>`;
+      smsLogs.slice(0, 60).forEach(l => {
+        const row = document.createElement("div");
+        row.className = "user-row";
+        row.innerHTML = `
+          <div style="flex:1;">
+            <div style="font-size:0.8rem; font-weight:800; color:#fff;">${sanitizeStr(l.name, 25)} (${l.phone}) • <span style="color:var(--gold-bright);">${l.category}</span></div>
+            <div style="font-size:0.72rem; color:#94a3b8;">${sanitizeStr(l.message, 65)}</div>
           </div>
-        </div>
-        <div class="appt-client-name">👤 ${sanitizeStr(appt.name, 35)}</div>
-        <div class="appt-phone">📞 ${sanitizeStr(appt.phone, 15)}</div>
-        <div class="appt-service-tag">✂️ ${sanitizeStr(appt.service, 50)}</div>
-        ${appt.note ? `<div class="appt-note-tag">📝 ${sanitizeStr(appt.note, 120)}</div>` : ""}
-      `;
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span class="status-pill ${l.status === 'sent' ? 'confirmed' : 'canceled'}">${l.status === 'sent' ? 'נשלח' : 'נכשל'}</span>
+            ${l.status !== 'sent' ? `<button type="button" class="appt-btn-mini" onclick="retryFailedSmsLog('${l.id}').then(ok=>showToast(ok?'נשלח בהצלחה!':'נכשל שוב'))">🔄 שלח שוב</button>` : ""}
+          </div>
+        `;
+        histBox.appendChild(row);
+      });
 
-      card.addEventListener("dragstart", e => { e.dataTransfer.setData("text/plain", appt.id); });
-      enableTouchDragOnGrid(card, appt.id);
-      return card;
-    }
-
-    function enableTouchDragOnGrid(cardEl, apptId) {
-      let clone = null;
-      let startX = 0, startY = 0, isDragging = false;
-
-      cardEl.addEventListener("touchstart", e => {
-        if (e.target.closest("button")) return;
-        const t = e.touches[0];
-        startX = t.clientX; startY = t.clientY; isDragging = false;
-      }, { passive: true });
-
-      cardEl.addEventListener("touchmove", e => {
-        const t = e.touches[0];
-        if (!isDragging) {
-          if (Math.hypot(t.clientX - startX, t.clientY - startY) < 8) return;
-          isDragging = true;
-          clone = cardEl.cloneNode(true);
-          clone.style.cssText = `position:fixed; width:148px; z-index:5000; pointer-events:none; opacity:0.92; transform:scale(1.05); box-shadow:0 16px 35px rgba(0,0,0,0.85); left:${t.clientX - 74}px; top:${t.clientY - 40}px;`;
-          document.body.appendChild(clone);
-        }
-
-        e.preventDefault();
-        clone.style.left = (t.clientX - 74) + "px";
-        clone.style.top = (t.clientY - 40) + "px";
-
-        document.querySelectorAll(".cal-slot").forEach(s => s.classList.remove("drag-over"));
-        const target = document.elementFromPoint(t.clientX, t.clientY);
-        const slotEl = target ? target.closest(".cal-slot") : null;
-        if (slotEl) slotEl.classList.add("drag-over");
-      }, { passive: false });
-
-      cardEl.addEventListener("touchend", e => {
-        if (!isDragging || !clone) return;
-        const t = e.changedTouches[0];
-        clone.remove(); clone = null; isDragging = false;
-        document.querySelectorAll(".cal-slot").forEach(s => s.classList.remove("drag-over"));
-
-        const target = document.elementFromPoint(t.clientX, t.clientY);
-        const slotEl = target ? target.closest(".cal-slot") : null;
-        if (slotEl) moveAppointmentToSlot(apptId, Number(slotEl.dataset.dayIdx), slotEl.dataset.time);
+      // רשימת לקוחות רשומים
+      const uBox = document.getElementById("clubUsersContainer");
+      uBox.innerHTML = registeredUsers.length ? "" : `<div style="padding:16px; text-align:center; color:var(--text-muted); font-size:0.82rem;">אין לקוחות רשומים כרגע.</div>`;
+      registeredUsers.forEach((u, idx) => {
+        const r = document.createElement("div");
+        r.className = "user-row";
+        r.innerHTML = `
+          <div><strong style="font-size:0.86rem;">${sanitizeStr(u.username, 30)}</strong><div style="font-size:0.75rem; color:var(--gold-bright); direction:ltr;">${u.phone}</div></div>
+          <button type="button" class="appt-btn-mini" style="color:#fca5a5;" onclick="registeredUsers.splice(${idx},1);broadcastCloudState();renderAllAdmin();">הסר</button>
+        `;
+        uBox.appendChild(r);
       });
     }
 
-    function startTapMoveMode(apptId, ev) {
-      if (ev) ev.stopPropagation();
-      const appt = appointments.find(a => a.id === apptId);
-      if (!appt) return;
-      tapMoveApptId = apptId;
-      document.getElementById("moveModeText").textContent = `הזזת התור של ${appt.name}: לחץ עכשיו על משבצת פנויה`;
-      document.getElementById("moveModeHelper").classList.add("active");
-      renderCalendarBoard();
+    async function triggerManualRemindersNow() {
+      const count = await checkAndSendUpcomingReminders(true);
+      renderAllAdmin();
+      showToast(count > 0 ? `נשלחו ${count} תזכורות SMS לתורים הקרובים!` : "אין תורים ממתינים בטווח הקרוב שטרם קיבלו תזכורת.");
     }
 
-    function cancelTapMoveMode() {
-      tapMoveApptId = null;
-      document.getElementById("moveModeHelper").classList.remove("active");
-      renderCalendarBoard();
-    }
-
-    function moveAppointmentToSlot(apptId, newDayIdx, newTime) {
-      const appt = appointments.find(a => a.id === apptId);
-      if (!appt || (Number(appt.dayIdx) === Number(newDayIdx) && appt.time === newTime)) return;
-
-      const occupied = appointments.find(a => Number(a.dayIdx) === Number(newDayIdx) && a.time === newTime && a.id !== apptId);
-      if (occupied) return showToast("⚠️ המשבצת הזו תפוסה ע״י " + occupied.name);
-
-      appt.dayIdx = Number(newDayIdx);
-      appt.time = newTime;
-      saveAppointments();
-      renderCalendarBoard();
-
-      const dateStr = getFormattedDateForDayIdx(Number(newDayIdx));
-      const dayName = DAYS[Number(newDayIdx)];
-      const preparedMsg = `אהלן ${appt.name}, הודעה מהמספרה של עיליי: התור שלך הוזז לשעה ${newTime} בתאריך ${dateStr} (יום ${dayName}).`;
-
-      const cleanPhone = appt.phone.replace(/[^0-9]/g, "").replace(/^0/, "972");
-      const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(preparedMsg)}`;
-
-      document.getElementById("preparedMsgTitle").textContent = "✅ התור הוזז! הנה ההודעה המוכנה ללקוח:";
-      document.getElementById("preparedMsgText").textContent = preparedMsg;
-      document.getElementById("preparedWhatsappBtn").href = waUrl;
-      document.getElementById("preparedMsgBanner").classList.add("show");
-
-      showToast(`✅ התור של ${appt.name} הוזז ליום ${dayName} (${dateStr}) בשעה ${newTime}!`);
-
-      if (document.getElementById("autoOpenWhatsapp").checked && cleanPhone.length >= 9) {
-        window.open(waUrl, "_blank");
+    function addManualClubUser() {
+      const name = sanitizeStr(document.getElementById("manualClubName").value, 35);
+      const phone = toIsraeliLocalPhone(document.getElementById("manualClubPhone").value);
+      if (name.length < 2 || phone.length < 9) return showToast("נא להזין שם מלא וטלפון תקין");
+      if (registeredUsers.some(u => u.phone === phone || (u.username || "").toLowerCase() === name.toLowerCase())) {
+        return showToast("לקוח עם שם מלא או מספר טלפון זה כבר קיים!");
       }
+      registeredUsers.push({ id: "usr_" + Date.now(), username: name, phone, password: "", createdAt: new Date().toLocaleDateString("he-IL"), lastActiveAt: Date.now() });
+      broadcastCloudState();
+      renderAllAdmin();
+      document.getElementById("manualClubName").value = "";
+      document.getElementById("manualClubPhone").value = "";
     }
 
-    function copyPreparedMessage() {
-      const txt = document.getElementById("preparedMsgText").textContent;
-      if (navigator.clipboard) {
-        navigator.clipboard.writeText(txt);
-        showToast("📋 ההודעה המוכנה הועתקה!");
+    async function sendBroadcastToAll() {
+      const raw = document.getElementById("broadcastInput").value.trim();
+      if (!raw || !registeredUsers.length) return showToast("נא להקליד הודעה ולוודא שיש לקוחות רשומים");
+      let okCount = 0;
+      for (const u of registeredUsers) {
+        const msg = raw.replace(/\{שם\}/g, u.username || "");
+        const ok = await sendTrackedSms(u.phone, u.username, msg, "broadcast");
+        if (ok) okCount++;
       }
+      renderAllAdmin();
+      showToast(`נשלחו ${okCount} מתוך ${registeredUsers.length} הודעות תפוצה!`);
     }
 
-    function cancelAppointment(apptId, ev) {
-      if (ev) ev.stopPropagation();
-      const idx = appointments.findIndex(a => a.id === apptId);
-      if (idx === -1) return;
-      const appt = appointments.splice(idx, 1)[0];
-      saveAppointments();
-      renderCalendarBoard();
-
-      const dateStr = getFormattedDateForDayIdx(Number(appt.dayIdx));
-      const dayName = DAYS[Number(appt.dayIdx)];
-      const cancelMsg = `אהלן ${appt.name}, הודעה מהמספרה של עיליי: התור שלך ליום ${dayName} (${dateStr}) בשעה ${appt.time} בוטל. לקביעת מועד חדש ניתן להיכנס לאתר המספרה.`;
-
-      const cleanPhone = (appt.phone || "").replace(/[^0-9]/g, "").replace(/^0/, "972");
-      const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(cancelMsg)}`;
-
-      document.getElementById("preparedMsgTitle").textContent = "🗑️ התור בוטל! הנה הודעת הביטול המוכנה ללקוח:";
-      document.getElementById("preparedMsgText").textContent = cancelMsg;
-      document.getElementById("preparedWhatsappBtn").href = waUrl;
-      document.getElementById("preparedMsgBanner").classList.add("show");
-
-      showToast(`🗑️ התור של ${appt.name} בוטל והודעת וואטסאפ הוכנה.`);
-
-      if (document.getElementById("autoOpenWhatsapp").checked && cleanPhone.length >= 9) {
-        window.open(waUrl, "_blank");
-      }
+    function saveSmsSettings() {
+      siteConfig.smsProvider = document.getElementById("smsProviderSelect").value;
+      siteConfig.smsSenderId = document.getElementById("smsSenderIdInput").value.trim() || "Ilay";
+      siteConfig.smsApiUser = document.getElementById("smsApiUserInput").value.trim();
+      siteConfig.smsApiKey = document.getElementById("smsApiKeyInput").value.trim();
+      siteConfig.smsPackageQuota = Math.max(1, Number(document.getElementById("smsQuotaInput").value) || 1000);
+      siteConfig.reminderHoursBefore = Math.max(1, Number(document.getElementById("reminderHoursInput").value) || 3);
+      broadcastCloudState();
+      renderAllAdmin();
+      showToast("הגדרות ה-SMS, מכסת החבילה ושעות התזכורת נשמרו!");
     }
 
     function openManualAddModal() {
-      const defaultDay = boardFilterMode === "all" ? 0 : Number(boardFilterMode);
-      document.getElementById("manualDaySelect").innerHTML = DAYS.map((d, i) => `<option value="${i}" ${i === defaultDay ? "selected" : ""}>יום ${d} (${getFormattedDateForDayIdx(i)})</option>`).join("");
+      document.getElementById("manualDaySelect").innerHTML = DAYS_HEB.map((d, i) => `<option value="${i}">יום ${d} (${getFormattedDateForDayIdx(i)})</option>`).join("");
       document.getElementById("manualHourSelect").innerHTML = generateCalendarHours().map(h => `<option value="${h}">${h}</option>`).join("");
-      document.getElementById("manualServiceSelect").innerHTML = SERVICES.map((s, i) => `<option value="${i}">${sanitizeStr(s.name, 40)} (${s.price} ₪)</option>`).join("");
-      document.getElementById("manualNameInput").value = "";
-      document.getElementById("manualPhoneInput").value = "";
-      document.getElementById("manualNoteInput").value = "";
+      document.getElementById("manualServiceSelect").innerHTML = SERVICES.map((s, i) => `<option value="${i}">${sanitizeStr(s.name, 35)} (${s.price} ₪)</option>`).join("");
       document.getElementById("manualAddModal").classList.add("open");
     }
 
-    function quickOpenManualSlot(dayIdx, hourStr) {
-      openManualAddModal();
-      document.getElementById("manualDaySelect").value = String(dayIdx);
-      document.getElementById("manualHourSelect").value = hourStr;
-    }
-
-    function saveManualAppointment() {
+    async function saveManualAppointment() {
       const dayIdx = Number(document.getElementById("manualDaySelect").value);
       const time = document.getElementById("manualHourSelect").value;
-      const srvIdx = Number(document.getElementById("manualServiceSelect").value);
-      const srv = SERVICES[srvIdx] || SERVICES[0];
+      const srv = SERVICES[Number(document.getElementById("manualServiceSelect").value)] || SERVICES[0];
       const name = sanitizeStr(document.getElementById("manualNameInput").value, 35);
-      const phone = document.getElementById("manualPhoneInput").value.replace(/[^0-9]/g, "").slice(0, 12);
-      const note = sanitizeStr(document.getElementById("manualNoteInput").value, 120);
+      const phone = toIsraeliLocalPhone(document.getElementById("manualPhoneInput").value);
+      if (name.length < 2 || phone.length < 9) return showToast("נא להזין שם מלא וטלפון תקין");
 
-      if (name.replace(/[^a-zA-Zא-ת]/g, "").length < 2) return showToast("שם הלקוח חייב להכיל לפחות 2 אותיות");
-      if (phone.length < 9) return showToast("נא להזין מספר טלפון תקין");
-
-      appointments.push({ id: "ap_" + Date.now(), dayIdx, time, name, phone, srvIdx, price: srv.price, service: `${srv.name} • ${srv.price} ₪`, note });
-      saveAppointments();
-      renderCalendarBoard();
+      const dateStr = getFormattedDateForDayIdx(dayIdx);
+      const newAppt = {
+        id: "ap_" + Date.now(), dayIdx, dateStr, time,
+        startsAtMs: getTargetTimestamp(dayIdx, time),
+        name, phone, price: srv.price, service: `${srv.name} • ${srv.price} ₪`,
+        note: sanitizeStr(document.getElementById("manualNoteInput").value, 100),
+        status: "pending", reminderSent: false
+      };
+      appointments.push(newAppt);
+      if (!registeredUsers.some(u => u.phone === phone)) {
+        registeredUsers.push({ id: "usr_" + Date.now(), username: name, phone, password: "", createdAt: new Date().toLocaleDateString("he-IL"), lastActiveAt: Date.now() });
+      }
+      broadcastCloudState();
       document.getElementById("manualAddModal").classList.remove("open");
-      showToast(`✅ התור של ${name} שובץ בהצלחה!`);
+      renderAllAdmin();
+
+      const publicUrl = `${window.location.origin}/ilay.html#personal-area`;
+      await sendTrackedSms(phone, name, `היי ${name}, נקבע לך תור ב-Ilay Barbershop ליום ${DAYS_HEB[dayIdx]} (${dateStr}) בשעה ${time}. לאישור הגעה היכנס לאזור האישי: ${publicUrl}`, "booking", newAppt.id);
+      showToast("התור שובץ ונשלחה הודעת SMS ללקוח!");
     }
 
-    function renderAdminPortfolioManager() {
-      const container = document.getElementById("adminPortfolioGrid");
-      container.innerHTML = "";
-      document.getElementById("adminTabPhotoCount").textContent = portfolioList.length;
-      portfolioList.forEach((src, idx) => {
-        const fallbackUrl = DEFAULT_PORTFOLIO[idx % DEFAULT_PORTFOLIO.length];
-        const box = document.createElement("div");
-        box.className = "admin-photo-item";
-        box.innerHTML = `
-          <img src="${src}" alt="תמונה ${idx + 1}" onerror="this.onerror=null; this.src='${fallbackUrl}';" />
-          <div class="admin-photo-actions">
-            <span style="font-size:0.75rem; font-weight:800; color:var(--gold-light);">#${idx + 1}</span>
-            <button type="button" class="delete-srv-btn" style="height:28px; padding:0 8px; font-size:0.74rem;" onclick="deletePortfolioPhoto(${idx})">מחק</button>
-          </div>
-        `;
-        container.appendChild(box);
-      });
-    }
-
-    async function handlePortfolioUpload(ev, replaceAll) {
-      const files = Array.from(ev.target.files || []);
-      if (!files.length) return;
-      showToast(`מעלה ומסנכרן ${files.length} תמונות...`);
-      const compressedList = [];
-      for (const file of files) {
-        compressedList.push(await compressImageFile(file));
-      }
-      if (replaceAll || !hasCustomUploadedPhotos) {
-        portfolioList = compressedList;
-        hasCustomUploadedPhotos = true;
-        localStorage.setItem("ilay_has_custom_photos", "1");
-      } else {
-        portfolioList.push(...compressedList);
-      }
-      await savePortfolioLocally(portfolioList);
-      broadcastPortfolioToCloud(portfolioList);
-      ev.target.value = "";
-      renderAdminPortfolioManager();
-      renderAdminStats();
-      showToast(`✅ ${compressedList.length} תמונות עלו והתעדכנו בכל המכשירים!`);
-    }
-
-    async function deletePortfolioPhoto(idx) {
-      if (portfolioList.length <= 1) return showToast("חייבת להישאר לפחות תמונה אחת בתיק העבודות");
-      portfolioList.splice(idx, 1);
-      hasCustomUploadedPhotos = true;
-      localStorage.setItem("ilay_has_custom_photos", "1");
-      await savePortfolioLocally(portfolioList);
-      broadcastPortfolioToCloud(portfolioList);
-      renderAdminPortfolioManager();
-      renderAdminStats();
-      showToast("🗑️ התמונה נמחקה לצמיתות ועודכנה בכל המכשירים.");
-    }
-
-    function syncEditedServicesFromDOM() {
-      SERVICES.forEach((srv, idx) => {
-        const n = document.getElementById(`editSrvName_${idx}`);
-        const p = document.getElementById(`editSrvPrice_${idx}`);
-        const t = document.getElementById(`editSrvTime_${idx}`);
-        const d = document.getElementById(`editSrvDesc_${idx}`);
-        if (n && n.value.trim()) srv.name = sanitizeStr(n.value, 40);
-        if (p && Number(p.value) > 0) srv.price = Number(p.value);
-        if (t && t.value.trim()) srv.duration = sanitizeStr(t.value, 20);
-        if (d && d.value.trim()) srv.desc = sanitizeStr(d.value, 120);
-      });
-    }
-
-    function renderAdminEditors() {
+    function renderEditors() {
+      document.getElementById("smsProviderSelect").value = siteConfig.smsProvider || "textme";
+      document.getElementById("smsSenderIdInput").value = siteConfig.smsSenderId || "Ilay";
+      document.getElementById("smsApiUserInput").value = siteConfig.smsApiUser || "";
+      document.getElementById("smsApiKeyInput").value = siteConfig.smsApiKey || "";
+      document.getElementById("smsQuotaInput").value = siteConfig.smsPackageQuota || 1000;
+      document.getElementById("reminderHoursInput").value = siteConfig.reminderHoursBefore || 3;
       document.getElementById("editSiteTitle").value = siteConfig.title;
       document.getElementById("editSiteSubtitle").value = siteConfig.subtitle;
-      document.getElementById("ntfyTopicInput").value = siteConfig.ntfyTopic || "ilay_barbershop_alerts";
 
-      const container = document.getElementById("servicesEditorContainer");
-      container.innerHTML = "";
-      SERVICES.forEach((srv, idx) => {
-        const row = document.createElement("div");
-        row.className = "service-edit-row";
-        row.innerHTML = `
-          <div><label style="font-size:0.74rem; color:#94a3b8;">שם:</label><input type="text" id="editSrvName_${idx}" class="input-field" value="${sanitizeStr(srv.name, 40)}" /></div>
-          <div><label style="font-size:0.74rem; color:#94a3b8;">מחיר (₪):</label><input type="number" id="editSrvPrice_${idx}" class="input-field" value="${Number(srv.price) || 0}" /></div>
-          <div><label style="font-size:0.74rem; color:#94a3b8;">זמן:</label><input type="text" id="editSrvTime_${idx}" class="input-field" value="${sanitizeStr(srv.duration, 20)}" /></div>
-          <div><label style="font-size:0.74rem; color:#94a3b8;">תיאור:</label><input type="text" id="editSrvDesc_${idx}" class="input-field" value="${sanitizeStr(srv.desc, 120)}" /></div>
-          <button type="button" class="delete-srv-btn" onclick="deleteServiceItem(${idx})">מחק</button>
-        `;
-        container.appendChild(row);
+      const sCont = document.getElementById("servicesEditorContainer");
+      sCont.innerHTML = "";
+      SERVICES.forEach((s, i) => {
+        sCont.innerHTML += `<div style="display:grid; grid-template-columns:1fr 90px 90px 1.4fr; gap:8px; margin-bottom:8px;">
+          <input type="text" id="sn_${i}" class="input-field" value="${sanitizeStr(s.name, 40)}" />
+          <input type="number" id="sp_${i}" class="input-field" value="${s.price}" />
+          <input type="text" id="sd_${i}" class="input-field" value="${sanitizeStr(s.duration, 20)}" />
+          <input type="text" id="sdesc_${i}" class="input-field" value="${sanitizeStr(s.desc, 120)}" />
+        </div>`;
       });
 
-      document.getElementById("slotIntervalSelect").value = String(siteConfig.slotInterval || 30);
-      document.getElementById("slotBufferSelect").value = String(siteConfig.slotBuffer || 0);
-      const hoursContainer = document.getElementById("hoursEditorRows");
-      hoursContainer.innerHTML = "";
-      DAYS.forEach((dayName, idx) => {
-        const cfg = weeklySchedule[idx];
-        const row = document.createElement("div");
-        row.style.cssText = "display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; background:rgba(255,255,255,0.03); padding:9px 12px; border-radius:11px; border:1px solid rgba(255,255,255,0.08);";
-        row.innerHTML = `
-          <label style="display:flex; align-items:center; gap:8px; font-weight:800; min-width:92px;">
-            <input type="checkbox" id="dayActive_${idx}" ${cfg.active ? "checked" : ""} /> יום ${dayName}
-          </label>
-          <div style="display:flex; align-items:center; gap:6px;">
-            <span style="font-size:0.78rem; color:#94a3b8;">מ-</span>
-            <input type="time" id="dayStart_${idx}" value="${cfg.start}" class="input-field" style="width:110px; margin:0; padding:6px;" />
-            <span style="font-size:0.78rem; color:#94a3b8;">עד</span>
-            <input type="time" id="dayEnd_${idx}" value="${cfg.end}" class="input-field" style="width:110px; margin:0; padding:6px;" />
-          </div>
-        `;
-        hoursContainer.appendChild(row);
+      const hCont = document.getElementById("hoursEditorRows");
+      hCont.innerHTML = "";
+      DAYS_HEB.forEach((d, i) => {
+        const cfg = weeklySchedule[i];
+        hCont.innerHTML += `<div class="user-row">
+          <label><input type="checkbox" id="da_${i}" ${cfg.active ? "checked" : ""} /> יום ${d}</label>
+          <div style="display:flex; gap:6px;"><input type="time" id="ds_${i}" value="${cfg.start}" class="input-field" style="width:110px; margin:0;" /><input type="time" id="de_${i}" value="${cfg.end}" class="input-field" style="width:110px; margin:0;" /></div>
+        </div>`;
       });
-      renderAdminPortfolioManager();
     }
 
-    function addNewCustomService() {
-      syncEditedServicesFromDOM();
-      const name = sanitizeStr(document.getElementById("newSrvName").value, 40);
-      const rawPrice = document.getElementById("newSrvPrice").value.trim();
-      const price = rawPrice ? Math.max(1, Number(rawPrice)) : 100;
-      const duration = sanitizeStr(document.getElementById("newSrvTime").value, 20) || "30 דק'";
-      const desc = sanitizeStr(document.getElementById("newSrvDesc").value, 120) || "תספורת מותאמת אישית.";
-      if (!name) return showToast("נא להקליד שם תספורת");
-      SERVICES.push({ name, price, duration, desc });
-      localStorage.setItem("ilay_services_v2", JSON.stringify(SERVICES));
-      broadcastStateToCloud();
-      renderAdminEditors();
-      showToast(`✅ התספורת "${name}" נוספה ועודכנה באתר!`);
-    }
-
-    function deleteServiceItem(idx) {
-      syncEditedServicesFromDOM();
-      if (SERVICES.length <= 1) return showToast("חייבת להישאר לפחות תספורת אחת");
-      SERVICES.splice(idx, 1);
-      localStorage.setItem("ilay_services_v2", JSON.stringify(SERVICES));
-      broadcastStateToCloud();
-      renderAdminEditors();
-      showToast("התספורת הוסרה ועודכנה באתר.");
-    }
-
-    function saveSiteAndServicesChanges() {
+    function saveServicesAndTitles() {
       siteConfig.title = sanitizeStr(document.getElementById("editSiteTitle").value, 50) || "ILAY BARBERSHOP";
-      siteConfig.subtitle = sanitizeStr(document.getElementById("editSiteSubtitle").value, 90) || "תספורת נקייה, אווירה טובה וסטייל שיושב בול.";
-      localStorage.setItem("ilay_site_cfg", JSON.stringify(siteConfig));
-      syncEditedServicesFromDOM();
-      localStorage.setItem("ilay_services_v2", JSON.stringify(SERVICES));
-      broadcastStateToCloud();
-      renderAdminEditors();
-      showToast("✅ השינויים נשמרו והתעדכנו בזמן אמת בכל המכשירים!");
+      siteConfig.subtitle = sanitizeStr(document.getElementById("editSiteSubtitle").value, 90);
+      SERVICES.forEach((s, i) => {
+        s.name = sanitizeStr(document.getElementById(`sn_${i}`).value, 40);
+        s.price = Number(document.getElementById(`sp_${i}`).value) || 70;
+        s.duration = sanitizeStr(document.getElementById(`sd_${i}`).value, 20);
+        s.desc = sanitizeStr(document.getElementById(`sdesc_${i}`).value, 120);
+      });
+      broadcastCloudState();
+      showToast("המחירון והכותרות עודכנו!");
     }
 
-    function saveWeeklyHours() {
-      siteConfig.slotInterval = Number(document.getElementById("slotIntervalSelect").value) || 30;
-      siteConfig.slotBuffer = Number(document.getElementById("slotBufferSelect").value) || 0;
-      siteConfig.ntfyTopic = document.getElementById("ntfyTopicInput").value.trim() || "ilay_barbershop_alerts";
-      localStorage.setItem("ilay_site_cfg", JSON.stringify(siteConfig));
-      DAYS.forEach((_, idx) => {
-        weeklySchedule[idx] = {
-          active: document.getElementById(`dayActive_${idx}`).checked,
-          start: document.getElementById(`dayStart_${idx}`).value || "10:00",
-          end: document.getElementById(`dayEnd_${idx}`).value || "20:00"
+    function saveHoursSettings() {
+      DAYS_HEB.forEach((_, i) => {
+        weeklySchedule[i] = {
+          active: document.getElementById(`da_${i}`).checked,
+          start: document.getElementById(`ds_${i}`).value || "10:00",
+          end: document.getElementById(`de_${i}`).value || "20:00"
         };
       });
-      localStorage.setItem("ilay_weekly_hours", JSON.stringify(weeklySchedule));
-      broadcastStateToCloud();
+      broadcastCloudState();
       renderCalendarBoard();
-      renderAdminStats();
-      showToast("✅ שעות הפתיחה וערוץ ההתראות נשמרו!");
+      showToast("שעות הפעילות נשמרו!");
     }
 
-    function switchAdminSubTab(tab) {
-      document.querySelectorAll(".admin-tabs-bar .admin-tab-btn").forEach(b => b.classList.remove("active"));
-      document.getElementById("subtab-btn-" + tab).classList.add("active");
-      document.getElementById("admin-sub-cal").style.display = tab === "cal" ? "block" : "none";
-      document.getElementById("admin-sub-portfolio").style.display = tab === "portfolio" ? "block" : "none";
-      document.getElementById("admin-sub-edit").style.display = tab === "edit" ? "block" : "none";
-      document.getElementById("admin-sub-hours").style.display = tab === "hours" ? "block" : "none";
+    function renderAllAdmin() {
+      renderCalendarBoard();
+      renderStatsAndSmsHub();
+      renderEditors();
     }
 
-    function showToast(msg) {
-      const t = document.getElementById("toastPopup");
-      t.textContent = msg; t.classList.add("show");
-      clearTimeout(window._toastTimer);
-      window._toastTimer = setTimeout(() => t.classList.remove("show"), 3500);
-    }
+    window.onCoreDataUpdated = () => renderAllAdmin();
 
-    window.addEventListener("DOMContentLoaded", async () => {
-      const dbPhotos = await loadPortfolioFromDB();
-      if (dbPhotos && Array.isArray(dbPhotos) && dbPhotos.length > 0) {
-        portfolioList = dbPhotos;
-        hasCustomUploadedPhotos = true;
-      }
-      initRealtimeCloudSync();
-      const savedAdmin = localStorage.getItem("ilay_saved_admin_label");
-      if (savedAdmin) unlockAdminApp(savedAdmin);
+    window.addEventListener("DOMContentLoaded", () => {
+      initCloudSyncEngine();
+      const saved = localStorage.getItem("ilay_saved_admin_label");
+      if (saved) unlockAdmin(saved);
     });
   </script>
 </body>
