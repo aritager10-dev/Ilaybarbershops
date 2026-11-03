@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#07090e" />
+  <title>מעקב ג׳יין – קקי ופיפי</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;700;900&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.3.4/mqtt.min.js"></script>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #06080d;
+      --card: rgba(19, 24, 36, 0.94);
+      --gold: #d4af37;
+      --gold-bright: #fae19c;
+      --border: rgba(212, 175, 55, 0.34);
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --poop: #b07a3c;
+      --pee: #e7c63a;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body {
+      font-family: 'Heebo', sans-serif;
+      background: radial-gradient(circle at 50% 0%, #131a29 0%, var(--bg) 72%);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 20px 16px calc(30px + env(safe-area-inset-bottom, 0px));
+    }
+    .wrap { max-width: 520px; margin: 0 auto; }
+    h1 { text-align: center; font-size: 1.7rem; font-weight: 900; color: var(--gold-bright); }
+    .sub { text-align: center; color: var(--muted); font-size: 0.85rem; margin: 4px 0 18px; }
+    .date-row { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 16px; }
+    .date-row button { background: rgba(255,255,255,0.06); border: 1px solid var(--border); color: var(--text); border-radius: 10px; width: 40px; height: 40px; font-size: 1.1rem; cursor: pointer; }
+    .date-row button:disabled { opacity: 0.3; cursor: default; }
+    .date-label { font-weight: 900; font-size: 1.05rem; min-width: 150px; text-align: center; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 16px; margin-bottom: 14px; }
+    .card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    .card-title { font-size: 1.25rem; font-weight: 900; }
+    .big-num { font-size: 2.2rem; font-weight: 900; min-width: 50px; text-align: center; }
+    .poop .big-num { color: var(--poop); }
+    .pee .big-num { color: var(--pee); }
+    .nums { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+    .nums button {
+      height: 46px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.05); color: var(--text); font-size: 1.1rem; font-weight: 700; cursor: pointer;
+    }
+    .poop .nums button.sel { background: var(--poop); border-color: var(--poop); color: #fff; }
+    .pee .nums button.sel { background: var(--pee); border-color: var(--pee); color: #111; }
+    .status { text-align: center; font-size: 0.8rem; color: var(--muted); min-height: 1.2em; margin: 4px 0 18px; }
+    .status.ok { color: #10b981; }
+    h2 { font-size: 1rem; color: var(--gold-bright); margin-bottom: 8px; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+    th, td { padding: 8px 6px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.07); }
+    th { color: var(--muted); font-weight: 700; }
+    tr.clickable { cursor: pointer; }
+    tr.clickable:hover td { background: rgba(255,255,255,0.03); }
+    .empty { text-align: center; color: var(--muted); padding: 12px; font-size: 0.88rem; }
+    .back { display: block; text-align: center; margin-top: 18px; color: var(--muted); font-size: 0.8rem; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>👶 המעקב של ג׳יין</h1>
+    <div class="sub">בוחרים מספר – וזהו. נשמר אוטומטית.</div>
+
+    <div class="date-row">
+      <button type="button" id="prevDay" aria-label="יום קודם">›</button>
+      <div class="date-label" id="dateLabel"></div>
+      <button type="button" id="nextDay" aria-label="יום הבא">‹</button>
+    </div>
+
+    <div class="card poop">
+      <div class="card-head">
+        <div class="card-title">💩 כמה קקי?</div>
+        <div class="big-num" id="poopNum">0</div>
+      </div>
+      <div class="nums" id="poopBtns"></div>
+    </div>
+
+    <div class="card pee">
+      <div class="card-head">
+        <div class="card-title">💧 כמה פיפי?</div>
+        <div class="big-num" id="peeNum">0</div>
+      </div>
+      <div class="nums" id="peeBtns"></div>
+    </div>
+
+    <div class="status" id="status"></div>
+
+    <div class="card">
+      <h2>היסטוריה</h2>
+      <table>
+        <thead><tr><th>תאריך</th><th>💩 קקי</th><th>💧 פיפי</th></tr></thead>
+        <tbody id="history"></tbody>
+      </table>
+      <div class="empty" id="historyEmpty">עוד לא נרשם כלום</div>
+    </div>
+
+    <a class="back" href="index.html">חזרה לאתר</a>
+  </div>
+
+  <script>
+    const STORE_KEY = "jane_tracker_v1";
+    const TOPIC = "ilay_barbershop_gt_2026_live_v9/jane_tracker";
+    const BROKERS = [
+      "wss://broker.emqx.io:8084/mqtt",
+      "wss://test.mosquitto.org:8081/mqtt",
+      "wss://broker.hivemq.com:8884/mqtt"
+    ];
+    const MAX_NUM = 11; // כפתורים 0–11
+    const DAYS_HEB = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
+
+    function loadState() {
+      try {
+        const s = JSON.parse(localStorage.getItem(STORE_KEY) || "null");
+        if (s && typeof s.days === "object") return s;
+      } catch (_) {}
+      return { updatedAt: 0, days: {} };
+    }
+    function saveLocal() {
+      try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (_) {}
+    }
+
+    let state = loadState();
+    const todayKey = () => dateKey(new Date());
+    let currentKey = todayKey();
+
+    function dateKey(d) {
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    }
+    function keyToDate(k) {
+      const [y, m, d] = k.split("-").map(Number);
+      return new Date(y, m - 1, d);
+    }
+    function prettyDate(k) {
+      const d = keyToDate(k);
+      const short = `${d.getDate()}/${d.getMonth() + 1}`;
+      if (k === todayKey()) return `היום (${short})`;
+      const y = new Date(); y.setDate(y.getDate() - 1);
+      if (k === dateKey(y)) return `אתמול (${short})`;
+      return `יום ${DAYS_HEB[d.getDay()]} ${short}`;
+    }
+    function shiftDay(delta) {
+      const d = keyToDate(currentKey);
+      d.setDate(d.getDate() + delta);
+      const k = dateKey(d);
+      if (k > todayKey()) return;
+      currentKey = k;
+      render();
+    }
+
+    function buildButtons(containerId, field) {
+      const box = document.getElementById(containerId);
+      for (let n = 0; n <= MAX_NUM; n++) {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.textContent = n;
+        b.dataset.n = n;
+        b.addEventListener("click", () => setValue(field, n));
+        box.appendChild(b);
+      }
+    }
+
+    function setValue(field, n) {
+      const day = { poop: 0, pee: 0, ...(state.days[currentKey] || {}) };
+      day[field] = n;
+      if (day.poop === 0 && day.pee === 0) delete state.days[currentKey];
+      else state.days[currentKey] = day;
+      state.updatedAt = Date.now();
+      saveLocal();
+      publish();
+      render();
+      flashStatus("נשמר ✓", true);
+    }
+
+    let statusTimer = null;
+    function flashStatus(text, ok) {
+      const el = document.getElementById("status");
+      el.textContent = text;
+      el.className = "status" + (ok ? " ok" : "");
+      clearTimeout(statusTimer);
+      statusTimer = setTimeout(() => { el.textContent = ""; el.className = "status"; }, 1800);
+    }
+
+    function render() {
+      const day = state.days[currentKey] || { poop: 0, pee: 0 };
+      document.getElementById("dateLabel").textContent = prettyDate(currentKey);
+      document.getElementById("nextDay").disabled = currentKey >= todayKey();
+      document.getElementById("poopNum").textContent = day.poop || 0;
+      document.getElementById("peeNum").textContent = day.pee || 0;
+      [["poopBtns", day.poop || 0], ["peeBtns", day.pee || 0]].forEach(([id, val]) => {
+        document.querySelectorAll(`#${id} button`).forEach(b => b.classList.toggle("sel", Number(b.dataset.n) === val));
+      });
+
+      const tbody = document.getElementById("history");
+      tbody.innerHTML = "";
+      const keys = Object.keys(state.days).sort().reverse().slice(0, 60);
+      document.getElementById("historyEmpty").style.display = keys.length ? "none" : "block";
+      keys.forEach(k => {
+        const d = state.days[k];
+        const tr = document.createElement("tr");
+        tr.className = "clickable";
+        [prettyDate(k), d.poop || 0, d.pee || 0].forEach(v => {
+          const td = document.createElement("td");
+          td.textContent = v;
+          tr.appendChild(td);
+        });
+        tr.addEventListener("click", () => { currentKey = k; render(); window.scrollTo({ top: 0, behavior: "smooth" }); });
+        tbody.appendChild(tr);
+      });
+    }
+
+    // --- סנכרון בין מכשירים (כמו שאר האתר) ---
+    const clients = [];
+    function publish() {
+      const payload = JSON.stringify(state);
+      clients.forEach(c => {
+        try { if (c.connected) c.publish(TOPIC, payload, { qos: 1, retain: true }); } catch (_) {}
+      });
+    }
+    function applyIncoming(data) {
+      if (!data || typeof data.days !== "object" || !(data.updatedAt > state.updatedAt)) return;
+      state = { updatedAt: data.updatedAt, days: data.days };
+      saveLocal();
+      render();
+    }
+    function initSync() {
+      if (typeof mqtt === "undefined") return;
+      BROKERS.forEach(url => {
+        try {
+          const c = mqtt.connect(url, { clientId: "jane_" + Math.random().toString(36).slice(2, 10), reconnectPeriod: 4000, connectTimeout: 8000 });
+          c.on("connect", () => {
+            c.subscribe(TOPIC, { qos: 1 });
+            // מחכים לגרסה השמורה בענן לפני שמפרסמים, כדי לא לדרוס נתונים חדשים יותר
+            setTimeout(() => {
+              if (state.updatedAt && c.connected) c.publish(TOPIC, JSON.stringify(state), { qos: 1, retain: true });
+            }, 3000);
+          });
+          c.on("message", (_t, msg) => {
+            try { applyIncoming(JSON.parse(msg.toString())); } catch (_) {}
+          });
+          c.on("error", () => {});
+          clients.push(c);
+        } catch (_) {}
+      });
+    }
+
+    document.getElementById("prevDay").addEventListener("click", () => shiftDay(-1));
+    document.getElementById("nextDay").addEventListener("click", () => shiftDay(1));
+    buildButtons("poopBtns", "poop");
+    buildButtons("peeBtns", "pee");
+    render();
+    initSync();
+  </script>
+</body>
+</html>
