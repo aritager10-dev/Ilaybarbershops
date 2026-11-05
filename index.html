@@ -3,18 +3,44 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="theme-color" content="#f5f2ec" />
-  <meta name="description" content="Ilay Barbershop – עילי בן הרוש, ספר בגני תקווה. מחירון וקביעת תור אונליין." />
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="description" content="Ilay Barbershop – עילי בן הרוש, ספר בגני תקווה. מחירון, עבודות וקביעת תור אונליין." />
   <title>Ilay Barbershop | עילי בן הרוש, גני תקווה</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&family=Frank+Ruhl+Libre:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://images.unsplash.com">
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css" />
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.3.4/mqtt.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.3.4/mqtt.min.js" integrity="sha384-pkdqKjFaO3sj6U3p0jw1a2jxnrn38WxqzlLENwXRihs7xeqAysATUlz5f+4wI9jz" crossorigin="anonymous"></script>
 </head>
 <body class="site">
 
-  <a class="s-skip" href="#sec-services">דילוג לתוכן</a>
+  <a class="s-skip" href="#main">דילוג לתוכן</a>
+
+  <!-- רקע: אימוג'י מרחפים (דקורטיבי) -->
+  <div class="s-bg-icons" id="bgIcons" aria-hidden="true">
+    <span class="s-em" style="--x:7%;--y:11;--fs:46px;--k:0.1;--d:15s;--dl:-2s;--dx:10px;--dy:-12px;--r0:-10deg;--r1:8deg"><span>💈</span></span>
+    <span class="s-em" style="--x:78%;--y:7;--fs:34px;--k:0.05;--d:13s;--dl:-6s;--dx:-10px;--dy:8px;--r0:12deg;--r1:-6deg"><span>✂️</span></span>
+    <span class="s-em" style="--x:52%;--y:27;--fs:40px;--k:0.14;--d:17s;--dl:-9s;--dx:10px;--dy:8px;--r0:-8deg;--r1:6deg"><span>💈</span></span>
+    <span class="s-em" style="--x:12%;--y:41;--fs:30px;--k:0.06;--d:14s;--dl:-3s;--dx:-8px;--dy:-10px;--r0:6deg;--r1:-8deg"><span>🪒</span></span>
+    <span class="s-em" style="--x:82%;--y:47;--fs:52px;--k:0.12;--d:16s;--dl:-11s;--dx:8px;--dy:10px;--r0:-6deg;--r1:6deg"><span>💈</span></span>
+    <span class="s-em" style="--x:40%;--y:62;--fs:36px;--k:0.08;--d:19s;--dl:-5s;--dx:-10px;--dy:-8px;--r0:4deg;--r1:-8deg"><span>💈</span></span>
+    <span class="s-em" style="--x:6%;--y:76;--fs:40px;--k:0.15;--d:12s;--dl:-7s;--dx:8px;--dy:10px;--r0:-10deg;--r1:4deg"><span>💇‍♂️</span></span>
+    <span class="s-em" style="--x:70%;--y:80;--fs:44px;--k:0.09;--d:15s;--dl:-1s;--dx:-10px;--dy:-8px;--r0:10deg;--r1:-4deg"><span>💈</span></span>
+    <span class="s-em" style="--x:90%;--y:28;--fs:30px;--k:0.04;--d:18s;--dl:-13s;--dx:-8px;--dy:10px;--r0:8deg;--r1:-6deg"><span>💈</span></span>
+    <span class="s-em" style="--x:26%;--y:90;--fs:34px;--k:0.11;--d:13s;--dl:-8s;--dx:10px;--dy:-6px;--r0:-4deg;--r1:8deg"><span>✂️</span></span>
+    <span class="s-em" style="--x:44%;--y:4;--fs:30px;--k:0.07;--d:16s;--dl:-4s;--dx:-8px;--dy:8px;--r0:6deg;--r1:-6deg"><span>💈</span></span>
+    <span class="s-em" style="--x:91%;--y:69;--fs:38px;--k:0.13;--d:14s;--dl:-10s;--dx:-6px;--dy:-10px;--r0:-10deg;--r1:4deg"><span>💈</span></span>
+    <span class="s-em s-em--wide" style="--x:28%;--y:20;--fs:42px;--k:0.1;--d:17s;--dl:-12s;--dx:10px;--dy:10px;--r0:6deg;--r1:-6deg"><span>💈</span></span>
+    <span class="s-em s-em--wide" style="--x:62%;--y:46;--fs:32px;--k:0.06;--d:15s;--dl:-6s;--dx:-10px;--dy:8px;--r0:-6deg;--r1:8deg"><span>🪒</span></span>
+    <span class="s-em s-em--wide" style="--x:18%;--y:58;--fs:36px;--k:0.12;--d:18s;--dl:-9s;--dx:8px;--dy:-8px;--r0:8deg;--r1:-4deg"><span>💈</span></span>
+    <span class="s-em s-em--wide" style="--x:60%;--y:14;--fs:28px;--k:0.05;--d:14s;--dl:-3s;--dx:-8px;--dy:6px;--r0:-12deg;--r1:6deg"><span>✂️</span></span>
+    <span class="s-em s-em--wide" style="--x:34%;--y:78;--fs:46px;--k:0.14;--d:16s;--dl:-15s;--dx:10px;--dy:-10px;--r0:-6deg;--r1:8deg"><span>💈</span></span>
+    <span class="s-em s-em--wide" style="--x:74%;--y:62;--fs:30px;--k:0.08;--d:13s;--dl:-7s;--dx:-6px;--dy:8px;--r0:4deg;--r1:-8deg"><span>💈</span></span>
+  </div>
+
 
   <!-- נגישות -->
   <button type="button" class="s-acc-btn" onclick="document.getElementById('accSidePanel').classList.toggle('open')" aria-label="תפריט נגישות" aria-controls="accSidePanel">
@@ -28,29 +54,29 @@
       </button>
     </div>
     <div class="acc-grid">
-      <button type="button" class="s-chip" onclick="document.body.classList.toggle('acc-large-text'); this.classList.toggle('active')">הגדלת טקסט</button>
-      <button type="button" class="s-chip" onclick="document.body.classList.toggle('acc-high-contrast'); this.classList.toggle('active')">ניגודיות גבוהה</button>
-      <button type="button" class="s-chip" onclick="document.body.classList.toggle('acc-grayscale'); this.classList.toggle('active')">גווני אפור</button>
-      <button type="button" class="s-chip" onclick="document.body.classList.toggle('acc-highlight-links'); this.classList.toggle('active')">הדגשת קישורים</button>
-      <button type="button" class="s-chip" onclick="document.body.classList.toggle('acc-readable-font'); this.classList.toggle('active')">גופן קריא</button>
-      <button type="button" class="s-chip" onclick="document.body.classList.toggle('acc-no-anim'); this.classList.toggle('active')">עצירת תנועה</button>
+      <button type="button" class="s-chip" onclick="document.body.classList.toggle('acc-large-text'); this.classList.toggle('active'); this.setAttribute('aria-pressed', this.classList.contains('active'))" aria-pressed="false">הגדלת טקסט</button>
+      <button type="button" class="s-chip" onclick="document.body.classList.toggle('acc-high-contrast'); this.classList.toggle('active'); this.setAttribute('aria-pressed', this.classList.contains('active'))" aria-pressed="false">ניגודיות גבוהה</button>
+      <button type="button" class="s-chip" onclick="document.body.classList.toggle('acc-grayscale'); this.classList.toggle('active'); this.setAttribute('aria-pressed', this.classList.contains('active'))" aria-pressed="false">גווני אפור</button>
+      <button type="button" class="s-chip" onclick="document.body.classList.toggle('acc-highlight-links'); this.classList.toggle('active'); this.setAttribute('aria-pressed', this.classList.contains('active'))" aria-pressed="false">הדגשת קישורים</button>
+      <button type="button" class="s-chip" onclick="document.body.classList.toggle('acc-readable-font'); this.classList.toggle('active'); this.setAttribute('aria-pressed', this.classList.contains('active'))" aria-pressed="false">גופן קריא</button>
+      <button type="button" class="s-chip" onclick="document.body.classList.toggle('acc-no-anim'); this.classList.toggle('active'); this.setAttribute('aria-pressed', this.classList.contains('active'))" aria-pressed="false">עצירת תנועה</button>
     </div>
-    <button type="button" class="s-link" onclick="document.getElementById('accSidePanel').classList.remove('open'); openLegalModal();">תקנון והצהרת נגישות</button>
+    <a class="s-link" href="accessibility.html">הצהרת נגישות</a>
   </div>
 
   <!-- עוגיות -->
   <div class="cookie-banner" id="cookieBanner">
     <p>
-      אתר <strong>Ilay Barbershop</strong> משתמש בעוגיות (Cookies) לשמירת חיבור לאזור האישי (ניתוק אוטומטי לאחר 60 ימי אי-פעילות) וניהול תורים בכפוף ל<button type="button" class="s-link" onclick="openLegalModal()">תקנון ומדיניות הפרטיות</button>.
+      האתר משתמש באחסון מקומי בדפדפן רק לצורך תפעול: התחברות לאזור האישי ושמירת תורים. אין עוגיות פרסום או מעקב. <a class="s-link" href="privacy.html">מדיניות פרטיות</a>
     </p>
-    <button type="button" class="s-btn s-btn--primary s-btn--sm" onclick="localStorage.setItem('ilay_cookie_ok','1'); document.getElementById('cookieBanner').classList.remove('show');">אישור</button>
+    <button type="button" class="s-btn s-btn--primary s-btn--sm" onclick="localStorage.setItem('ilay_cookie_ok','1'); document.getElementById('cookieBanner').classList.remove('show');">הבנתי</button>
   </div>
 
-  <!-- כותרת -->
-  <header class="s-header">
+  <!-- סרגל עליון -->
+  <header class="s-header" id="siteHeader">
     <div class="s-wrap s-header__row">
       <button type="button" class="s-brand" onclick="switchCategory('all')" aria-label="Ilay Barbershop – לעמוד הראשי">
-        <svg class="s-brand__pole" width="10" height="26" viewBox="0 0 10 26" aria-hidden="true"><defs><clipPath id="poleClip"><rect x="0" y="0" width="10" height="26" rx="5"/></clipPath></defs><g clip-path="url(#poleClip)"><rect width="10" height="26" fill="#fffdf9"/><path d="M-6 2l16-8M-6 8l16-8M-6 14l16-8M-6 20l16-8M-6 26l16-8M-6 32l16-8" stroke="#8f2d1c" stroke-width="2.6"/></g><rect x="0.5" y="0.5" width="9" height="25" rx="4.5" fill="none" stroke="#1d1c1a"/></svg>
+        <span class="s-pole" aria-hidden="true"><span></span></span>
         <span class="s-brand__name">Ilay Barbershop</span>
       </button>
 
@@ -62,7 +88,7 @@
       </nav>
 
       <div class="s-header__actions">
-        <button type="button" class="s-btn s-btn--ghost s-btn--sm" id="mobPersonalBtn" onclick="openPersonalAreaOrAuth()">אזור אישי</button>
+        <button type="button" class="s-btn s-btn--tinted s-btn--sm" id="mobPersonalBtn" onclick="openPersonalAreaOrAuth()">אזור אישי</button>
         <button type="button" class="s-btn s-btn--primary s-btn--sm s-header__book" onclick="openBookingModal(0)">קביעת תור</button>
       </div>
 
@@ -73,49 +99,61 @@
         <button type="button" id="sidebarAuthBtn" tabindex="-1" onclick="openPersonalAreaOrAuth()">כניסה / הרשמה לאזור האישי</button>
       </div>
     </div>
+    <div class="s-stripe" aria-hidden="true"><span></span></div>
   </header>
 
-  <!-- ניווט תחתון למובייל -->
+  <!-- סרגל לשוניות תחתון (מובייל) -->
   <nav class="s-dock" aria-label="ניווט מהיר">
-    <button type="button" class="dock-item active" id="mob-nav-all" onclick="switchCategory('all')">ראשי</button>
-    <button type="button" class="dock-item" id="mob-nav-services" onclick="switchCategory('services')">מחירון</button>
-    <button type="button" class="dock-item dock-cta" onclick="openBookingModal(0)">קביעת תור</button>
-    <button type="button" class="dock-item" id="mob-nav-portfolio" onclick="switchCategory('portfolio')">עבודות</button>
-    <button type="button" class="dock-item" id="mob-nav-personal" onclick="openPersonalAreaOrAuth()">אזור אישי</button>
+    <button type="button" class="dock-item active" id="mob-nav-all" onclick="switchCategory('all')">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 10.5L12 3.5l8.5 7V20a1 1 0 0 1-1 1H15v-6H9v6H4.5a1 1 0 0 1-1-1z"/></svg>
+      <span>ראשי</span>
+    </button>
+    <button type="button" class="dock-item" id="mob-nav-services" onclick="switchCategory('services')">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6.5h11M9 12h11M9 17.5h11"/><circle cx="4.5" cy="6.5" r="1.2"/><circle cx="4.5" cy="12" r="1.2"/><circle cx="4.5" cy="17.5" r="1.2"/></svg>
+      <span>מחירון</span>
+    </button>
+    <button type="button" class="dock-item dock-cta" onclick="openBookingModal(0)">
+      <span class="dock-cta__icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4M12 12.5v5M9.5 15h5"/></svg></span>
+      <span>קביעת תור</span>
+    </button>
+    <button type="button" class="dock-item" id="mob-nav-portfolio" onclick="switchCategory('portfolio')">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4.5" width="18" height="15" rx="3"/><circle cx="9" cy="10" r="1.8"/><path d="M21 15.5l-4.5-4.5L7 20.5"/></svg>
+      <span>עבודות</span>
+    </button>
+    <button type="button" class="dock-item" id="mob-nav-personal" onclick="openPersonalAreaOrAuth()">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4.5 20.5c1.4-3.6 4.2-5.5 7.5-5.5s6.1 1.9 7.5 5.5"/></svg>
+      <span>אזור אישי</span>
+    </button>
   </nav>
 
-  <main class="s-main">
+  <main class="s-main" id="main" tabindex="-1">
 
     <!-- פתיחה -->
     <section id="sec-hero" class="s-hero">
-      <div class="s-wrap s-hero__grid">
-        <div class="s-hero__text">
-          <p class="s-eyebrow">גני תקווה · בתיאום מראש</p>
-          <h1 class="s-hero__title" id="heroMainTitle">ILAY BARBERSHOP</h1>
-          <p class="s-hero__lead" id="heroMainSubtitle">תספורת נקייה, אווירה טובה וסטייל שיושב בול.</p>
-          <p class="s-hero__about">
-            אני עילי בן הרוש, ספר כבר יותר משנתיים. עברתי חמש השתלמויות אצל ספרים מובילים בארץ, ואני עובד לבד – כל תספורת אצלי, מההתחלה ועד הסוף.
-          </p>
-          <div class="s-hero__actions">
-            <button type="button" class="s-btn s-btn--primary" onclick="openBookingModal(0)">קביעת תור</button>
-            <button type="button" class="s-btn s-btn--ghost" id="heroPersonalBtn" onclick="openPersonalAreaOrAuth()">כניסה לאזור האישי</button>
-          </div>
+      <div class="s-wrap s-hero__inner">
+        <p class="s-hero__eyebrow">גני תקווה · בתיאום מראש</p>
+        <h1 class="s-hero__title" id="heroMainTitle">ILAY BARBERSHOP</h1>
+        <p class="s-hero__lead" id="heroMainSubtitle">תספורת נקייה, אווירה טובה וסטייל שיושב בול.</p>
+        <p class="s-hero__about">אני עילי בן הרוש, ספר כבר יותר משנתיים. עברתי חמש השתלמויות אצל ספרים מובילים בארץ, ואני עובד לבד – כל תספורת אצלי, מההתחלה ועד הסוף.</p>
+        <div class="s-hero__actions">
+          <button type="button" class="s-btn s-btn--primary s-btn--lg" onclick="openBookingModal(0)">קביעת תור</button>
+          <button type="button" class="s-btn s-btn--tinted s-btn--lg" id="heroPersonalBtn" onclick="openPersonalAreaOrAuth()">כניסה לאזור האישי</button>
         </div>
 
-        <dl class="s-facts">
-          <div class="s-facts__row">
-            <dt>מחיר</dt>
-            <dd><span id="heroPriceRange" dir="ltr">70–100 ₪</span></dd>
-          </div>
-          <div class="s-facts__row">
-            <dt>כתובת</dt>
-            <dd>דרך הים 11, קומה 10, דירה 36<br />גני תקווה</dd>
-          </div>
-          <div class="s-facts__row">
-            <dt>תורים</dt>
-            <dd>קובעים כאן באתר. שינוי או ביטול – מהאזור האישי.</dd>
-          </div>
-        </dl>
+          <dl class="s-facts" data-reveal>
+            <div class="s-fact">
+              <dt>מחיר</dt>
+              <dd><span id="heroPriceRange" dir="ltr">70–100 ₪</span></dd>
+            </div>
+            <div class="s-fact">
+              <dt>כתובת</dt>
+              <dd>דרך הים 11, קומה 10, דירה 36, גני תקווה</dd>
+            </div>
+            <div class="s-fact">
+              <dt>תורים</dt>
+              <dd>קובעים כאן באתר. שינוי או ביטול – מהאזור האישי.</dd>
+            </div>
+          </dl>
       </div>
     </section>
 
@@ -124,12 +162,12 @@
       <div class="s-wrap">
         <div class="s-personal__head">
           <div>
-            <p class="s-eyebrow">אזור אישי</p>
+            <p class="s-kicker">אזור אישי</p>
             <h2 class="s-h2" id="personalWelcomeTitle">האזור האישי שלי</h2>
           </div>
           <div class="s-personal__actions">
             <button type="button" class="s-btn s-btn--primary s-btn--sm" onclick="openBookingModal(0)">תור חדש</button>
-            <button type="button" class="s-btn s-btn--ghost s-btn--sm" onclick="logoutClientUser()">התנתקות</button>
+            <button type="button" class="s-btn s-btn--tinted s-btn--sm" onclick="logoutClientUser()">התנתקות</button>
           </div>
         </div>
 
@@ -172,36 +210,47 @@
     </section>
 
     <!-- מחירון -->
-    <section id="sec-services" class="s-section">
-      <div class="s-wrap s-split">
-        <header class="s-split__head">
+    <section id="sec-services" class="s-section s-section--tint">
+      <div class="s-wrap">
+        <header class="s-section__head" data-reveal>
           <h2 class="s-h2">מחירון</h2>
-          <p class="s-muted">כל התספורות כוללות גזירות ודירוג. בוחרים שירות וממשיכים לבחירת יום ושעה.</p>
+          <p class="s-sub">כל התספורות כוללות גזירות ודירוג. בוחרים שירות, ואז יום ושעה.</p>
         </header>
-        <div class="s-menu" id="publicServicesGrid"></div>
+        <div class="s-menu" id="publicServicesGrid" data-reveal data-stagger></div>
       </div>
     </section>
 
     <!-- עבודות -->
     <section id="sec-portfolio" class="s-section">
       <div class="s-wrap">
-        <header class="s-section__head">
+        <header class="s-section__head" data-reveal>
+          <p class="s-kicker">תיק עבודות</p>
           <h2 class="s-h2">עבודות אחרונות</h2>
+          <p class="s-sub">הקישו על תמונה כדי להגדיל, והחליקו כדי לעבור בין התמונות.</p>
         </header>
-        <div class="portfolio-grid" id="portfolioGrid"></div>
+        <div class="portfolio-grid s-gallery" id="portfolioGrid" role="list" aria-label="תיק עבודות" data-reveal data-stagger></div>
       </div>
     </section>
 
     <footer class="s-footer">
-      <div class="s-wrap s-footer__row">
-        <div>
-          <strong class="s-footer__name">Ilay Barbershop</strong>
-          <p>עילי בן הרוש · דרך הים 11, קומה 10, דירה 36, גני תקווה</p>
+      <div class="s-wrap">
+        <div class="s-footer__top">
+          <div>
+            <strong class="s-footer__name">Ilay Barbershop</strong>
+            <p>עילי בן הרוש</p>
+          </div>
+          <button type="button" class="s-btn s-btn--primary s-btn--sm" onclick="openBookingModal(0)">קביעת תור</button>
         </div>
-        <div class="s-footer__meta">
-          <button type="button" class="s-link" onclick="openLegalModal()">תקנון, מדיניות פרטיות והצהרת נגישות</button>
-          <span>© 2026 Ilay Barbershop</span>
-        </div>
+        <dl class="s-footer__info">
+          <div><dt>כתובת</dt><dd>דרך הים 11, קומה 10, דירה 36, גני תקווה</dd></div>
+          <div><dt>מחירים</dt><dd><span dir="ltr">70–100 ₪</span></dd></div>
+        </dl>
+        <nav class="s-footer__links" aria-label="מידע משפטי">
+          <a href="privacy.html">מדיניות פרטיות</a>
+          <a href="terms.html">תנאי שימוש וביטולים</a>
+          <a href="accessibility.html">הצהרת נגישות</a>
+        </nav>
+        <p class="s-footer__copy">© 2026 Ilay Barbershop · עילי בן הרוש</p>
       </div>
     </footer>
   </main>
@@ -209,45 +258,52 @@
   <!-- הרשמה והתחברות -->
   <div class="modal-backdrop" id="authModal" onclick="if(event.target===this) this.classList.remove('open')">
     <div class="s-sheet" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+      <div class="s-grabber" aria-hidden="true"></div>
       <div class="modal-head">
         <div>
           <p class="s-sheet__kicker">אזור אישי</p>
           <h3 class="s-sheet__title" id="authTitle">כניסה או הרשמה</h3>
         </div>
         <button type="button" class="modal-close" aria-label="סגירה" onclick="document.getElementById('authModal').classList.remove('open')">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
       </div>
 
-      <p class="s-sheet__note">כדי לקבוע תור צריך חשבון – זה לוקח חצי דקה, ותקבל תזכורת ב-SMS לפני התור.</p>
+      <div class="s-sheet__body">
+        <p class="s-sheet__note">כדי לקבוע תור צריך חשבון – זה לוקח חצי דקה, ותקבל תזכורת ב-SMS לפני התור.</p>
 
-      <div class="s-tabs" role="tablist">
-        <button type="button" class="s-tab active" id="tabBtnReg" onclick="switchAuthTab('reg')">הרשמה</button>
-        <button type="button" class="s-tab" id="tabBtnLog" onclick="switchAuthTab('log')">כבר רשום? התחברות</button>
-      </div>
+        <div class="s-tabs" role="tablist">
+          <button type="button" class="s-tab active" id="tabBtnReg" onclick="switchAuthTab('reg')">הרשמה</button>
+          <button type="button" class="s-tab" id="tabBtnLog" onclick="switchAuthTab('log')">כבר רשום? התחברות</button>
+        </div>
 
-      <div id="regBox">
-        <label class="s-label" for="regFullName">שם מלא</label>
-        <input type="text" id="regFullName" class="input-field" maxlength="40" autocomplete="name" placeholder="לדוגמה: דניאל כהן" />
-        <label class="s-label" for="regPhone">טלפון נייד</label>
-        <input type="tel" id="regPhone" class="input-field" inputmode="numeric" autocomplete="tel" oninput="this.value=this.value.replace(/[^0-9]/g,'')" maxlength="12" placeholder="050-0000000" dir="ltr" />
-        <label class="s-label" for="regPass">סיסמה</label>
-        <input type="password" id="regPass" class="input-field" maxlength="30" autocomplete="new-password" placeholder="לפחות 4 תווים" />
-        <p class="s-hint">כל שם וכל מספר טלפון יכולים להירשם פעם אחת בלבד.</p>
+        <div id="regBox">
+          <label class="s-label" for="regFullName">שם מלא</label>
+          <input type="text" id="regFullName" class="input-field" maxlength="40" autocomplete="name" placeholder="לדוגמה: דניאל כהן" />
+          <label class="s-label" for="regPhone">טלפון נייד</label>
+          <input type="tel" id="regPhone" class="input-field" inputmode="numeric" autocomplete="tel" oninput="this.value=this.value.replace(/[^0-9]/g,'')" maxlength="12" placeholder="050-0000000" dir="ltr" />
+          <label class="s-label" for="regPass">סיסמה</label>
+          <input type="password" id="regPass" class="input-field" maxlength="30" autocomplete="new-password" placeholder="לפחות 4 תווים" />
+          <p class="s-hint">כל שם וכל מספר טלפון יכולים להירשם פעם אחת בלבד.</p>
 
-        <label class="s-consent">
-          <input type="checkbox" id="regConsent" checked />
-          <span>אני מאשר/ת את <button type="button" class="s-link" onclick="openLegalModal()">תקנון האתר</button> ומסכים/ה לקבלת הודעות SMS ותזכורות תורים.</span>
-        </label>
-        <button type="button" class="s-btn s-btn--primary s-btn--block s-btn--lg" onclick="registerClient()">הרשמה וכניסה</button>
-      </div>
+          <label class="s-consent">
+            <input type="checkbox" id="regConsent" />
+            <span>קראתי ואני מאשר/ת את <a class="s-link" href="/terms.html" target="_blank" rel="noopener">תנאי השימוש</a> ואת <a class="s-link" href="/privacy.html" target="_blank" rel="noopener">מדיניות הפרטיות</a>, ומסכים/ה לקבל SMS על התורים שלי (אישור, שינוי, ביטול ותזכורת).</span>
+          </label>
+          <label class="s-consent">
+            <input type="checkbox" id="regMarketing" />
+            <span>לא חובה: אשמח לקבל מדי פעם הודעות SMS על מבצעים ועדכונים מהמספרה. אפשר לבטל בכל רגע.</span>
+          </label>
+          <button type="button" class="s-btn s-btn--primary s-btn--block s-btn--lg" onclick="registerClient()">הרשמה וכניסה</button>
+        </div>
 
-      <div id="logBox" style="display:none;">
-        <label class="s-label" for="logIdent">טלפון נייד או שם מלא</label>
-        <input type="text" id="logIdent" class="input-field" autocomplete="username" placeholder="טלפון או שם מלא" />
-        <label class="s-label" for="logPass">סיסמה</label>
-        <input type="password" id="logPass" class="input-field" autocomplete="current-password" placeholder="הסיסמה שלך" onkeydown="if(event.key==='Enter') loginClient()" />
-        <button type="button" class="s-btn s-btn--primary s-btn--block s-btn--lg" onclick="loginClient()">התחברות</button>
+        <div id="logBox" style="display:none;">
+          <label class="s-label" for="logIdent">טלפון נייד או שם מלא</label>
+          <input type="text" id="logIdent" class="input-field" autocomplete="username" placeholder="טלפון או שם מלא" />
+          <label class="s-label" for="logPass">סיסמה</label>
+          <input type="password" id="logPass" class="input-field" autocomplete="current-password" placeholder="הסיסמה שלך" onkeydown="if(event.key==='Enter') loginClient()" />
+          <button type="button" class="s-btn s-btn--primary s-btn--block s-btn--lg" onclick="loginClient()">התחברות</button>
+        </div>
       </div>
     </div>
   </div>
@@ -255,38 +311,42 @@
   <!-- קביעת / שינוי תור -->
   <div class="modal-backdrop" id="bookingModal" onclick="if(event.target===this) closeBookingModal()">
     <div class="s-sheet s-booking" role="dialog" aria-modal="true" aria-labelledby="modalServiceTitle">
+      <div class="s-grabber" aria-hidden="true"></div>
       <div class="modal-head">
         <div>
           <p class="s-sheet__kicker" id="bookingModalSub">קביעת תור • Ilay Barbershop</p>
           <h3 class="s-sheet__title" id="modalServiceTitle">תספורת קלאסי</h3>
         </div>
         <button type="button" class="modal-close" aria-label="סגירה" onclick="closeBookingModal()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
       </div>
 
-      <div class="s-step">
-        <label class="s-step__label" for="bookingServiceSelect"><span class="s-step__num">1</span>שירות</label>
-        <select id="bookingServiceSelect" class="input-field" onchange="selectedServiceIdx=Number(this.value); updateModalHeaderTitle();"></select>
-      </div>
-
-      <div class="s-step">
-        <div class="s-step__label"><span class="s-step__num">2</span>יום</div>
-        <div class="days-row" id="bookingDaysRow"></div>
-      </div>
-
-      <div class="s-step">
-        <div class="s-step__label"><span class="s-step__num">3</span>שעה <span class="s-step__aside">שעות מחוקות כבר תפוסות</span></div>
-        <div class="hours-matrix" id="bookingHoursGrid"></div>
-      </div>
-
-      <div class="s-step">
-        <div class="s-step__label"><span class="s-step__num">4</span>הפרטים שלך</div>
-        <div class="s-pair">
-          <input type="text" id="clientNameInput" class="input-field" aria-label="שם" readonly />
-          <input type="tel" id="clientPhoneInput" class="input-field" aria-label="טלפון" dir="ltr" readonly />
+      <div class="s-sheet__body">
+        <div class="s-step">
+          <label class="s-step__label" for="bookingServiceSelect">שירות</label>
+          <select id="bookingServiceSelect" class="input-field" onchange="selectedServiceIdx=Number(this.value); updateModalHeaderTitle();"></select>
         </div>
-        <textarea id="clientNoteInput" class="input-field" rows="2" maxlength="120" placeholder="הערה לעילי (לא חובה)"></textarea>
+
+        <div class="s-step">
+          <div class="s-step__label">יום</div>
+          <div class="days-row" id="bookingDaysRow"></div>
+        </div>
+
+        <div class="s-step">
+          <div class="s-step__label">שעה <span class="s-step__aside">שעות מחוקות כבר תפוסות</span></div>
+          <div class="hours-matrix" id="bookingHoursGrid"></div>
+        </div>
+
+        <div class="s-step">
+          <div class="s-step__label">הפרטים שלך</div>
+          <div class="s-group">
+            <input type="text" id="clientNameInput" class="input-field" aria-label="שם" readonly />
+            <input type="tel" id="clientPhoneInput" class="input-field" aria-label="טלפון" dir="ltr" readonly />
+            <label class="s-sr" for="clientNoteInput">הערה לעילי (לא חובה)</label>
+            <textarea id="clientNoteInput" class="input-field" rows="2" maxlength="120" placeholder="הערה לעילי (לא חובה)"></textarea>
+          </div>
+        </div>
       </div>
 
       <div class="s-sheet__footer">
@@ -298,18 +358,19 @@
   <!-- תקנון -->
   <div class="modal-backdrop" id="legalTermsModal" onclick="if(event.target===this) this.classList.remove('open')">
     <div class="s-sheet s-sheet--wide" role="dialog" aria-modal="true" aria-labelledby="legalTitle">
+      <div class="s-grabber" aria-hidden="true"></div>
       <div class="modal-head">
         <h3 class="s-sheet__title" id="legalTitle">תקנון האתר, מדיניות פרטיות והצהרת נגישות</h3>
         <button type="button" class="modal-close" aria-label="סגירה" onclick="document.getElementById('legalTermsModal').classList.remove('open')">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
       </div>
-      <div class="s-legal">
+      <div class="s-sheet__body s-legal">
         <p><strong>1. כללי:</strong> השימוש באתר <strong>Ilay Barbershop (עילי בן הרוש, דרך הים 11 גני תקווה)</strong> כפוף לתנאים שלהלן.</p>
         <p><strong>2. אזור אישי, מניעת כפילויות וניתוק אוטומטי:</strong> קביעת תור וכניסה לאזור האישי מותנות ברישום חד-פעמי עם שם מלא ומספר טלפון ייחודי. המערכת אוכפת איסור פתיחת חשבון כפול על אותו שם מלא או מספר טלפון. מטעמי אבטחת מידע, חשבון שלא בוצעה בו פעילות במשך <strong>60 ימים (חודשיים)</strong> מתנתק אוטומטית.</p>
         <p><strong>3. תזכורות SMS ואישור הגעה (סעיף 30א לחוק התקשורת):</strong> הלקוח מאשר קבלת הודעות SMS בגין קביעת תור, שינוי/ביטול ותזכורת מספר שעות לפני התור הכוללת קישור לאישור הגעה באזור האישי.</p>
         <p><strong>4. פרטיות ועוגיות (תיקון 13):</strong> המידע נשמר לצורך ניהול יומן המספרה בלבד ואינו מועבר לצד שלישי.</p>
-        <p><strong>5. הצהרת נגישות (ת"י 5568 AA):</strong> האתר כולל תפריט נגישות צף מלא, והמספרה ממוקמת בבניין עם כניסה ומעלית נגישה.</p>
+        <p><strong>5. נגישות:</strong> האתר כולל תפריט נגישות, ניווט במקלדת וטקסט חלופי לתמונות. פרטים מלאים ב<a class="s-link" href="/accessibility.html" target="_blank" rel="noopener">הצהרת הנגישות</a>.</p>
       </div>
       <div class="s-sheet__footer">
         <button type="button" class="s-btn s-btn--dark s-btn--block" onclick="document.getElementById('legalTermsModal').classList.remove('open')">קראתי והבנתי</button>
@@ -317,14 +378,403 @@
     </div>
   </div>
 
-  <!-- הגדלת תמונה -->
-  <div class="modal-backdrop s-lightbox" id="lightboxModal" onclick="this.classList.remove('open')">
-    <img id="lightboxImg" src="" alt="תספורת" />
+  <!-- צפייה בתמונות -->
+  <div class="s-lightbox" id="lightboxModal" role="dialog" aria-modal="true" aria-label="צפייה בתמונות" aria-hidden="true">
+    <div class="lb-bg" aria-hidden="true"></div>
+    <div class="lb-frame"><img id="lightboxImg" src="data:," alt="עבודת תספורת במספרה של עילי" decoding="async" /></div>
+    <div class="lb-bar">
+      <span class="lb-count" dir="ltr" aria-live="polite"></span>
+      <button type="button" class="lb-close" aria-label="סגירה">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <button type="button" class="lb-nav lb-nav--prev" aria-label="התמונה הקודמת">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+    </button>
+    <button type="button" class="lb-nav lb-nav--next" aria-label="התמונה הבאה">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+    </button>
   </div>
 
   <div class="toast-popup" id="toastPopup" role="status" aria-live="polite"></div>
 
   <script src="core.js"></script>
+
+  <script>
+    /* ===== Presentation layer: sheets, photo viewer, carousel, reveal. No booking/data logic here. ===== */
+    const UI_REDUCED = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const uiReduced = () => UI_REDUCED.matches || document.body.classList.contains("acc-no-anim");
+    const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+    // Apple-style scroll projection: where a release at velocity v (px/s) would come to rest.
+    const project = (v, rate = 0.998) => (v / 1000) * rate / (1 - rate);
+    const rubber = (x, dim, c = 0.55) => (1 - 1 / ((x * c) / dim + 1)) * dim;
+
+    // Larger rendition for Unsplash URLs; uploaded photos are used as-is.
+    function sizedSrc(src, w) {
+      if (typeof src !== "string") return "";
+      return /images\.unsplash\.com/.test(src) ? src.replace(/([?&])w=\d+/, "$1w=" + w) : src;
+    }
+
+    // Critically-damped-ish spring, interruptible: always starts from the caller's current value/velocity.
+    function spring({ from, to, velocity = 0, stiffness = 420, damping = 40, onUpdate, onDone }) {
+      let x = from, v = velocity, last = performance.now(), raf = 0, stopped = false;
+      const step = now => {
+        if (stopped) return;
+        const dt = Math.min(0.064, (now - last) / 1000); last = now;
+        for (let i = 0; i < 8; i++) { const h = dt / 8; v += (-stiffness * (x - to) - damping * v) * h; x += v * h; }
+        if (Math.abs(v) < 4 && Math.abs(x - to) < 0.4) { onUpdate(to, 0); onDone && onDone(); return; }
+        onUpdate(x, v);
+        if (!stopped) raf = requestAnimationFrame(step);
+      };
+      raf = requestAnimationFrame(step);
+      return { stop: () => { stopped = true; cancelAnimationFrame(raf); }, get v() { return v; } };
+    }
+
+    function velocityTracker() {
+      let pts = [];
+      return {
+        add(x, y) { const t = performance.now(); pts.push({ x, y, t }); pts = pts.filter(p => t - p.t < 100); },
+        get() {
+          if (pts.length < 2) return { vx: 0, vy: 0 };
+          const a = pts[0], b = pts[pts.length - 1], dt = Math.max(1, b.t - a.t) / 1000;
+          return { vx: (b.x - a.x) / dt, vy: (b.y - a.y) / dt };
+        },
+        reset() { pts = []; }
+      };
+    }
+
+    /* ---------- Bottom sheets (booking, auth, legal) ---------- */
+    function setupSheet(backdrop) {
+      const sheet = backdrop.querySelector(".s-sheet");
+      if (!sheet) return;
+      const isPhone = () => window.matchMedia("(max-width: 699px)").matches;
+      const dist = () => (isPhone() ? sheet.offsetHeight + 16 : 60);
+      const close = () => (backdrop.id === "bookingModal" ? closeBookingModal() : backdrop.classList.remove("open"));
+      let y = 0, anim = null, shown = backdrop.classList.contains("open"), releaseV = 0, lastFocus = null;
+
+      const render = val => {
+        y = val;
+        const d = dist();
+        const ty = val < 0 ? -rubber(-val, d) : val;
+        sheet.style.transform = `translate3d(0, ${ty}px, 0)`;
+        const p = clamp(1 - val / d, 0, 1);
+        backdrop.style.setProperty("--p", p.toFixed(3));
+        sheet.style.opacity = isPhone() ? "" : p.toFixed(3);
+      };
+      const animateTo = (target, v, done) => {
+        anim && anim.stop();
+        anim = spring({ from: y, to: target, velocity: v, onUpdate: render, onDone: () => { anim = null; done && done(); } });
+      };
+      const fade = (from, to, done) => {
+        anim && anim.stop(); anim = null;
+        render(0);
+        const a = backdrop.animate([{ opacity: from }, { opacity: to }], { duration: 180, easing: "ease-out" });
+        a.onfinish = () => done && done();
+      };
+
+      new MutationObserver(() => {
+        const open = backdrop.classList.contains("open");
+        if (open && !shown) {
+          shown = true;
+          lastFocus = document.activeElement;
+          backdrop.classList.remove("is-closing");
+          document.documentElement.classList.add("s-lock");
+          if (uiReduced()) { fade(0, 1); }
+          else { if (!anim) render(dist()); animateTo(0, 0); }
+          setTimeout(() => sheet.querySelector(".modal-close")?.focus({ preventScroll: true }), 60);
+        } else if (!open && shown) {
+          shown = false;
+          backdrop.classList.add("is-closing");
+          const finish = () => {
+            if (shown) return;
+            backdrop.classList.remove("is-closing");
+            if (!document.querySelector(".modal-backdrop.open")) document.documentElement.classList.remove("s-lock");
+            lastFocus && lastFocus.focus && lastFocus.focus({ preventScroll: true });
+          };
+          if (uiReduced()) fade(1, 0, finish);
+          else animateTo(dist(), Math.max(releaseV, 0), finish);
+          releaseV = 0;
+        }
+      }).observe(backdrop, { attributes: true, attributeFilter: ["class"] });
+
+      // Drag by the grabber / header. Tracks 1:1, keeps grab offset, interrupts any running spring.
+      const vt = velocityTracker();
+      let dragging = false, startY = 0, startVal = 0;
+      sheet.querySelectorAll(".s-grabber, .modal-head").forEach(handle => {
+        handle.addEventListener("pointerdown", e => {
+          if (e.button !== 0 || e.target.closest("button")) return;
+          dragging = true; anim && anim.stop(); anim = null;
+          startY = e.clientY; startVal = y; vt.reset(); vt.add(0, e.clientY);
+          handle.setPointerCapture(e.pointerId);
+          sheet.classList.add("is-dragging");
+        });
+        handle.addEventListener("pointermove", e => {
+          if (!dragging) return;
+          vt.add(0, e.clientY);
+          render(startVal + (e.clientY - startY));
+        });
+        const end = () => {
+          if (!dragging) return;
+          dragging = false; sheet.classList.remove("is-dragging");
+          const { vy } = vt.get();
+          if (y + project(vy) > dist() * 0.5 && vy > -100) { releaseV = vy; close(); }
+          else animateTo(0, vy);
+        };
+        handle.addEventListener("pointerup", end);
+        handle.addEventListener("pointercancel", end);
+      });
+
+      window.addEventListener("keydown", e => { if (e.key === "Escape" && backdrop.classList.contains("open")) close(); });
+    }
+
+    /* ---------- Photo viewer: opens from the tapped thumbnail and returns to it ---------- */
+    const viewer = (() => {
+      let root, frame, img, bg, countEl, idx = 0, open = false, anim = null, cur = null, thumbHidden = null;
+      let tx = 0, ty = 0, sc = 1, bgOp = 0, lastFocus = null, opening = false;
+
+      const cards = () => [...document.querySelectorAll("#portfolioGrid .photo-card")];
+      const thumbImg = i => cards()[i]?.querySelector("img");
+      const vw = () => window.innerWidth, vh = () => window.innerHeight;
+      const aspectOf = i => { const t = thumbImg(i); return t && t.naturalWidth ? t.naturalWidth / t.naturalHeight : 4 / 5; };
+      const finalRect = i => {
+        const a = aspectOf(i), maxW = vw(), maxH = vh() * 0.84;
+        let w = maxW, h = w / a;
+        if (h > maxH) { h = maxH; w = h * a; }
+        return { x: (vw() - w) / 2, y: (vh() - h) / 2, w, h, r: 0 };
+      };
+      const thumbRect = i => {
+        const t = thumbImg(i);
+        if (!t) return null;
+        const b = t.getBoundingClientRect();
+        if (b.width === 0 || b.bottom < 0 || b.top > vh()) return null;
+        return { x: b.left, y: b.top, w: b.width, h: b.height, r: 20 };
+      };
+      const lerp = (a, b, p) => a + (b - a) * p;
+      const lerpRect = (a, b, p) => ({ x: lerp(a.x, b.x, p), y: lerp(a.y, b.y, p), w: lerp(a.w, b.w, p), h: lerp(a.h, b.h, p), r: lerp(a.r, b.r, p) });
+      const setRect = r => {
+        cur = r;
+        Object.assign(frame.style, { left: r.x + "px", top: r.y + "px", width: r.w + "px", height: r.h + "px", borderRadius: r.r + "px" });
+      };
+      const setXf = () => { frame.style.transform = `translate3d(${tx}px, ${ty}px, 0) scale(${sc})`; };
+      const setBg = o => { bgOp = o; bg.style.opacity = o; root.style.setProperty("--chrome", clamp(o, 0, 1)); };
+      const hideThumb = i => { if (thumbHidden) thumbHidden.style.visibility = ""; thumbHidden = cards()[i] || null; if (thumbHidden) thumbHidden.style.visibility = "hidden"; };
+      const loadInto = i => {
+        const t = thumbImg(i);
+        const hi = sizedSrc(portfolioList[i] || (t && t.src), 1800);
+        img.src = (t && (t.currentSrc || t.src)) || hi;
+        if (hi && hi !== img.src) { const pre = new Image(); pre.decoding = "async"; pre.onload = () => { if (idx === i && open) img.src = hi; }; pre.src = hi; }
+        img.alt = t ? t.alt : "עבודת תספורת במספרה של עילי";
+        countEl.textContent = `${i + 1} / ${cards().length}`;
+        root.classList.toggle("is-first", i === 0);
+        root.classList.toggle("is-last", i === cards().length - 1);
+      };
+
+      function openAt(i, card) {
+        if (!root) return;
+        idx = i; open = true; lastFocus = card || document.activeElement;
+        anim && anim.stop(); anim = null;
+        loadInto(i);
+        tx = ty = 0; sc = 1; setXf();
+        root.classList.add("open"); root.setAttribute("aria-hidden", "false");
+        document.documentElement.classList.add("s-lock");
+        const end = finalRect(i), start = thumbRect(i);
+        root.querySelector(".lb-close").focus({ preventScroll: true });
+        if (uiReduced() || !start) {
+          setRect(end); setBg(1);
+          root.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 180, easing: "ease-out" });
+          return;
+        }
+        hideThumb(i);
+        setRect(start); setBg(0);
+        opening = true;
+        anim = spring({ from: 0, to: 1, stiffness: 340, damping: 34, onUpdate: p => { setRect(lerpRect(start, end, p)); setBg(clamp(p, 0, 1)); }, onDone: () => { anim = null; opening = false; } });
+      }
+
+      function closeViewer(velocityY = 0) {
+        if (!open) return;
+        open = false; opening = false;
+        anim && anim.stop(); anim = null;
+        const card = cards()[idx];
+        card && card.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "instant" });
+        const target = thumbRect(idx);
+        const finish = () => {
+          root.classList.remove("open"); root.setAttribute("aria-hidden", "true");
+          if (thumbHidden) { thumbHidden.style.visibility = ""; thumbHidden = null; }
+          tx = ty = 0; sc = 1; setXf();
+          if (!document.querySelector(".modal-backdrop.open")) document.documentElement.classList.remove("s-lock");
+          lastFocus && lastFocus.focus && lastFocus.focus({ preventScroll: true });
+        };
+        if (uiReduced() || !target) {
+          const a = root.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 160, easing: "ease-in" });
+          a.onfinish = finish; return;
+        }
+        hideThumb(idx);
+        // Fold the drag transform into the frame rect, then travel the same path back.
+        const b = frame.getBoundingClientRect();
+        const start = { x: b.left, y: b.top, w: b.width, h: b.height, r: cur ? cur.r : 0 };
+        tx = ty = 0; sc = 1; setXf(); setRect(start);
+        const startBg = bgOp, dist = Math.max(1, Math.abs(target.y - start.y));
+        anim = spring({ from: 0, to: 1, velocity: velocityY / dist, stiffness: 340, damping: 36,
+          onUpdate: p => { setRect(lerpRect(start, target, p)); setBg(startBg * (1 - clamp(p, 0, 1))); },
+          onDone: () => { anim = null; finish(); } });
+      }
+
+      // RTL: the next photo sits to the left, so dragging right (dx > 0) reveals it.
+      function go(dir, vx = 0) {
+        const n = idx + dir;
+        if (n < 0 || n >= cards().length) { animXBack(vx); return; }
+        const out = dir > 0 ? vw() : -vw();
+        let swapped = false;
+        const swap = () => {
+          if (swapped) return; swapped = true;
+          idx = n; loadInto(n); setRect(finalRect(n));
+          tx = -out; setXf();
+          if (thumbHidden) hideThumb(n);
+          anim = spring({ from: tx, to: 0, stiffness: 300, damping: 34, onUpdate: x => { tx = x; setXf(); }, onDone: () => { anim = null; } });
+        };
+        anim && anim.stop();
+        if (uiReduced()) { idx = n; loadInto(n); setRect(finalRect(n)); tx = 0; setXf(); frame.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 160 }); return; }
+        anim = spring({ from: tx, to: out, velocity: vx, stiffness: 300, damping: 34, onUpdate: x => { tx = x; setXf(); if (Math.abs(x) >= Math.abs(out) * 0.98) { anim && anim.stop(); swap(); } }, onDone: swap });
+      }
+      const animXBack = (vx = 0) => { anim && anim.stop(); anim = spring({ from: tx, to: 0, velocity: vx, onUpdate: x => { tx = x; setXf(); }, onDone: () => { anim = null; } }); };
+
+      function init() {
+        root = document.getElementById("lightboxModal");
+        if (!root) return;
+        frame = root.querySelector(".lb-frame"); img = document.getElementById("lightboxImg");
+        bg = root.querySelector(".lb-bg"); countEl = root.querySelector(".lb-count");
+        root.querySelector(".lb-close").addEventListener("click", () => closeViewer());
+        root.querySelector(".lb-nav--next").addEventListener("click", () => go(1));
+        root.querySelector(".lb-nav--prev").addEventListener("click", () => go(-1));
+        window.addEventListener("keydown", e => {
+          if (!open) return;
+          if (e.key === "Escape") closeViewer();
+          if (e.key === "ArrowLeft") go(1);
+          if (e.key === "ArrowRight") go(-1);
+        });
+        window.addEventListener("resize", () => { if (open && !anim) setRect(finalRect(idx)); });
+
+        const vt = velocityTracker();
+        let down = false, axis = null, sx = 0, sy = 0, moved = false;
+        root.addEventListener("pointerdown", e => {
+          if (!open || opening || e.target.closest("button")) return;
+          down = true; axis = null; moved = false; sx = e.clientX; sy = e.clientY;
+          anim && anim.stop(); anim = null;
+          vt.reset(); vt.add(e.clientX, e.clientY);
+          root.setPointerCapture(e.pointerId);
+        });
+        root.addEventListener("pointermove", e => {
+          if (!down) return;
+          vt.add(e.clientX, e.clientY);
+          const dx = e.clientX - sx, dy = e.clientY - sy;
+          if (!axis && Math.hypot(dx, dy) > 8) axis = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
+          if (!axis) return;
+          moved = true;
+          if (axis === "y") {
+            ty = dy >= 0 ? dy : -rubber(-dy, vh());
+            sc = 1 - clamp(ty / vh(), 0, 1) * 0.3;
+            setBg(1 - clamp(ty / (vh() * 0.55), 0, 1));
+          } else {
+            const dir = dx > 0 ? 1 : -1, n = idx + dir;
+            tx = (n < 0 || n >= cards().length) ? dir * rubber(Math.abs(dx), vw()) : dx;
+          }
+          setXf();
+        });
+        const end = () => {
+          if (!down) return;
+          down = false;
+          const { vx, vy } = vt.get();
+          if (!moved) { closeViewer(); return; }
+          if (axis === "y") {
+            if (ty + project(vy) > vh() * 0.22 && vy > -200) closeViewer(vy);
+            else {
+              const t0 = ty, s0 = sc, b0 = bgOp;
+              anim = spring({ from: 0, to: 1, velocity: t0 ? -vy / t0 : 0, onUpdate: p => { ty = t0 * (1 - p); sc = s0 + (1 - s0) * p; setXf(); setBg(b0 + (1 - b0) * p); }, onDone: () => { anim = null; } });
+            }
+          } else {
+            const proj = tx + project(vx);
+            if (Math.abs(proj) > vw() * 0.35) go(proj > 0 ? 1 : -1, vx); else animXBack(vx);
+          }
+        };
+        root.addEventListener("pointerup", end);
+        root.addEventListener("pointercancel", end);
+      }
+      return { init, openAt };
+    })();
+    function openPhotoViewer(i, card) { viewer.openAt(i, card); }
+
+    /* ---------- Wiring ---------- */
+    window.addEventListener("DOMContentLoaded", () => {
+      document.querySelectorAll(".modal-backdrop").forEach(setupSheet);
+      viewer.init();
+
+      // Header material edge + test-mode offset.
+      const header = document.getElementById("siteHeader");
+      const onScroll = () => header.toggleAttribute("data-scrolled", window.scrollY > 4);
+      window.addEventListener("scroll", onScroll, { passive: true }); onScroll();
+      const syncTestBar = () => {
+        const bar = document.getElementById("testModeBar");
+        document.body.style.setProperty("--tm", bar ? bar.offsetHeight + "px" : "0px");
+      };
+      syncTestBar(); setTimeout(syncTestBar, 300); window.addEventListener("resize", syncTestBar);
+
+      // Press feedback on pointer-down (iOS needs a touch listener for :active).
+      document.addEventListener("touchstart", () => {}, { passive: true });
+
+      // Keep keyboard focus inside the open sheet / photo viewer.
+      document.addEventListener("keydown", e => {
+        if (e.key !== "Tab") return;
+        const lb = document.getElementById("lightboxModal");
+        const box = lb && lb.classList.contains("open") ? lb
+          : [...document.querySelectorAll(".modal-backdrop.open .s-sheet")].pop();
+        if (!box) return;
+        const items = [...box.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')]
+          .filter(el => !el.disabled && el.offsetParent !== null && getComputedStyle(el).visibility !== "hidden");
+        if (!items.length) return;
+        const first = items[0], last = items[items.length - 1];
+        if (!box.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
+        else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      });
+
+      // Floating icons: pause while the tab is hidden or a sheet/viewer covers the page.
+      const icons = document.getElementById("bgIcons");
+      if (icons) {
+        const syncIcons = () => icons.classList.toggle("is-paused", document.hidden || document.documentElement.classList.contains("s-lock"));
+        document.addEventListener("visibilitychange", syncIcons);
+        new MutationObserver(syncIcons).observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+        syncIcons();
+
+        // Scroll parallax: each emoji drifts at its own rate and wraps around the viewport.
+        const ems = [...icons.querySelectorAll(".s-em")];
+        let ticking = false;
+        const parallax = () => {
+          ticking = false;
+          if (uiReduced()) { ems.forEach(el => { el.style.transform = ""; }); return; }
+          const vh = window.innerHeight, span = vh + 160, sy = window.scrollY;
+          ems.forEach(el => {
+            const base = (parseFloat(el.style.getPropertyValue("--y")) || 0) / 100 * vh;
+            const k = parseFloat(el.style.getPropertyValue("--k")) || 0;
+            const y = ((base - sy * k + 80) % span + span) % span - 80;
+            el.style.transform = `translate3d(0, ${(y - base).toFixed(1)}px, 0)`;
+          });
+        };
+        window.addEventListener("scroll", () => { if (!ticking) { ticking = true; requestAnimationFrame(parallax); } }, { passive: true });
+        window.addEventListener("resize", parallax);
+        parallax();
+      }
+
+      // Reveal sections once as they enter.
+      const els = document.querySelectorAll("[data-reveal]");
+      if ("IntersectionObserver" in window && !uiReduced()) {
+        document.documentElement.classList.add("s-reveal-on");
+        const io = new IntersectionObserver(entries => entries.forEach(en => {
+          if (en.isIntersecting) { en.target.classList.add("is-in"); io.unobserve(en.target); }
+        }), { rootMargin: "0px 0px -8% 0px" });
+        els.forEach(el => io.observe(el));
+      }
+    });
+  </script>
   <script>
     let currentClientUser = JSON.parse(localStorage.getItem("ilay_logged_client_v1") || "null");
     let selectedServiceIdx = 0, selectedBookDay = 0, selectedBookHour = null;
@@ -372,7 +822,8 @@
       if (fullName.replace(/[^a-zA-Zא-ת]/g, "").length < 2) return showToast("נא להזין שם מלא תקין");
       if (phone.length < 9) return showToast("נא להזין מספר טלפון נייד תקין");
       if (pass.length < 4) return showToast("נא לבחור סיסמה בת 4 תווים לפחות");
-      if (!consent) return showToast("חובה לאשר את תקנון האתר");
+      if (!consent) return showToast("כדי להירשם צריך לאשר את תנאי השימוש ומדיניות הפרטיות");
+      const marketingOptIn = !!(document.getElementById("regMarketing") || {}).checked;
 
       if (registeredUsers.some(u => u.phone === phone)) {
         switchAuthTab("log");
@@ -384,7 +835,7 @@
       }
 
       const now = Date.now();
-      const newUser = { id: "usr_" + now, username: fullName, phone, password: pass, createdAt: new Date().toLocaleDateString("he-IL"), lastActiveAt: now };
+      const newUser = { id: "usr_" + now, username: fullName, phone, password: pass, marketingOptIn, consentAt: now, createdAt: new Date().toLocaleDateString("he-IL"), lastActiveAt: now };
       registeredUsers.push(newUser);
       currentClientUser = { username: fullName, phone, lastActiveAt: now };
       localStorage.setItem("ilay_logged_client_v1", JSON.stringify(currentClientUser));
@@ -610,15 +1061,14 @@
         card.className = "service-card";
         card.onclick = () => openBookingModal(idx);
         card.innerHTML = `
-          <div class="srv-head">
+          <div class="srv-text">
             <h3 class="srv-name">${sanitizeStr(srv.name, 45)}</h3>
-            <span class="srv-leader" aria-hidden="true"></span>
-            <div class="srv-price-badge">${Number(srv.price) || 0} ₪</div>
-          </div>
-          <p class="srv-desc">${sanitizeStr(srv.desc, 140)}</p>
-          <div class="srv-foot">
+            <p class="srv-desc">${sanitizeStr(srv.desc, 140)}</p>
             <span class="srv-dur">${sanitizeStr(srv.duration, 25)}</span>
-            <button type="button" class="srv-book" aria-label="קביעת תור ל${sanitizeStr(srv.name, 30)}" onclick="event.stopPropagation(); openBookingModal(${idx})">לקביעת תור</button>
+          </div>
+          <div class="srv-side">
+            <div class="srv-price-badge">${Number(srv.price) || 0} ₪</div>
+            <button type="button" class="srv-book" aria-label="קביעת תור ל${sanitizeStr(srv.name, 30)}" onclick="event.stopPropagation(); openBookingModal(${idx})">קביעה</button>
           </div>
         `;
         sGrid.appendChild(card);
@@ -628,13 +1078,13 @@
       pGrid.innerHTML = "";
       portfolioList.forEach((src, i) => {
         const fallback = DEFAULT_PORTFOLIO[i % DEFAULT_PORTFOLIO.length];
-        const card = document.createElement("div");
+        const card = document.createElement("button");
+        card.type = "button";
         card.className = "photo-card";
-        card.innerHTML = `<div class="photo-inner"><img src="${src}" alt="תספורת ${i + 1}" loading="lazy" onerror="this.onerror=null;this.src='${fallback}'" /></div>`;
-        card.onclick = () => {
-          document.getElementById("lightboxImg").src = card.querySelector("img").src;
-          document.getElementById("lightboxModal").classList.add("open");
-        };
+        card.setAttribute("role", "listitem");
+        card.setAttribute("aria-label", `הגדלת תמונה ${i + 1} מתוך ${portfolioList.length}`);
+        card.innerHTML = `<div class="photo-inner"><img src="${sizedSrc(src, 900)}" alt="עבודת תספורת ${i + 1} במספרה של עילי" width="720" height="900" loading="${i < 2 ? "eager" : "lazy"}" decoding="async" onerror="this.onerror=null;this.src='${fallback}'" /></div>`;
+        card.onclick = () => openPhotoViewer(i, card);
         pGrid.appendChild(card);
       });
     }

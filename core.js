@@ -182,6 +182,9 @@ delete siteConfig.smsApiKey;
 delete siteConfig.smsApiUser;
 delete siteConfig.smsProvider;
 delete siteConfig.smsSenderId;
+delete siteConfig.greenApiToken;
+delete siteConfig.greenIdInstance;
+delete siteConfig.ntfyTopic;
 if (!siteConfig.smsPackageQuota) siteConfig.smsPackageQuota = 1000;
 if (!siteConfig.reminderHoursBefore) siteConfig.reminderHoursBefore = 3;
 if (!siteConfig.slotInterval) siteConfig.slotInterval = 30;
@@ -252,20 +255,14 @@ function pushRealtimeNotification(type, title, message, apptId = null, dayIdx = 
   saveAllStateLocally();
   broadcastCloudState("live_notif", { notif });
 
-  if (siteConfig.ntfyTopic) {
-    try {
-      fetch("https://ntfy.sh", {
-        method: "POST",
-        body: JSON.stringify({
-          topic: siteConfig.ntfyTopic.trim(),
-          title: "💈 " + title,
-          message,
-          priority: 4,
-          click: `${window.location.origin}/admin.html`
-        })
-      });
-    } catch (_) {}
-  }
+  // התראת פוש לטלפון של הספר: נשלחת דרך השרת (api/notify.js), שם ערוץ ה-ntfy שמור במשתנה סביבה
+  try {
+    fetch("/api/notify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: String(title || "").slice(0, 120), message: String(message || "").slice(0, 500) })
+    }).catch(() => {});
+  } catch (_) {}
   if (typeof window.onCoreDataUpdated === "function") window.onCoreDataUpdated();
 }
 
@@ -596,8 +593,56 @@ function tryAssemblePortfolioBatch(batchId) {
   }
 }
 
-function applyIncomingState(data) {
-  if (!data || !data.updatedAt) return;
+// --- ניקוי נתונים שמגיעים מהסנכרון (ערוצי MQTT ציבוריים: כל אחד יכול לפרסם בהם) ---
+// מונע הזרקת קוד (XSS) דרך שמות, הערות, מזהים, מחירים ותמונות.
+const SAFE_IMG_RE = /^(https:\/\/images\.unsplash\.com\/[\w\-./?=&%]+|data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+)$/;
+function isSafeImgSrc(src) { return typeof src === "string" && src.length < 3000000 && SAFE_IMG_RE.test(src); }
+function cleanDeep(v, depth = 0) {
+  if (depth > 6) return null;
+  if (typeof v === "string") return v.replace(/[<>`\\]/g, "").replace(/"/g, "״").replace(/'/g, "׳").replace(/[\u0000-\u001f]/g, " ").slice(0, 2000);
+  if (typeof v === "number") return Number.isFinite(v) ? v : 0;
+  if (typeof v === "boolean" || v === null) return v;
+  if (Array.isArray(v)) return v.slice(0, 2000).map(x => cleanDeep(x, depth + 1));
+  if (typeof v === "object") {
+    const out = {};
+    Object.keys(v).slice(0, 80).forEach(k => { if (/^[\w$]{1,40}$/.test(k)) out[k] = cleanDeep(v[k], depth + 1); });
+    return out;
+  }
+  return null;
+}
+const TIME_RE = /^\d{1,2}:\d{2}$/;
+const safeId = x => String(x ?? "").replace(/[^\w-]/g, "").slice(0, 60);
+function sanitizeIncomingState(raw) {
+  const d = cleanDeep(raw) || {};
+  if (Array.isArray(d.appointments)) {
+    d.appointments = d.appointments.filter(a => a && typeof a === "object" && TIME_RE.test(String(a.time))).map(a => ({
+      ...a,
+      id: safeId(a.id),
+      phone: String(a.phone ?? "").replace(/\D/g, "").slice(0, 13),
+      dayIdx: Math.min(6, Math.max(0, parseInt(a.dayIdx, 10) || 0)),
+      price: Math.max(0, Number(a.price) || 0),
+      status: safeId(a.status)
+    }));
+  }
+  if (Array.isArray(d.registeredUsers)) d.registeredUsers = d.registeredUsers.filter(u => u && typeof u === "object").map(u => ({ ...u, id: safeId(u.id), phone: String(u.phone ?? "").replace(/\D/g, "").slice(0, 13) }));
+  if (Array.isArray(d.smsLogs)) d.smsLogs = d.smsLogs.filter(l => l && typeof l === "object").map(l => ({ ...l, id: safeId(l.id), phone: String(l.phone ?? "").replace(/\D/g, "").slice(0, 13), category: safeId(l.category), status: safeId(l.status), channel: safeId(l.channel), parts: Math.max(0, Number(l.parts) || 0), apptId: l.apptId == null ? null : safeId(l.apptId) }));
+  if (Array.isArray(d.adminNotifications)) d.adminNotifications = d.adminNotifications.filter(n => n && typeof n === "object").map(n => ({ ...n, id: safeId(n.id), type: safeId(n.type), apptId: n.apptId == null ? null : safeId(n.apptId) }));
+  if (Array.isArray(d.services)) d.services = d.services.filter(s => s && typeof s === "object").map(s => ({ ...s, price: Math.max(0, Number(s.price) || 0) }));
+  if (Array.isArray(d.weeklySchedule)) d.weeklySchedule = d.weeklySchedule.slice(0, 7).map(s => ({ active: !!(s && s.active), start: TIME_RE.test(String(s && s.start)) ? s.start : "10:00", end: TIME_RE.test(String(s && s.end)) ? s.end : "20:00" }));
+  if (d.siteConfig && typeof d.siteConfig === "object") {
+    // מפתחות ונתיבי התראה לעולם לא מתקבלים מהסנכרון
+    ["smsApiKey", "smsApiUser", "smsProvider", "smsSenderId", "greenApiToken", "greenIdInstance", "ntfyTopic"].forEach(k => delete d.siteConfig[k]);
+    ["slotInterval", "slotBuffer", "reminderHoursBefore", "smsPackageQuota"].forEach(k => { if (k in d.siteConfig) d.siteConfig[k] = Math.max(0, Number(d.siteConfig[k]) || 0); });
+    if ("barberPhone" in d.siteConfig) d.siteConfig.barberPhone = String(d.siteConfig.barberPhone ?? "").replace(/\D/g, "").slice(0, 13);
+  }
+  d.updatedAt = Number(raw && raw.updatedAt) || 0;
+  d.dataEpoch = Number(raw && raw.dataEpoch) || 0;
+  return d;
+}
+
+function applyIncomingState(rawData) {
+  if (!rawData || !rawData.updatedAt) return;
+  const data = sanitizeIncomingState(rawData);
   const incomingEpoch = Number(data.dataEpoch) || 0;
   if (incomingEpoch < dataEpoch) return; // נתונים מלפני איפוס
   if (incomingEpoch > dataEpoch) {
@@ -606,10 +651,7 @@ function applyIncomingState(data) {
   } else if (data.updatedAt <= lastStateTs) return;
   lastStateTs = data.updatedAt;
   localStorage.setItem(SK("ilay_state_ts"), String(lastStateTs));
-  if (data.siteConfig) {
-    const { smsApiKey, smsApiUser, smsProvider, smsSenderId, ...safeCfg } = data.siteConfig;
-    siteConfig = { ...siteConfig, ...safeCfg };
-  }
+  if (data.siteConfig) siteConfig = { ...siteConfig, ...data.siteConfig };
   if (data.services) SERVICES = data.services;
   if (data.weeklySchedule) weeklySchedule = data.weeklySchedule;
   if (Array.isArray(data.appointments)) appointments = data.appointments;
@@ -675,7 +717,7 @@ async function initCloudSyncEngine() {
           } else if (topic.startsWith(`${CLOUD_TOPIC_BASE}/photo/`)) {
             if (data && data.batchId && data.src) {
               if (!batchChunksMap[data.batchId]) batchChunksMap[data.batchId] = {};
-              batchChunksMap[data.batchId][Number(data.idx)] = data.src;
+              if (isSafeImgSrc(data.src)) batchChunksMap[data.batchId][Math.max(0, parseInt(data.idx, 10) || 0)] = data.src;
               tryAssemblePortfolioBatch(data.batchId);
             }
           }

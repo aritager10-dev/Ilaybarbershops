@@ -21,10 +21,21 @@ const TEXTME_ERRORS = {
   998: "שגיאה לא ידועה אצל הספק"
 };
 
+const { originAllowed, rateLimited, clientIp } = require("./_guard");
+
 const MAX_LEN = 600;
-const RATE_WINDOW_MS = 10 * 60 * 1000;
 const RATE_MAX = 40;
-const rateMap = new Map();
+
+// חוסם שימוש לרעה לפישינג: קישורים מותרים רק לדומיין של האתר עצמו
+function hasForeignLink(message, host) {
+  const links = message.match(/(https?:\/\/|www\.)[^\s]+/gi) || [];
+  const own = String(host || "").toLowerCase();
+  const extra = String(process.env.ALLOWED_ORIGINS || "").toLowerCase();
+  return links.some(l => {
+    const h = l.replace(/^https?:\/\//i, "").split(/[/?#]/)[0].toLowerCase();
+    return !(h === own || (h && extra.includes(h)));
+  });
+}
 
 function cfg() {
   const provider = String(process.env.SMS_PROVIDER || "textme").toLowerCase().trim();
@@ -33,23 +44,6 @@ function cfg() {
   if (PROVIDERS[provider]) configured = !!(process.env.SMS_USERNAME && process.env.SMS_API_TOKEN);
   else if (provider === "twilio") configured = !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_FROM);
   return { provider, sender, configured };
-}
-
-function originAllowed(req) {
-  const origin = req.headers.origin || "";
-  if (!origin) return true; // אותו דומיין (חלק מהדפדפנים לא שולחים Origin ב-same-origin)
-  const host = req.headers.host || "";
-  if (origin === `https://${host}` || origin === `http://${host}`) return true;
-  const extra = String(process.env.ALLOWED_ORIGINS || "").split(",").map(s => s.trim()).filter(Boolean);
-  return extra.includes(origin);
-}
-
-function rateLimited(ip) {
-  const now = Date.now();
-  const arr = (rateMap.get(ip) || []).filter(t => now - t < RATE_WINDOW_MS);
-  arr.push(now);
-  rateMap.set(ip, arr);
-  return arr.length > RATE_MAX;
 }
 
 function normalizePhone(raw) {
@@ -114,8 +108,7 @@ module.exports = async (req, res) => {
   if (req.method !== "POST") return res.status(405).json({ ok: false, reason: "Method not allowed" });
   if (!originAllowed(req)) return res.status(403).json({ ok: false, reason: "מקור לא מורשה" });
 
-  const ip = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim() || "unknown";
-  if (rateLimited(ip)) return res.status(429).json({ ok: false, reason: "יותר מדי הודעות, נסה שוב בעוד כמה דקות" });
+  if (rateLimited("sms:" + clientIp(req), RATE_MAX)) return res.status(429).json({ ok: false, reason: "יותר מדי הודעות, נסה שוב בעוד כמה דקות" });
 
   if (!configured) return res.status(503).json({ ok: false, reason: "ספק SMS לא מוגדר ב-Vercel" });
 
@@ -125,6 +118,7 @@ module.exports = async (req, res) => {
   const message = String((body && body.message) || "").trim();
   if (!phone) return res.status(400).json({ ok: false, reason: "מספר נייד לא תקין" });
   if (!message || message.length > MAX_LEN) return res.status(400).json({ ok: false, reason: "הודעה ריקה או ארוכה מדי" });
+  if (hasForeignLink(message, req.headers.host)) return res.status(400).json({ ok: false, reason: "קישורים מותרים רק לאתר של המספרה" });
 
   try {
     const result = PROVIDERS[provider]
