@@ -3,7 +3,37 @@
    ===================================================================== */
 const TWO_MONTHS_MS = 60 * 24 * 60 * 60 * 1000;
 const DAYS_HEB = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "מוצ״ש"];
-const CLOUD_TOPIC_BASE = "ilay_barbershop_gt_2026_live_v9";
+// --- מצב בדיקות: נתונים נפרדים לגמרי (אחסון + ערוץ סנכרון), כדי לא ללכלך את היומן והסטטיסטיקה האמיתיים ---
+// הפעלה: הוסף ?test=1 לכתובת (או כפתור בניהול). יציאה: ?test=0 או כפתור "יציאה" בפס העליון.
+const TEST_MODE = (() => {
+  try {
+    const p = new URLSearchParams(window.location.search).get("test");
+    if (p === "1") localStorage.setItem("ilay_test_mode", "1");
+    if (p === "0") localStorage.removeItem("ilay_test_mode");
+    return localStorage.getItem("ilay_test_mode") === "1";
+  } catch (_) { return false; }
+})();
+function SK(key) { return TEST_MODE ? "test__" + key : key; }
+function setTestMode(on) {
+  try { on ? localStorage.setItem("ilay_test_mode", "1") : localStorage.removeItem("ilay_test_mode"); } catch (_) {}
+  const url = new URL(window.location.href);
+  url.searchParams.delete("test");
+  window.location.href = url.toString();
+}
+const CLOUD_TOPIC_BASE = "ilay_barbershop_gt_2026_live_v9" + (TEST_MODE ? "_TEST" : "");
+
+if (TEST_MODE) {
+  document.addEventListener("DOMContentLoaded", () => {
+    const bar = document.createElement("div");
+    bar.id = "testModeBar";
+    bar.setAttribute("role", "status");
+    bar.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:99999;background:#f59e0b;color:#111;font:600 14px/1.3 system-ui,sans-serif;padding:8px 14px;display:flex;gap:10px;align-items:center;justify-content:center;direction:rtl;flex-wrap:wrap;";
+    bar.innerHTML = '<span>מצב בדיקות: תורים, הודעות וסטטיסטיקה כאן נפרדים מהיומן האמיתי. הודעות SMS כן נשלחות באמת.</span><button type="button" style="background:#111;color:#fff;border:0;border-radius:6px;padding:4px 10px;cursor:pointer;font:inherit">יציאה ממצב בדיקות</button>';
+    bar.querySelector("button").onclick = () => setTestMode(false);
+    document.body.appendChild(bar);
+    document.body.style.paddingTop = (bar.offsetHeight || 38) + "px";
+  });
+}
 const CLOUD_BROKERS = [
   "wss://broker.emqx.io:8084/mqtt",
   "wss://test.mosquitto.org:8081/mqtt",
@@ -137,7 +167,7 @@ function compressImageFile(file) {
 }
 
 // --- טעינת נתוני מערכת ---
-let siteConfig = JSON.parse(localStorage.getItem("ilay_site_cfg") || "null") || {
+let siteConfig = JSON.parse(localStorage.getItem(SK("ilay_site_cfg")) || "null") || {
   title: "ILAY BARBERSHOP",
   subtitle: "תספורת נקייה, אווירה טובה וסטייל שיושב בול.",
   slotInterval: 30,
@@ -146,24 +176,25 @@ let siteConfig = JSON.parse(localStorage.getItem("ilay_site_cfg") || "null") || 
   smsPackageQuota: 1000,
   ntfyTopic: "ilay_barbershop_alerts",
   barberPhone: "0542223765",
-  smsProvider: "textme",
-  smsSenderId: "Ilay",
-  smsApiUser: "",
-  smsApiKey: ""
 };
+// ניקוי מפתחות ישנים שנשמרו בעבר בדפדפן / בסנכרון
+delete siteConfig.smsApiKey;
+delete siteConfig.smsApiUser;
+delete siteConfig.smsProvider;
+delete siteConfig.smsSenderId;
 if (!siteConfig.smsPackageQuota) siteConfig.smsPackageQuota = 1000;
 if (!siteConfig.reminderHoursBefore) siteConfig.reminderHoursBefore = 3;
 if (!siteConfig.slotInterval) siteConfig.slotInterval = 30;
 if (siteConfig.slotBuffer === undefined) siteConfig.slotBuffer = 0;
 
-let SERVICES = JSON.parse(localStorage.getItem("ilay_services_v2") || "null") || [
+let SERVICES = JSON.parse(localStorage.getItem(SK("ilay_services_v2")) || "null") || [
   { name: "תספורת קלאסי", price: 70, duration: "30 דק'", desc: "דירוג (מולט, טייפר, בארסט ועוד..) עם גזירות ואפשרות להוסיף פנס לבחירה." },
   { name: "תספורת מוגזם", price: 90, duration: "45 דק'", desc: "לא הסתפרת הרבה זמן ורוצה לעשות שינוי, תספורת גזירות מלאה." },
   { name: "תספורת קלאסי + זקן", price: 80, duration: "35 דק'", desc: "דירוג נקי (מולט, טייפר, בארסט ועוד) עם גזירות, פנס לבחירה וסידור זקן מדויק." },
   { name: "תספורת מוגזם + זקן", price: 100, duration: "50 דק'", desc: "שינוי לוק מלא בגזירות ודירוג למי שלא הסתפר הרבה זמן, כולל עיצוב וסידור זקן." }
 ];
 
-let weeklySchedule = JSON.parse(localStorage.getItem("ilay_weekly_hours") || "null") || [
+let weeklySchedule = JSON.parse(localStorage.getItem(SK("ilay_weekly_hours")) || "null") || [
   { active: true, start: "10:00", end: "20:00" },
   { active: true, start: "10:00", end: "20:00" },
   { active: true, start: "10:00", end: "20:00" },
@@ -173,20 +204,20 @@ let weeklySchedule = JSON.parse(localStorage.getItem("ilay_weekly_hours") || "nu
   { active: false, start: "19:30", end: "22:00" }
 ];
 
-let appointments = JSON.parse(localStorage.getItem("ilay_appointments_clean_v1") || "[]");
-let registeredUsers = JSON.parse(localStorage.getItem("ilay_registered_users_v1") || "[]");
-let smsLogs = JSON.parse(localStorage.getItem("ilay_sms_logs_v1") || "[]");
-let adminNotifications = JSON.parse(localStorage.getItem("ilay_admin_notifs_v1") || "[]");
+let appointments = JSON.parse(localStorage.getItem(SK("ilay_appointments_clean_v1")) || "[]");
+let registeredUsers = JSON.parse(localStorage.getItem(SK("ilay_registered_users_v1")) || "[]");
+let smsLogs = JSON.parse(localStorage.getItem(SK("ilay_sms_logs_v1")) || "[]");
+let adminNotifications = JSON.parse(localStorage.getItem(SK("ilay_admin_notifs_v1")) || "[]");
 let portfolioList = [...DEFAULT_PORTFOLIO];
 
 function saveAllStateLocally() {
-  localStorage.setItem("ilay_site_cfg", JSON.stringify(siteConfig));
-  localStorage.setItem("ilay_services_v2", JSON.stringify(SERVICES));
-  localStorage.setItem("ilay_weekly_hours", JSON.stringify(weeklySchedule));
-  localStorage.setItem("ilay_appointments_clean_v1", JSON.stringify(appointments));
-  localStorage.setItem("ilay_registered_users_v1", JSON.stringify(registeredUsers));
-  localStorage.setItem("ilay_sms_logs_v1", JSON.stringify(smsLogs.slice(0, 300)));
-  localStorage.setItem("ilay_admin_notifs_v1", JSON.stringify(adminNotifications.slice(0, 120)));
+  localStorage.setItem(SK("ilay_site_cfg"), JSON.stringify(siteConfig));
+  localStorage.setItem(SK("ilay_services_v2"), JSON.stringify(SERVICES));
+  localStorage.setItem(SK("ilay_weekly_hours"), JSON.stringify(weeklySchedule));
+  localStorage.setItem(SK("ilay_appointments_clean_v1"), JSON.stringify(appointments));
+  localStorage.setItem(SK("ilay_registered_users_v1"), JSON.stringify(registeredUsers));
+  localStorage.setItem(SK("ilay_sms_logs_v1"), JSON.stringify(smsLogs.slice(0, 300)));
+  localStorage.setItem(SK("ilay_admin_notifs_v1"), JSON.stringify(adminNotifications.slice(0, 120)));
 }
 
 // --- התראות בזמן אמת ---
@@ -239,46 +270,31 @@ function pushRealtimeNotification(type, title, message, apptId = null, dayIdx = 
 }
 
 // --- מנוע שליחת SMS ---
-async function executeProviderSms(toPhoneRaw, messageText) {
-  const toE164 = toE164Phone(toPhoneRaw);
+// השליחה עוברת דרך פונקציית שרת ב-Vercel (api/send-sms.js).
+// מפתחות ה-API נשמרים רק במשתני הסביבה של Vercel, לא בדפדפן ולא בסנכרון.
+async function executeProviderSms(toPhoneRaw, messageText, category = "booking") {
   const toLocal = toIsraeliLocalPhone(toPhoneRaw);
-  const sender = (siteConfig.smsSenderId || "Ilay").trim().slice(0, 11);
-  const user = (siteConfig.smsApiUser || "").trim();
-  const key = (siteConfig.smsApiKey || "").trim();
-  const provider = siteConfig.smsProvider || "textme";
-
-  if (!toLocal || !key) return { ok: false, reason: "חסר מפתח API בהגדרות" };
-
+  if (!toLocal) return { ok: false, reason: "מספר טלפון לא תקין" };
   try {
-    if (provider === "textme") {
-      const xmlBody = `<?xml version="1.0" encoding="UTF-8"?><sms><user><username>${user}</username></user><source>${sender}</source><destinations><phone>${toLocal}</phone></destinations><message>${messageText}</message></sms>`;
-      const headers = { "Content-Type": "application/xml", "Authorization": "Bearer " + key };
-      try {
-        const directRes = await fetch("https://my.textme.co.il/api", { method: "POST", headers, body: xmlBody });
-        if (directRes.ok) return { ok: true, reason: "נמסר (TextMe)" };
-      } catch (_) {}
-      const proxyRes = await fetch("https://corsproxy.io/?https://my.textme.co.il/api", { method: "POST", headers, body: xmlBody });
-      return { ok: proxyRes.ok, reason: proxyRes.ok ? "נמסר (TextMe)" : "שגיאת אימות TextMe" };
-    } else if (provider === "clicksend") {
-      const res = await fetch("https://rest.clicksend.com/v3/sms/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": "Basic " + btoa(`${user}:${key}`) },
-        body: JSON.stringify({ messages: [{ source: "javascript", from: sender, body: messageText, to: toE164 }] })
-      });
-      return { ok: res.ok, reason: res.ok ? "נמסר (ClickSend)" : "ClickSend Error" };
-    } else if (provider === "twilio") {
-      const formBody = new URLSearchParams({ To: toE164, From: sender, Body: messageText });
-      const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(user)}/Messages.json`, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded", "Authorization": "Basic " + btoa(`${user}:${key}`) },
-        body: formBody.toString()
-      });
-      return { ok: res.ok, reason: res.ok ? "נמסר (Twilio)" : "Twilio Error" };
-    }
+    const res = await fetch("/api/send-sms", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ to: toLocal, message: String(messageText || ""), category })
+    });
+    const data = await res.json().catch(() => ({}));
+    return { ok: res.ok && data.ok === true, reason: data.reason || (res.ok ? "נשלח" : `שגיאת שרת (${res.status})`) };
   } catch (err) {
-    return { ok: false, reason: err.message || "Network Error" };
+    return { ok: false, reason: err.message || "אין חיבור לשרת" };
   }
-  return { ok: false, reason: "ספק לא נתמך" };
+}
+
+async function checkSmsServerStatus() {
+  try {
+    const res = await fetch("/api/send-sms", { method: "GET" });
+    return await res.json();
+  } catch (_) {
+    return { configured: false, reason: "פונקציית השרת לא זמינה (בהרצה מקומית בלי vercel dev זה צפוי)" };
+  }
 }
 
 async function sendTrackedSms(toPhoneRaw, recipientName, messageText, category = "booking", apptId = null, channel = "sms") {
@@ -287,7 +303,7 @@ async function sendTrackedSms(toPhoneRaw, recipientName, messageText, category =
   let result = { ok: true, reason: "נשלח ב-WhatsApp" };
 
   if (channel === "sms") {
-    result = await executeProviderSms(cleanPhone, messageText);
+    result = await executeProviderSms(cleanPhone, messageText, category);
   }
 
   const logEntry = {
@@ -337,7 +353,7 @@ function logIncomingClientMessage(phone, name, text, category = "incoming", appt
 async function retryFailedSmsLog(logId) {
   const item = smsLogs.find(l => l.id === logId);
   if (!item) return false;
-  const res = await executeProviderSms(item.phone, item.message);
+  const res = await executeProviderSms(item.phone, item.message, item.category);
   item.status = res.ok ? "sent" : "failed";
   item.reason = res.reason;
   item.time = new Date().toLocaleString("he-IL");
@@ -457,7 +473,7 @@ async function checkAndSendUpcomingReminders(forceAllPending = false) {
   const hoursBefore = Number(siteConfig.reminderHoursBefore) || 3;
   const windowMs = hoursBefore * 60 * 60 * 1000;
   const now = Date.now();
-  const publicUrl = `${window.location.origin}/ilay.html#personal-area`;
+  const publicUrl = `${window.location.origin}/#personal-area`;
   let sentCount = 0;
 
   for (const appt of appointments) {
@@ -484,20 +500,34 @@ async function checkAndSendUpcomingReminders(forceAllPending = false) {
 
 // --- סנכרון דו-כיווני מהיר (<3 שניות) ---
 const mqttClients = [];
-let lastStateTs = Number(localStorage.getItem("ilay_state_ts") || 0);
+let lastStateTs = Number(localStorage.getItem(SK("ilay_state_ts")) || 0);
+// "עידן נתונים": אחרי איפוס עולה, וכל מצב ישן (ממכשיר שעוד מחזיק נתונים מלפני האיפוס) נדחה
+let dataEpoch = Number(localStorage.getItem(SK("ilay_data_epoch")) || 0);
+
+function resetMainCalendar(opts = {}) {
+  appointments = [];
+  smsLogs = [];
+  adminNotifications = [];
+  if (opts.clearClients) registeredUsers = [];
+  dataEpoch = Date.now();
+  localStorage.setItem(SK("ilay_data_epoch"), String(dataEpoch));
+  broadcastCloudState();
+  if (typeof window.onCoreDataUpdated === "function") window.onCoreDataUpdated();
+}
 let lastPortfolioTs = Number(localStorage.getItem("ilay_portfolio_ts") || 0);
 const batchMetaMap = {};
 const batchChunksMap = {};
-const localChannel = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("ilay_barbershop_fast_sync") : null;
+const localChannel = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel(SK("ilay_barbershop_fast_sync")) : null;
 
 function broadcastCloudState(extraTopic = null, extraPayload = null) {
   const now = Date.now();
   lastStateTs = now;
-  localStorage.setItem("ilay_state_ts", String(now));
+  localStorage.setItem(SK("ilay_state_ts"), String(now));
   saveAllStateLocally();
 
   const stateObj = {
     updatedAt: now,
+    dataEpoch,
     siteConfig,
     services: SERVICES,
     weeklySchedule,
@@ -567,10 +597,19 @@ function tryAssemblePortfolioBatch(batchId) {
 }
 
 function applyIncomingState(data) {
-  if (!data || !data.updatedAt || data.updatedAt <= lastStateTs) return;
+  if (!data || !data.updatedAt) return;
+  const incomingEpoch = Number(data.dataEpoch) || 0;
+  if (incomingEpoch < dataEpoch) return; // נתונים מלפני איפוס
+  if (incomingEpoch > dataEpoch) {
+    dataEpoch = incomingEpoch;
+    localStorage.setItem(SK("ilay_data_epoch"), String(dataEpoch));
+  } else if (data.updatedAt <= lastStateTs) return;
   lastStateTs = data.updatedAt;
-  localStorage.setItem("ilay_state_ts", String(lastStateTs));
-  if (data.siteConfig) siteConfig = { ...siteConfig, ...data.siteConfig };
+  localStorage.setItem(SK("ilay_state_ts"), String(lastStateTs));
+  if (data.siteConfig) {
+    const { smsApiKey, smsApiUser, smsProvider, smsSenderId, ...safeCfg } = data.siteConfig;
+    siteConfig = { ...siteConfig, ...safeCfg };
+  }
   if (data.services) SERVICES = data.services;
   if (data.weeklySchedule) weeklySchedule = data.weeklySchedule;
   if (Array.isArray(data.appointments)) appointments = data.appointments;
@@ -600,13 +639,14 @@ async function initCloudSyncEngine() {
   }
 
   window.addEventListener("storage", async () => {
-    siteConfig = JSON.parse(localStorage.getItem("ilay_site_cfg") || JSON.stringify(siteConfig));
-    SERVICES = JSON.parse(localStorage.getItem("ilay_services_v2") || JSON.stringify(SERVICES));
-    weeklySchedule = JSON.parse(localStorage.getItem("ilay_weekly_hours") || JSON.stringify(weeklySchedule));
-    appointments = JSON.parse(localStorage.getItem("ilay_appointments_clean_v1") || "[]");
-    registeredUsers = JSON.parse(localStorage.getItem("ilay_registered_users_v1") || "[]");
-    smsLogs = JSON.parse(localStorage.getItem("ilay_sms_logs_v1") || "[]");
-    adminNotifications = JSON.parse(localStorage.getItem("ilay_admin_notifs_v1") || "[]");
+    siteConfig = JSON.parse(localStorage.getItem(SK("ilay_site_cfg")) || JSON.stringify(siteConfig));
+    SERVICES = JSON.parse(localStorage.getItem(SK("ilay_services_v2")) || JSON.stringify(SERVICES));
+    weeklySchedule = JSON.parse(localStorage.getItem(SK("ilay_weekly_hours")) || JSON.stringify(weeklySchedule));
+    appointments = JSON.parse(localStorage.getItem(SK("ilay_appointments_clean_v1")) || "[]");
+    registeredUsers = JSON.parse(localStorage.getItem(SK("ilay_registered_users_v1")) || "[]");
+    smsLogs = JSON.parse(localStorage.getItem(SK("ilay_sms_logs_v1")) || "[]");
+    adminNotifications = JSON.parse(localStorage.getItem(SK("ilay_admin_notifs_v1")) || "[]");
+    dataEpoch = Number(localStorage.getItem(SK("ilay_data_epoch")) || 0);
     const savedP = await loadPortfolioFromDB();
     if (savedP && savedP.length) portfolioList = savedP;
     if (typeof window.onCoreDataUpdated === "function") window.onCoreDataUpdated();

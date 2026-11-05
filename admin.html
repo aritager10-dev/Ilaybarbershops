@@ -193,19 +193,29 @@
       </div>
 
       <div class="hub-card">
-        <h3 style="font-size:1.02rem; font-weight:900; color:var(--gold-bright); margin-bottom:10px;">⚙️ הגדרות TextMe API, מכסת חבילה ותזכורת אוטומטית</h3>
+        <h3 style="font-size:1.02rem; font-weight:900; color:var(--gold-bright); margin-bottom:10px;">הגדרות SMS ותזכורות</h3>
+        <div id="smsServerStatus" style="font-size:0.85rem; padding:10px 12px; border-radius:8px; background:rgba(148,163,184,0.12); margin-bottom:10px;">בודק חיבור לספק SMS…</div>
+        <p style="font-size:0.76rem; color:#94a3b8; margin-bottom:10px;">פרטי הספק (משתמש, מפתח API, שם שולח) מוגדרים ב-Vercel ← Settings ← Environment Variables, ולא כאן, כדי שלא ייחשפו לגולשים.</p>
         <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(165px, 1fr)); gap:10px;">
-          <div><label style="font-size:0.74rem; color:#94a3b8;">ספק SMS:</label><select id="smsProviderSelect" class="input-field"><option value="textme">TextMe (ישראל)</option><option value="clicksend">ClickSend</option><option value="twilio">Twilio</option></select></div>
-          <div><label style="font-size:0.74rem; color:#94a3b8;">שם שולח (עד 11 תווים):</label><input type="text" id="smsSenderIdInput" class="input-field" value="Ilay" /></div>
-          <div><label style="font-size:0.74rem; color:#94a3b8;">שם משתמש ב-TextMe:</label><input type="text" id="smsApiUserInput" class="input-field" placeholder="Username / Email" /></div>
-          <div><label style="font-size:0.74rem; color:#94a3b8;">מפתח API Token:</label><input type="password" id="smsApiKeyInput" class="input-field" placeholder="Bearer Token" /></div>
           <div><label style="font-size:0.74rem; color:#94a3b8;">מכסת הודעות בחבילה:</label><input type="number" id="smsQuotaInput" class="input-field" value="1000" /></div>
           <div><label style="font-size:0.74rem; color:#94a3b8;">תזכורת (שעות לפני תור):</label><input type="number" id="reminderHoursInput" class="input-field" value="3" min="1" max="48" /></div>
         </div>
         <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:8px;">
-          <button type="button" class="btn-gold" style="flex:1;" onclick="saveSmsSettings()">💾 שמור הגדרות SMS</button>
-          <button type="button" class="btn-outline" onclick="sendTrackedSms(siteConfig.barberPhone, 'בדיקה', 'בדיקת מערכת SMS מאת Ilay Barbershop', 'booking').then(ok=>showToast(ok?'נשלח בהצלחה!':'נכשל - בדוק מפתחות'))">📨 שלח SMS בדיקה</button>
+          <button type="button" class="btn-gold" style="flex:1;" onclick="saveSmsSettings()">שמירה</button>
+          <button type="button" class="btn-outline" onclick="sendTestSms()">שליחת SMS בדיקה לטלפון של הספר</button>
         </div>
+      </div>
+
+      <div class="hub-card" style="margin-top:14px;">
+        <h3 style="font-size:1.02rem; font-weight:900; color:var(--gold-bright); margin-bottom:6px;">בדיקות ואיפוס נתונים</h3>
+        <p id="testModeState" style="font-size:0.82rem; color:#94a3b8; margin-bottom:10px;"></p>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button type="button" class="btn-outline" id="btnToggleTestMode" onclick="setTestMode(!TEST_MODE)"></button>
+          <button type="button" class="btn-outline" style="border-color:#f87171; color:#fca5a5;" onclick="confirmResetCalendar()">איפוס היומן והסטטיסטיקה</button>
+        </div>
+        <label style="display:flex; gap:6px; align-items:center; font-size:0.8rem; color:#94a3b8; margin-top:8px;">
+          <input type="checkbox" id="resetClientsToo" /> למחוק גם את רשימת הלקוחות הרשומים
+        </label>
       </div>
     </div>
 
@@ -466,7 +476,7 @@
       pushRealtimeNotification("moved", "תור הוזז ביומן", `התור של ${appt.name} הועבר ליום ${DAYS_HEB[newDayIdx]} (${appt.dateStr}) בשעה ${newTime}.`, appt.id, newDayIdx);
       renderAllAdmin();
 
-      const publicUrl = `${window.location.origin}/ilay.html#personal-area`;
+      const publicUrl = `${window.location.origin}/#personal-area`;
       const msg = `אהלן ${appt.name}, עדכון מ-Ilay Barbershop: התור שלך הוזז ליום ${DAYS_HEB[newDayIdx]} (${appt.dateStr}) בשעה ${newTime}. לאישור הגעה: ${publicUrl}`;
       await sendTrackedSms(appt.phone, appt.name, msg, "move", appt.id, "sms");
       showToast(`התור של ${appt.name} הוזז ונשלח SMS!`);
@@ -887,11 +897,52 @@
       showToast(`נשלחו ${okCount} מתוך ${registeredUsers.length} הודעות תפוצה!`);
     }
 
+    function renderTestModeCard() {
+      const st = document.getElementById("testModeState");
+      const btn = document.getElementById("btnToggleTestMode");
+      if (!st || !btn) return;
+      st.textContent = TEST_MODE
+        ? "אתה עכשיו במצב בדיקות. כל מה שתעשה כאן (תורים, הודעות, סטטיסטיקה) נשמר בנפרד ולא נוגע ביומן האמיתי. כדי לבדוק גם את צד הלקוח, פתח את האתר עם ?test=1 בסוף הכתובת."
+        : "היומן האמיתי. לבדיקות, עבור למצב בדיקות: הנתונים שם נפרדים ולא ישפיעו על הסטטיסטיקה.";
+      btn.textContent = TEST_MODE ? "חזרה ליומן האמיתי" : "מעבר למצב בדיקות";
+    }
+
+    function confirmResetCalendar() {
+      const where = TEST_MODE ? "של מצב הבדיקות" : "האמיתי";
+      const clearClients = document.getElementById("resetClientsToo").checked;
+      const msg = `למחוק את כל התורים, היסטוריית ההודעות וההתראות ביומן ${where}?` + (clearClients ? "\nגם רשימת הלקוחות תימחק." : "") + "\nהמחירון, שעות הפעילות ותיק העבודות נשארים. אי אפשר לבטל.";
+      if (!confirm(msg)) return;
+      if (!TEST_MODE && prompt('כדי לאשר, הקלד: איפוס') !== "איפוס") { showToast("האיפוס בוטל"); return; }
+      resetMainCalendar({ clearClients });
+      renderAllAdmin();
+      showToast("היומן אופס. מתחילים מאפס.");
+    }
+
+    let smsStatusChecked = false;
+    async function refreshSmsServerStatus(force = false) {
+      const box = document.getElementById("smsServerStatus");
+      if (!box || (smsStatusChecked && !force)) return;
+      smsStatusChecked = true;
+      const st = await checkSmsServerStatus();
+      if (st && st.configured) {
+        box.style.background = "rgba(16,185,129,0.14)";
+        box.textContent = `מחובר לספק: ${st.provider} • שם שולח: ${st.sender}`;
+      } else {
+        box.style.background = "rgba(248,113,113,0.14)";
+        box.textContent = "ספק SMS לא מוגדר עדיין. " + ((st && st.reason) || "צריך להוסיף משתני סביבה ב-Vercel.");
+      }
+    }
+
+    async function sendTestSms() {
+      const phone = siteConfig.barberPhone;
+      if (!phone) { showToast("אין מספר טלפון של הספר בהגדרות"); return; }
+      showToast("שולח…");
+      const ok = await sendTrackedSms(phone, "בדיקה", "בדיקת SMS מ-Ilay Barbershop. אם קיבלת את זה, ההודעות עובדות.", "test");
+      const last = smsLogs[0];
+      showToast(ok ? "נשלח! בדוק את הטלפון." : "נכשל: " + (last && last.reason ? last.reason : "בדוק הגדרות ב-Vercel"));
+    }
+
     function saveSmsSettings() {
-      siteConfig.smsProvider = document.getElementById("smsProviderSelect").value;
-      siteConfig.smsSenderId = document.getElementById("smsSenderIdInput").value.trim() || "Ilay";
-      siteConfig.smsApiUser = document.getElementById("smsApiUserInput").value.trim();
-      siteConfig.smsApiKey = document.getElementById("smsApiKeyInput").value.trim();
       siteConfig.smsPackageQuota = Math.max(1, Number(document.getElementById("smsQuotaInput").value) || 1000);
       siteConfig.reminderHoursBefore = Math.max(1, Number(document.getElementById("reminderHoursInput").value) || 3);
       broadcastCloudState();
@@ -935,7 +986,7 @@
       document.getElementById("manualAddModal").classList.remove("open");
       renderAllAdmin();
 
-      const publicUrl = `${window.location.origin}/ilay.html#personal-area`;
+      const publicUrl = `${window.location.origin}/#personal-area`;
       await sendTrackedSms(phone, name, `היי ${name}, נקבע לך תור ב-Ilay Barbershop ליום ${DAYS_HEB[dayIdx]} (${dateStr}) בשעה ${time}. לאישור הגעה: ${publicUrl}`, "booking", newAppt.id, "sms");
       showToast("התור שובץ ונשלחה הודעת SMS ללקוח!");
     }
@@ -984,10 +1035,8 @@
     }
 
     function renderEditors() {
-      document.getElementById("smsProviderSelect").value = siteConfig.smsProvider || "textme";
-      document.getElementById("smsSenderIdInput").value = siteConfig.smsSenderId || "Ilay";
-      document.getElementById("smsApiUserInput").value = siteConfig.smsApiUser || "";
-      document.getElementById("smsApiKeyInput").value = siteConfig.smsApiKey || "";
+      refreshSmsServerStatus();
+      renderTestModeCard();
       document.getElementById("smsQuotaInput").value = siteConfig.smsPackageQuota || 1000;
       document.getElementById("reminderHoursInput").value = siteConfig.reminderHoursBefore || 3;
       document.getElementById("editSiteTitle").value = siteConfig.title;

@@ -2,308 +2,327 @@
 <html lang="he" dir="rtl">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <meta name="theme-color" content="#07090e" />
-  <title>Ilay Barbershop | המספרה של עיליי</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#f5f2ec" />
+  <meta name="description" content="Ilay Barbershop – עילי בן הרוש, ספר בגני תקווה. מחירון וקביעת תור אונליין." />
+  <title>Ilay Barbershop | עילי בן הרוש, גני תקווה</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;800;900&family=Cinzel:wght@600;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&family=Frank+Ruhl+Libre:wght@500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css" />
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.3.4/mqtt.min.js"></script>
 </head>
-<body>
+<body class="site">
 
-  <!-- מסך פתיחה ממותג -->
-  <div class="welcome-splash" id="welcomeSplash" onclick="this.classList.add('hide')">
-    <div class="splash-crest">
-      <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#fae19c" stroke-width="1.8"><circle cx="6" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><line x1="20" y1="4" x2="8.12" y2="15.88"></line><line x1="14.47" y1="14.48" x2="20" y2="20"></line></svg>
+  <a class="s-skip" href="#sec-services">דילוג לתוכן</a>
+
+  <!-- נגישות -->
+  <button type="button" class="s-acc-btn" onclick="document.getElementById('accSidePanel').classList.toggle('open')" aria-label="תפריט נגישות" aria-controls="accSidePanel">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="4.5" r="1.6" fill="currentColor" stroke="none"/><path d="M5 8.5l7 1.5 7-1.5M12 10v4.5M12 14.5l-3 6M12 14.5l3 6"/></svg>
+  </button>
+  <div class="acc-side-panel" id="accSidePanel" role="dialog" aria-label="כלי נגישות">
+    <div class="acc-head">
+      <strong>כלי נגישות</strong>
+      <button type="button" class="s-icon-btn" aria-label="סגירה" onclick="document.getElementById('accSidePanel').classList.remove('open')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
     </div>
-    <div class="splash-badge">ILAY BARBERSHOP • STUDIO</div>
-    <h1 class="splash-welcome-heb">ברוכים הבאים למספרה של עיליי</h1>
-    <div class="splash-sub">עילי בן הרוש • דיוק, סטייל וחוויית תספורת ברמה הגבוהה ביותר</div>
-    <div class="splash-loader-track"><div class="splash-loader-bar"></div></div>
+    <div class="acc-grid">
+      <button type="button" class="s-chip" onclick="document.body.classList.toggle('acc-large-text'); this.classList.toggle('active')">הגדלת טקסט</button>
+      <button type="button" class="s-chip" onclick="document.body.classList.toggle('acc-high-contrast'); this.classList.toggle('active')">ניגודיות גבוהה</button>
+      <button type="button" class="s-chip" onclick="document.body.classList.toggle('acc-grayscale'); this.classList.toggle('active')">גווני אפור</button>
+      <button type="button" class="s-chip" onclick="document.body.classList.toggle('acc-highlight-links'); this.classList.toggle('active')">הדגשת קישורים</button>
+      <button type="button" class="s-chip" onclick="document.body.classList.toggle('acc-readable-font'); this.classList.toggle('active')">גופן קריא</button>
+      <button type="button" class="s-chip" onclick="document.body.classList.toggle('acc-no-anim'); this.classList.toggle('active')">עצירת תנועה</button>
+    </div>
+    <button type="button" class="s-link" onclick="document.getElementById('accSidePanel').classList.remove('open'); openLegalModal();">תקנון והצהרת נגישות</button>
   </div>
 
-  <div class="barber-pole-strip"></div>
-  <canvas id="bg-canvas"></canvas>
-
-  <!-- כפתור נגישות צף -->
-  <button type="button" class="floating-acc-btn" onclick="document.getElementById('accSidePanel').classList.toggle('open')" aria-label="תפריט נגישות">♿</button>
-  <div class="acc-side-panel" id="accSidePanel">
-    <div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:8px;">
-      <strong style="color:var(--gold-bright); font-size:0.88rem;">♿ כלי נגישות (ת"י 5568)</strong>
-      <button type="button" style="background:none; border:none; color:#fff; cursor:pointer;" onclick="document.getElementById('accSidePanel').classList.remove('open')">✕</button>
-    </div>
-    <div class="acc-grid-btns">
-      <button type="button" class="acc-opt-btn" onclick="document.body.classList.toggle('acc-large-text'); this.classList.toggle('active')">הגדלת טקסט</button>
-      <button type="button" class="acc-opt-btn" onclick="document.body.classList.toggle('acc-high-contrast'); this.classList.toggle('active')">ניגודיות גבוהה</button>
-      <button type="button" class="acc-opt-btn" onclick="document.body.classList.toggle('acc-grayscale'); this.classList.toggle('active')">גווני אפור</button>
-      <button type="button" class="acc-opt-btn" onclick="document.body.classList.toggle('acc-highlight-links'); this.classList.toggle('active')">הדגשת קישורים</button>
-      <button type="button" class="acc-opt-btn" onclick="document.body.classList.toggle('acc-readable-font'); this.classList.toggle('active')">גופן קריא</button>
-      <button type="button" class="acc-opt-btn" onclick="document.body.classList.toggle('acc-no-anim'); this.classList.toggle('active')">עצירת תנועה</button>
-    </div>
-    <button type="button" class="btn-gold-3d" style="width:100%; padding:8px; font-size:0.78rem;" onclick="document.getElementById('accSidePanel').classList.remove('open'); openLegalModal();">תקנון והצהרת נגישות</button>
-  </div>
-
-  <!-- באנר עוגיות -->
+  <!-- עוגיות -->
   <div class="cookie-banner" id="cookieBanner">
-    <div style="font-size:0.8rem; color:#cbd5e1; flex:1;">
-      אתר <strong>Ilay Barbershop</strong> משתמש בעוגיות (Cookies) לשמירת חיבור לאזור האישי (ניתוק אוטומטי לאחר 60 ימי אי-פעילות) וניהול תורים בכפוף ל<button type="button" style="background:none; border:none; color:var(--gold-bright); text-decoration:underline; cursor:pointer;" onclick="openLegalModal()">תקנון ומדיניות הפרטיות</button>.
-    </div>
-    <button type="button" class="btn-gold-3d" style="padding:8px 16px; font-size:0.8rem;" onclick="localStorage.setItem('ilay_cookie_ok','1'); document.getElementById('cookieBanner').classList.remove('show');">אני מאשר/ת</button>
+    <p>
+      אתר <strong>Ilay Barbershop</strong> משתמש בעוגיות (Cookies) לשמירת חיבור לאזור האישי (ניתוק אוטומטי לאחר 60 ימי אי-פעילות) וניהול תורים בכפוף ל<button type="button" class="s-link" onclick="openLegalModal()">תקנון ומדיניות הפרטיות</button>.
+    </p>
+    <button type="button" class="s-btn s-btn--primary s-btn--sm" onclick="localStorage.setItem('ilay_cookie_ok','1'); document.getElementById('cookieBanner').classList.remove('show');">אישור</button>
   </div>
 
-  <!-- סרגל עליון למובייל -->
-  <header class="mobile-top-bar">
-    <div style="display:flex; align-items:center; gap:8px; cursor:pointer;" onclick="switchCategory('all')">
-      <strong style="font-family:'Cinzel',serif; font-size:0.95rem; color:#fff;">ILAY BARBERSHOP</strong>
-    </div>
-    <div style="display:flex; gap:7px;">
-      <button type="button" class="btn-glass" style="padding:6px 11px; font-size:0.76rem;" id="mobPersonalBtn" onclick="openPersonalAreaOrAuth()">אזור אישי</button>
-      <button type="button" class="btn-gold-3d" style="padding:6px 12px; font-size:0.78rem;" onclick="openBookingModal(0)">קבע תור</button>
+  <!-- כותרת -->
+  <header class="s-header">
+    <div class="s-wrap s-header__row">
+      <button type="button" class="s-brand" onclick="switchCategory('all')" aria-label="Ilay Barbershop – לעמוד הראשי">
+        <svg class="s-brand__pole" width="10" height="26" viewBox="0 0 10 26" aria-hidden="true"><defs><clipPath id="poleClip"><rect x="0" y="0" width="10" height="26" rx="5"/></clipPath></defs><g clip-path="url(#poleClip)"><rect width="10" height="26" fill="#fffdf9"/><path d="M-6 2l16-8M-6 8l16-8M-6 14l16-8M-6 20l16-8M-6 26l16-8M-6 32l16-8" stroke="#8f2d1c" stroke-width="2.6"/></g><rect x="0.5" y="0.5" width="9" height="25" rx="4.5" fill="none" stroke="#1d1c1a"/></svg>
+        <span class="s-brand__name">Ilay Barbershop</span>
+      </button>
+
+      <nav class="s-nav" aria-label="ניווט ראשי">
+        <button type="button" class="side-btn active" id="nav-all" onclick="switchCategory('all')">ראשי</button>
+        <button type="button" class="side-btn" id="nav-services" onclick="switchCategory('services')">מחירון<span class="s-count" id="sideServicesCount">4</span></button>
+        <button type="button" class="side-btn" id="nav-portfolio" onclick="switchCategory('portfolio')">עבודות<span class="s-count" id="sidePortfolioCount">6</span></button>
+        <button type="button" class="side-btn" id="nav-personal" onclick="openPersonalAreaOrAuth()">האזור האישי<span class="s-count" id="sideMyApptsCount">0</span></button>
+      </nav>
+
+      <div class="s-header__actions">
+        <button type="button" class="s-btn s-btn--ghost s-btn--sm" id="mobPersonalBtn" onclick="openPersonalAreaOrAuth()">אזור אישי</button>
+        <button type="button" class="s-btn s-btn--primary s-btn--sm s-header__book" onclick="openBookingModal(0)">קביעת תור</button>
+      </div>
+
+      <!-- נתוני חשבון לשימוש הסקריפט (לא מוצג) -->
+      <div class="s-hidden" aria-hidden="true">
+        <span id="sidebarUserStatus">אזור אישי ללקוחות</span>
+        <span id="sidebarUserName"></span>
+        <button type="button" id="sidebarAuthBtn" tabindex="-1" onclick="openPersonalAreaOrAuth()">כניסה / הרשמה לאזור האישי</button>
+      </div>
     </div>
   </header>
 
-  <!-- סרגל צד למחשב -->
-  <aside class="left-sidebar">
-    <div>
-      <div class="brand-card">
-        <div>
-          <div class="brand-title">ILAY BARBERSHOP</div>
-          <div class="brand-sub">המספרה של עיליי</div>
-        </div>
-      </div>
-
-      <div class="club-member-card">
-        <div style="font-size:0.75rem; color:var(--text-muted);" id="sidebarUserStatus">אזור אישי ללקוחות</div>
-        <div style="font-size:0.95rem; font-weight:900; color:var(--gold-bright); margin:4px 0 8px; display:none;" id="sidebarUserName"></div>
-        <button type="button" class="btn-glass" id="sidebarAuthBtn" style="width:100%; padding:9px; font-size:0.82rem;" onclick="openPersonalAreaOrAuth()">כניסה / הרשמה לאזור האישי</button>
-      </div>
-
-      <nav class="sidebar-nav">
-        <button type="button" class="side-btn active" id="nav-all" onclick="switchCategory('all')"><span>דף הבית (הכל)</span><span>✦</span></button>
-        <button type="button" class="side-btn cta-side" onclick="openBookingModal(0)"><span>קביעת תור חדש</span><span>←</span></button>
-        <button type="button" class="side-btn" id="nav-personal" onclick="openPersonalAreaOrAuth()"><span>👤 האזור האישי שלי</span><span id="sideMyApptsCount">0</span></button>
-        <button type="button" class="side-btn" id="nav-services" onclick="switchCategory('services')"><span>סוגי תספורות ומחירון</span><span id="sideServicesCount">4</span></button>
-        <button type="button" class="side-btn" id="nav-portfolio" onclick="switchCategory('portfolio')"><span>תיק העבודות</span><span id="sidePortfolioCount">6</span></button>
-      </nav>
-    </div>
-    <div style="font-size:0.73rem; color:var(--text-muted); text-align:center; padding-top:10px; border-top:1px solid rgba(255,255,255,0.08);">
-      <button type="button" style="background:none; border:none; color:#cbd5e1; text-decoration:underline; cursor:pointer;" onclick="openLegalModal()">תקנון, פרטיות והצהרת נגישות</button>
-      <div style="margin-top:4px;">Ilay Barbershop © 2026</div>
-    </div>
-  </aside>
-
-  <!-- דוק תחתון למובייל -->
-  <nav class="mobile-bottom-dock">
-    <button type="button" class="dock-item active" id="mob-nav-all" onclick="switchCategory('all')"><span>ראשי</span></button>
-    <button type="button" class="dock-item" id="mob-nav-services" onclick="switchCategory('services')"><span>מחירון</span></button>
-    <button type="button" class="dock-item dock-cta" onclick="openBookingModal(0)"><span>+ קבע תור</span></button>
-    <button type="button" class="dock-item" id="mob-nav-portfolio" onclick="switchCategory('portfolio')"><span>עבודות</span></button>
-    <button type="button" class="dock-item" id="mob-nav-personal" onclick="openPersonalAreaOrAuth()"><span>אזור אישי</span></button>
+  <!-- ניווט תחתון למובייל -->
+  <nav class="s-dock" aria-label="ניווט מהיר">
+    <button type="button" class="dock-item active" id="mob-nav-all" onclick="switchCategory('all')">ראשי</button>
+    <button type="button" class="dock-item" id="mob-nav-services" onclick="switchCategory('services')">מחירון</button>
+    <button type="button" class="dock-item dock-cta" onclick="openBookingModal(0)">קביעת תור</button>
+    <button type="button" class="dock-item" id="mob-nav-portfolio" onclick="switchCategory('portfolio')">עבודות</button>
+    <button type="button" class="dock-item" id="mob-nav-personal" onclick="openPersonalAreaOrAuth()">אזור אישי</button>
   </nav>
 
-  <main class="main-wrapper">
-    <div class="main-container">
+  <main class="s-main">
 
-      <!-- אזור פתיחה -->
-      <section id="sec-hero" class="hero-showcase">
-        <div style="display:inline-flex; gap:8px; padding:5px 14px; border-radius:999px; background:rgba(212,175,55,0.15); border:1px solid var(--border-gold); color:var(--gold-bright); font-size:0.8rem; font-weight:800; margin-bottom:12px;">
-          ברוכים הבאים למספרה של עיליי
-        </div>
-        <h1 class="hero-brand-title" id="heroMainTitle">ILAY BARBERSHOP</h1>
-        <div style="font-size:clamp(1.1rem, 2.3vw, 1.55rem); font-weight:900; margin-bottom:10px;" id="heroMainSubtitle">תספורת נקייה, אווירה טובה וסטייל שיושב בול.</div>
-        <div style="display:inline-block; padding:6px 14px; border-radius:12px; background:rgba(255,255,255,0.04); border:1px solid var(--border-gold); color:var(--gold-bright); font-size:0.85rem; font-weight:700; margin-bottom:14px;">
-          📍 דרך הים 11, קומה 10 דירה 36, גני תקווה
-        </div>
-        <p style="max-width:650px; margin:0 auto; color:#cbd5e1; font-size:0.94rem; line-height:1.68;">
-          נעים להכיר, אני <strong>עילי בן הרוש</strong> – מעל שנתיים כספר בתחום ובוגר <strong>מעל 5 התמחויות אצל הספרים המובילים בישראל</strong>. באזור האישי שלך באתר תוכל לקבוע תור, לאשר הגעה, לשנות מועד או לבטל תור בסנכרון חי מול היומן.
-        </p>
-
-        <div class="hero-stats-row">
-          <div class="stat-glass-box"><strong>שנתיים+</strong><span>ניסיון בתחום</span></div>
-          <div class="stat-glass-box"><strong>+5 התמחויות</strong><span>אצל גדולי הספרים</span></div>
-          <div class="stat-glass-box"><strong id="heroPriceRange">70₪ – 100₪</strong><span>מחירים הוגנים</span></div>
-        </div>
-
-        <div style="display:flex; justify-content:center; gap:10px; flex-wrap:wrap;">
-          <button type="button" class="btn-gold-3d" onclick="openBookingModal(0)">קבע תור עכשיו</button>
-          <button type="button" class="btn-glass" id="heroPersonalBtn" onclick="openPersonalAreaOrAuth()">👤 כניסה לאזור האישי</button>
-        </div>
-      </section>
-
-      <!-- אזור אישי ללקוח (מסונכרן דו-כיוונית עם יומן הניהול) -->
-      <section id="sec-personal" class="glass-section" style="display:none;">
-        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid rgba(255,255,255,0.08);">
-          <div>
-            <span style="font-size:0.75rem; color:var(--gold); font-weight:800;">CLIENT PERSONAL AREA</span>
-            <h2 style="font-size:1.5rem; font-weight:900;" id="personalWelcomeTitle">האזור האישי שלי</h2>
+    <!-- פתיחה -->
+    <section id="sec-hero" class="s-hero">
+      <div class="s-wrap s-hero__grid">
+        <div class="s-hero__text">
+          <p class="s-eyebrow">גני תקווה · בתיאום מראש</p>
+          <h1 class="s-hero__title" id="heroMainTitle">ILAY BARBERSHOP</h1>
+          <p class="s-hero__lead" id="heroMainSubtitle">תספורת נקייה, אווירה טובה וסטייל שיושב בול.</p>
+          <p class="s-hero__about">
+            אני עילי בן הרוש, ספר כבר יותר משנתיים. עברתי חמש השתלמויות אצל ספרים מובילים בארץ, ואני עובד לבד – כל תספורת אצלי, מההתחלה ועד הסוף.
+          </p>
+          <div class="s-hero__actions">
+            <button type="button" class="s-btn s-btn--primary" onclick="openBookingModal(0)">קביעת תור</button>
+            <button type="button" class="s-btn s-btn--ghost" id="heroPersonalBtn" onclick="openPersonalAreaOrAuth()">כניסה לאזור האישי</button>
           </div>
-          <div style="display:flex; gap:8px;">
-            <button type="button" class="btn-gold-3d" style="padding:9px 16px; font-size:0.84rem;" onclick="openBookingModal(0)">+ קבע תור חדש</button>
-            <button type="button" class="btn-glass" style="padding:9px 14px; font-size:0.82rem; border-color:#ef4444; color:#fca5a5;" onclick="logoutClientUser()">התנתק</button>
+        </div>
+
+        <dl class="s-facts">
+          <div class="s-facts__row">
+            <dt>מחיר</dt>
+            <dd><span id="heroPriceRange" dir="ltr">70–100 ₪</span></dd>
+          </div>
+          <div class="s-facts__row">
+            <dt>כתובת</dt>
+            <dd>דרך הים 11, קומה 10, דירה 36<br />גני תקווה</dd>
+          </div>
+          <div class="s-facts__row">
+            <dt>תורים</dt>
+            <dd>קובעים כאן באתר. שינוי או ביטול – מהאזור האישי.</dd>
+          </div>
+        </dl>
+      </div>
+    </section>
+
+    <!-- אזור אישי -->
+    <section id="sec-personal" class="s-section s-personal" style="display:none;">
+      <div class="s-wrap">
+        <div class="s-personal__head">
+          <div>
+            <p class="s-eyebrow">אזור אישי</p>
+            <h2 class="s-h2" id="personalWelcomeTitle">האזור האישי שלי</h2>
+          </div>
+          <div class="s-personal__actions">
+            <button type="button" class="s-btn s-btn--primary s-btn--sm" onclick="openBookingModal(0)">תור חדש</button>
+            <button type="button" class="s-btn s-btn--ghost s-btn--sm" onclick="logoutClientUser()">התנתקות</button>
           </div>
         </div>
 
         <div class="personal-area-grid">
           <div>
-            <h3 style="font-size:1.08rem; font-weight:900; color:var(--gold-bright); margin-bottom:10px;">📅 התורים העתידיים שלי (אישור הגעה / שינוי / ביטול)</h3>
+            <h3 class="s-h3">התורים הקרובים</h3>
             <div id="personalFutureApptsList"></div>
 
-            <h3 style="font-size:1.05rem; font-weight:900; color:#cbd5e1; margin:20px 0 10px;">🕓 היסטוריית תורים קודמים וביטולים</h3>
+            <h3 class="s-h3 s-h3--muted">תורים קודמים</h3>
             <div id="personalPastApptsList"></div>
           </div>
 
-          <div>
-            <div class="hub-card" style="margin-bottom:12px;">
-              <h3 style="font-size:1rem; font-weight:900; color:var(--gold-bright); margin-bottom:8px;">💬 שליחת הודעה או בקשה מהירה לעיליי</h3>
-              <textarea id="clientDirectMsgInput" class="input-field" style="min-height:60px;" placeholder="כתוב כאן הודעה או בקשה לגבי התור שלך..."></textarea>
-              <button type="button" class="btn-gold-3d" style="width:100%; padding:10px;" onclick="sendClientMessageToAdmin()">שלח הודעה למספרה</button>
+          <aside class="s-personal__aside">
+            <div class="hub-card">
+              <h3 class="s-h4">הודעה לעילי</h3>
+              <label class="s-sr" for="clientDirectMsgInput">הודעה</label>
+              <textarea id="clientDirectMsgInput" class="input-field" rows="3" placeholder="למשל: אפשר להקדים בחצי שעה?"></textarea>
+              <button type="button" class="s-btn s-btn--dark s-btn--block" onclick="sendClientMessageToAdmin()">שליחה</button>
             </div>
 
-            <div class="hub-card" style="margin-bottom:12px;">
-              <h3 style="font-size:1rem; font-weight:900; color:var(--gold-bright); margin-bottom:6px;">📌 מידע חשוב ללקוח</h3>
-              <ul style="font-size:0.84rem; color:#cbd5e1; line-height:1.7; padding-right:18px;">
-                <li><strong>כתובת:</strong> דרך הים 11, קומה 10, דירה 36, גני תקווה.</li>
-                <li><strong>אישור הגעה:</strong> לחיצה על "אני מאשר הגעה" מעדכנת מיד את היומן של עילי לירוק.</li>
-                <li><strong>סנכרון מיידי:</strong> כל שינוי או ביטול מתעדכן ביומן המספרה תוך פחות מ-3 שניות.</li>
+            <div class="hub-card">
+              <h3 class="s-h4">כדאי לדעת</h3>
+              <ul class="s-notes">
+                <li>הכתובת: דרך הים 11, קומה 10, דירה 36, גני תקווה.</li>
+                <li>אחרי שקבעת, לחיצה על "אישור הגעה" מעדכנת את עילי שאתה מגיע.</li>
+                <li>שינוי או ביטול מתעדכנים אצלו ביומן תוך כמה שניות.</li>
               </ul>
             </div>
 
             <div class="hub-card">
-              <h3 style="font-size:0.95rem; font-weight:900; color:#fff; margin-bottom:4px;">🔐 פרטי החשבון המחובר</h3>
-              <div style="font-size:0.84rem; color:#cbd5e1;">
-                <div><strong>שם מלא:</strong> <span id="personalCardName"></span></div>
-                <div><strong>טלפון נייד:</strong> <span id="personalCardPhone" style="direction:ltr;"></span></div>
-              </div>
+              <h3 class="s-h4">פרטי החשבון</h3>
+              <dl class="s-account">
+                <div><dt>שם</dt><dd id="personalCardName"></dd></div>
+                <div><dt>טלפון</dt><dd id="personalCardPhone" dir="ltr"></dd></div>
+              </dl>
             </div>
-          </div>
+          </aside>
         </div>
-      </section>
+      </div>
+    </section>
 
-      <!-- מחירון תספורות -->
-      <section id="sec-services" class="glass-section">
-        <div style="margin-bottom:16px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.08);">
-          <span style="font-size:0.72rem; color:var(--gold); font-weight:800; letter-spacing:1.5px;">SERVICE MENU</span>
-          <h2 style="font-size:1.55rem; font-weight:900;">סוגי תספורות ומחירון</h2>
-        </div>
-        <div class="services-grid" id="publicServicesGrid"></div>
-      </section>
+    <!-- מחירון -->
+    <section id="sec-services" class="s-section">
+      <div class="s-wrap s-split">
+        <header class="s-split__head">
+          <h2 class="s-h2">מחירון</h2>
+          <p class="s-muted">כל התספורות כוללות גזירות ודירוג. בוחרים שירות וממשיכים לבחירת יום ושעה.</p>
+        </header>
+        <div class="s-menu" id="publicServicesGrid"></div>
+      </div>
+    </section>
 
-      <!-- תיק עבודות -->
-      <section id="sec-portfolio" class="glass-section">
-        <div style="margin-bottom:16px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.08);">
-          <span style="font-size:0.72rem; color:var(--gold); font-weight:800; letter-spacing:1.5px;">PORTFOLIO</span>
-          <h2 style="font-size:1.55rem; font-weight:900;">תיק העבודות של עיליי</h2>
-        </div>
+    <!-- עבודות -->
+    <section id="sec-portfolio" class="s-section">
+      <div class="s-wrap">
+        <header class="s-section__head">
+          <h2 class="s-h2">עבודות אחרונות</h2>
+        </header>
         <div class="portfolio-grid" id="portfolioGrid"></div>
-      </section>
+      </div>
+    </section>
 
-      <footer style="text-align:center; padding:14px 8px; font-size:0.76rem; color:#64748b;">
-        <span>© 2026 Ilay Barbershop • כל הזכויות שמורות</span> •
-        <button type="button" style="background:none; border:none; color:#cbd5e1; text-decoration:underline; cursor:pointer;" onclick="openLegalModal()">תקנון תנאי שימוש, מדיניות פרטיות והצהרת נגישות</button>
-      </footer>
-
-    </div>
+    <footer class="s-footer">
+      <div class="s-wrap s-footer__row">
+        <div>
+          <strong class="s-footer__name">Ilay Barbershop</strong>
+          <p>עילי בן הרוש · דרך הים 11, קומה 10, דירה 36, גני תקווה</p>
+        </div>
+        <div class="s-footer__meta">
+          <button type="button" class="s-link" onclick="openLegalModal()">תקנון, מדיניות פרטיות והצהרת נגישות</button>
+          <span>© 2026 Ilay Barbershop</span>
+        </div>
+      </div>
+    </footer>
   </main>
 
-  <!-- מודאל הרשמה והתחברות -->
+  <!-- הרשמה והתחברות -->
   <div class="modal-backdrop" id="authModal" onclick="if(event.target===this) this.classList.remove('open')">
-    <div class="luxury-modal">
+    <div class="s-sheet" role="dialog" aria-modal="true" aria-labelledby="authTitle">
       <div class="modal-head">
         <div>
-          <div style="font-size:0.74rem; color:var(--gold); font-weight:800;">ILAY BARBERSHOP • PERSONAL AREA</div>
-          <h3 style="font-size:1.15rem; font-weight:900;">כניסה והרשמה לאזור האישי</h3>
+          <p class="s-sheet__kicker">אזור אישי</p>
+          <h3 class="s-sheet__title" id="authTitle">כניסה או הרשמה</h3>
         </div>
-        <button type="button" class="modal-close" onclick="document.getElementById('authModal').classList.remove('open')">✕</button>
+        <button type="button" class="modal-close" aria-label="סגירה" onclick="document.getElementById('authModal').classList.remove('open')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
       </div>
 
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:14px;">
-        <button type="button" class="acc-opt-btn active" id="tabBtnReg" style="padding:10px; font-size:0.86rem;" onclick="switchAuthTab('reg')">הרשמה חדשה</button>
-        <button type="button" class="acc-opt-btn" id="tabBtnLog" style="padding:10px; font-size:0.86rem;" onclick="switchAuthTab('log')">התחברות</button>
+      <p class="s-sheet__note">כדי לקבוע תור צריך חשבון – זה לוקח חצי דקה, ותקבל תזכורת ב-SMS לפני התור.</p>
+
+      <div class="s-tabs" role="tablist">
+        <button type="button" class="s-tab active" id="tabBtnReg" onclick="switchAuthTab('reg')">הרשמה</button>
+        <button type="button" class="s-tab" id="tabBtnLog" onclick="switchAuthTab('log')">כבר רשום? התחברות</button>
       </div>
 
       <div id="regBox">
-        <label style="font-size:0.8rem; font-weight:800; color:#cbd5e1;">שם מלא (ייחודי - לא ניתן לפתוח פעמיים):</label>
-        <input type="text" id="regFullName" class="input-field" maxlength="40" placeholder="לדוגמה: דניאל כהן" />
-        <label style="font-size:0.8rem; font-weight:800; color:#cbd5e1;">מספר טלפון נייד (ייחודי):</label>
-        <input type="tel" id="regPhone" class="input-field" inputmode="numeric" oninput="this.value=this.value.replace(/[^0-9]/g,'')" maxlength="12" placeholder="0500000000" />
-        <label style="font-size:0.8rem; font-weight:800; color:#cbd5e1;">סיסמה אישית:</label>
-        <input type="password" id="regPass" class="input-field" maxlength="30" placeholder="לפחות 4 תווים" />
+        <label class="s-label" for="regFullName">שם מלא</label>
+        <input type="text" id="regFullName" class="input-field" maxlength="40" autocomplete="name" placeholder="לדוגמה: דניאל כהן" />
+        <label class="s-label" for="regPhone">טלפון נייד</label>
+        <input type="tel" id="regPhone" class="input-field" inputmode="numeric" autocomplete="tel" oninput="this.value=this.value.replace(/[^0-9]/g,'')" maxlength="12" placeholder="050-0000000" dir="ltr" />
+        <label class="s-label" for="regPass">סיסמה</label>
+        <input type="password" id="regPass" class="input-field" maxlength="30" autocomplete="new-password" placeholder="לפחות 4 תווים" />
+        <p class="s-hint">כל שם וכל מספר טלפון יכולים להירשם פעם אחת בלבד.</p>
 
-        <label style="display:flex; align-items:flex-start; gap:8px; font-size:0.76rem; color:#cbd5e1; margin:6px 0 12px; cursor:pointer;">
-          <input type="checkbox" id="regConsent" checked style="margin-top:3px;" />
-          <span>אני מאשר/ת את <button type="button" style="background:none; border:none; color:var(--gold-bright); text-decoration:underline;" onclick="openLegalModal()">תקנון האתר</button> ומסכים/ה לקבלת הודעות SMS ותזכורות תורים.</span>
+        <label class="s-consent">
+          <input type="checkbox" id="regConsent" checked />
+          <span>אני מאשר/ת את <button type="button" class="s-link" onclick="openLegalModal()">תקנון האתר</button> ומסכים/ה לקבלת הודעות SMS ותזכורות תורים.</span>
         </label>
-        <button type="button" class="btn-gold-3d" style="width:100%; padding:13px;" onclick="registerClient()">הירשם וכנס לאזור האישי</button>
+        <button type="button" class="s-btn s-btn--primary s-btn--block s-btn--lg" onclick="registerClient()">הרשמה וכניסה</button>
       </div>
 
       <div id="logBox" style="display:none;">
-        <label style="font-size:0.8rem; font-weight:800; color:#cbd5e1;">מספר טלפון נייד או שם מלא:</label>
-        <input type="text" id="logIdent" class="input-field" placeholder="הזן טלפון או שם מלא" />
-        <label style="font-size:0.8rem; font-weight:800; color:#cbd5e1;">סיסמה:</label>
-        <input type="password" id="logPass" class="input-field" placeholder="הסיסמה שלך" onkeydown="if(event.key==='Enter') loginClient()" />
-        <button type="button" class="btn-gold-3d" style="width:100%; padding:13px;" onclick="loginClient()">התחבר לאזור האישי</button>
+        <label class="s-label" for="logIdent">טלפון נייד או שם מלא</label>
+        <input type="text" id="logIdent" class="input-field" autocomplete="username" placeholder="טלפון או שם מלא" />
+        <label class="s-label" for="logPass">סיסמה</label>
+        <input type="password" id="logPass" class="input-field" autocomplete="current-password" placeholder="הסיסמה שלך" onkeydown="if(event.key==='Enter') loginClient()" />
+        <button type="button" class="s-btn s-btn--primary s-btn--block s-btn--lg" onclick="loginClient()">התחברות</button>
       </div>
     </div>
   </div>
 
-  <!-- מודאל קביעת / שינוי תור -->
+  <!-- קביעת / שינוי תור -->
   <div class="modal-backdrop" id="bookingModal" onclick="if(event.target===this) closeBookingModal()">
-    <div class="luxury-modal">
+    <div class="s-sheet s-booking" role="dialog" aria-modal="true" aria-labelledby="modalServiceTitle">
       <div class="modal-head">
         <div>
-          <div style="font-size:0.74rem; color:var(--gold); font-weight:800;" id="bookingModalSub">קביעת תור • Ilay Barbershop</div>
-          <h3 id="modalServiceTitle" style="font-size:1.12rem; font-weight:900;">תספורת קלאסי</h3>
+          <p class="s-sheet__kicker" id="bookingModalSub">קביעת תור • Ilay Barbershop</p>
+          <h3 class="s-sheet__title" id="modalServiceTitle">תספורת קלאסי</h3>
         </div>
-        <button type="button" class="modal-close" onclick="closeBookingModal()">✕</button>
+        <button type="button" class="modal-close" aria-label="סגירה" onclick="closeBookingModal()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
       </div>
 
-      <div style="font-size:0.82rem; font-weight:800; margin-bottom:5px;">1. בחר תספורת:</div>
-      <select id="bookingServiceSelect" class="input-field" onchange="selectedServiceIdx=Number(this.value); updateModalHeaderTitle();"></select>
+      <div class="s-step">
+        <label class="s-step__label" for="bookingServiceSelect"><span class="s-step__num">1</span>שירות</label>
+        <select id="bookingServiceSelect" class="input-field" onchange="selectedServiceIdx=Number(this.value); updateModalHeaderTitle();"></select>
+      </div>
 
-      <div style="font-size:0.82rem; font-weight:800; margin-bottom:5px;">2. בחר יום:</div>
-      <div class="days-row" id="bookingDaysRow"></div>
+      <div class="s-step">
+        <div class="s-step__label"><span class="s-step__num">2</span>יום</div>
+        <div class="days-row" id="bookingDaysRow"></div>
+      </div>
 
-      <div style="font-size:0.82rem; font-weight:800; margin-bottom:5px;">3. בחר שעה פנויה:</div>
-      <div class="hours-matrix" id="bookingHoursGrid"></div>
+      <div class="s-step">
+        <div class="s-step__label"><span class="s-step__num">3</span>שעה <span class="s-step__aside">שעות מחוקות כבר תפוסות</span></div>
+        <div class="hours-matrix" id="bookingHoursGrid"></div>
+      </div>
 
-      <div style="font-size:0.82rem; font-weight:800; margin-bottom:5px;">4. פרטי הלקוח (מחובר):</div>
-      <input type="text" id="clientNameInput" class="input-field" readonly />
-      <input type="tel" id="clientPhoneInput" class="input-field" readonly />
-      <textarea id="clientNoteInput" class="input-field" maxlength="120" placeholder="הערות לתור (אופציונלי)"></textarea>
+      <div class="s-step">
+        <div class="s-step__label"><span class="s-step__num">4</span>הפרטים שלך</div>
+        <div class="s-pair">
+          <input type="text" id="clientNameInput" class="input-field" aria-label="שם" readonly />
+          <input type="tel" id="clientPhoneInput" class="input-field" aria-label="טלפון" dir="ltr" readonly />
+        </div>
+        <textarea id="clientNoteInput" class="input-field" rows="2" maxlength="120" placeholder="הערה לעילי (לא חובה)"></textarea>
+      </div>
 
-      <button type="button" class="btn-gold-3d" id="confirmBookingBtn" style="width:100%; padding:14px;" onclick="confirmClientBooking()">אשר ושבץ תור ביומן</button>
+      <div class="s-sheet__footer">
+        <button type="button" class="s-btn s-btn--primary s-btn--block s-btn--lg" id="confirmBookingBtn" onclick="confirmClientBooking()">אשר ושבץ תור ביומן</button>
+      </div>
     </div>
   </div>
 
-  <!-- מודאל תקנון משפטי מלא -->
+  <!-- תקנון -->
   <div class="modal-backdrop" id="legalTermsModal" onclick="if(event.target===this) this.classList.remove('open')">
-    <div class="luxury-modal" style="max-width:550px;">
+    <div class="s-sheet s-sheet--wide" role="dialog" aria-modal="true" aria-labelledby="legalTitle">
       <div class="modal-head">
-        <h3 style="font-size:1.08rem; font-weight:900;">תקנון האתר, מדיניות פרטיות והצהרת נגישות</h3>
-        <button type="button" class="modal-close" onclick="document.getElementById('legalTermsModal').classList.remove('open')">✕</button>
+        <h3 class="s-sheet__title" id="legalTitle">תקנון האתר, מדיניות פרטיות והצהרת נגישות</h3>
+        <button type="button" class="modal-close" aria-label="סגירה" onclick="document.getElementById('legalTermsModal').classList.remove('open')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
       </div>
-      <div style="max-height:58vh; overflow-y:auto; font-size:0.82rem; color:#cbd5e1; line-height:1.7;">
+      <div class="s-legal">
         <p><strong>1. כללי:</strong> השימוש באתר <strong>Ilay Barbershop (עילי בן הרוש, דרך הים 11 גני תקווה)</strong> כפוף לתנאים שלהלן.</p>
         <p><strong>2. אזור אישי, מניעת כפילויות וניתוק אוטומטי:</strong> קביעת תור וכניסה לאזור האישי מותנות ברישום חד-פעמי עם שם מלא ומספר טלפון ייחודי. המערכת אוכפת איסור פתיחת חשבון כפול על אותו שם מלא או מספר טלפון. מטעמי אבטחת מידע, חשבון שלא בוצעה בו פעילות במשך <strong>60 ימים (חודשיים)</strong> מתנתק אוטומטית.</p>
         <p><strong>3. תזכורות SMS ואישור הגעה (סעיף 30א לחוק התקשורת):</strong> הלקוח מאשר קבלת הודעות SMS בגין קביעת תור, שינוי/ביטול ותזכורת מספר שעות לפני התור הכוללת קישור לאישור הגעה באזור האישי.</p>
         <p><strong>4. פרטיות ועוגיות (תיקון 13):</strong> המידע נשמר לצורך ניהול יומן המספרה בלבד ואינו מועבר לצד שלישי.</p>
         <p><strong>5. הצהרת נגישות (ת"י 5568 AA):</strong> האתר כולל תפריט נגישות צף מלא, והמספרה ממוקמת בבניין עם כניסה ומעלית נגישה.</p>
       </div>
-      <button type="button" class="btn-gold-3d" style="width:100%; margin-top:12px;" onclick="document.getElementById('legalTermsModal').classList.remove('open')">קראתי והבנתי</button>
+      <div class="s-sheet__footer">
+        <button type="button" class="s-btn s-btn--dark s-btn--block" onclick="document.getElementById('legalTermsModal').classList.remove('open')">קראתי והבנתי</button>
+      </div>
     </div>
   </div>
 
   <!-- הגדלת תמונה -->
-  <div class="modal-backdrop" id="lightboxModal" onclick="this.classList.remove('open')">
-    <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:82vh;">
-      <img id="lightboxImg" src="" alt="תספורת" style="max-width:92vw; max-height:76vh; border-radius:16px; border:2px solid var(--gold);" />
-    </div>
+  <div class="modal-backdrop s-lightbox" id="lightboxModal" onclick="this.classList.remove('open')">
+    <img id="lightboxImg" src="" alt="תספורת" />
   </div>
 
-  <div class="toast-popup" id="toastPopup"></div>
+  <div class="toast-popup" id="toastPopup" role="status" aria-live="polite"></div>
 
   <script src="core.js"></script>
   <script>
@@ -433,7 +452,7 @@
       logIncomingClientMessage(appt.phone, appt.name, `אישור הגעה לתור ביום ${DAYS_HEB[appt.dayIdx]} בשעה ${appt.time}`, "incoming", appt.id);
       pushRealtimeNotification("confirmed", "אישור הגעה התקבל!", `${appt.name} אישר הגעה לתור ביום ${DAYS_HEB[appt.dayIdx]} בשעה ${appt.time}.`, appt.id, appt.dayIdx);
       renderPersonalArea();
-      showToast("✅ הגעתך לתור אושרה! הסטטוס ביומן של עילי עודכן לירוק.");
+      showToast("אישרת הגעה. עילי רואה את זה ביומן.");
     }
 
     // ביטול תור ע"י הלקוח מתוך האזור האישי -> מסנכרן מיד ליומן הניהול!
@@ -474,7 +493,7 @@
       const myAppts = appointments.filter(a => toIsraeliLocalPhone(a.phone) === myPhone || (a.name || "").toLowerCase() === currentClientUser.username.toLowerCase());
 
       document.getElementById("sideMyApptsCount").textContent = myAppts.filter(a => a.status !== "canceled").length;
-      document.getElementById("personalWelcomeTitle").textContent = `האזור האישי • ${currentClientUser.username}`;
+      document.getElementById("personalWelcomeTitle").textContent = `שלום, ${currentClientUser.username}`;
       document.getElementById("personalCardName").textContent = currentClientUser.username;
       document.getElementById("personalCardPhone").textContent = currentClientUser.phone;
 
@@ -494,7 +513,7 @@
       });
 
       if (!futureAppts.length) {
-        futureList.innerHTML = `<div style="padding:18px; border-radius:14px; background:rgba(255,255,255,0.03); color:var(--text-muted); font-size:0.86rem;">אין לך תורים עתידיים כרגע. לחץ על "+ קבע תור חדש" לתיאום.</div>`;
+        futureList.innerHTML = `<div class="s-empty">אין לך תורים קרובים. אפשר לקבוע דרך "תור חדש".</div>`;
       } else {
         futureAppts.forEach(a => {
           const st = a.status || "pending";
@@ -503,15 +522,15 @@
           const card = document.createElement("div");
           card.className = `client-appt-card status-${st}`;
           card.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; flex-wrap:wrap; gap:6px;">
-              <strong style="font-size:1rem; color:#fff;">יום ${DAYS_HEB[a.dayIdx]} (${dateStr}) • שעה ${a.time}</strong>
-              <span class="status-pill ${st}">${isConfirmed ? "🟢 הגעה אושרה" : "⚪ ממתין לאישור הגעה"}</span>
+            <div class="appt-row">
+              <strong class="appt-when">יום ${DAYS_HEB[a.dayIdx]}, ${dateStr} · ${a.time}</strong>
+              <span class="status-pill ${st}">${isConfirmed ? "הגעה אושרה" : "ממתין לאישור הגעה"}</span>
             </div>
-            <div style="font-size:0.86rem; color:var(--gold-bright); font-weight:700;">✂️ ${sanitizeStr(a.service, 50)}</div>
-            <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
-              ${!isConfirmed ? `<button type="button" class="btn-confirm-arrival" onclick="confirmMyAppointmentArrival('${a.id}')">✅ אני מאשר/ת הגעה לתור</button>` : `<div style="flex:1; font-size:0.8rem; color:#34d399; font-weight:800; align-self:center;">✓ הגעתך מאושרת ביומן</div>`}
-              <button type="button" class="btn-glass" style="padding:8px 12px; font-size:0.78rem;" onclick="openRescheduleByClient('${a.id}')">🔄 שנה מועד</button>
-              <button type="button" class="btn-glass" style="padding:8px 12px; font-size:0.78rem; border-color:#ef4444; color:#fca5a5;" onclick="cancelMyAppointmentByClient('${a.id}')">✕ בטל תור</button>
+            <div class="appt-service">${sanitizeStr(a.service, 50)}</div>
+            <div class="appt-actions">
+              ${!isConfirmed ? `<button type="button" class="btn-confirm-arrival" onclick="confirmMyAppointmentArrival('${a.id}')">אני מגיע/ה – אישור הגעה</button>` : `<div class="appt-ok">ההגעה שלך אושרה</div>`}
+              <button type="button" class="btn-glass" onclick="openRescheduleByClient('${a.id}')">שינוי מועד</button>
+              <button type="button" class="btn-glass is-danger" onclick="cancelMyAppointmentByClient('${a.id}')">ביטול</button>
             </div>
           `;
           futureList.appendChild(card);
@@ -519,7 +538,7 @@
       }
 
       if (!pastAppts.length) {
-        pastList.innerHTML = `<div style="padding:14px; border-radius:14px; background:rgba(255,255,255,0.02); color:var(--text-muted); font-size:0.82rem;">עדיין אין היסטוריית תורים קודמים.</div>`;
+        pastList.innerHTML = `<div class="s-empty">עדיין אין תורים קודמים.</div>`;
       } else {
         pastAppts.forEach(a => {
           const st = a.status || "pending";
@@ -527,11 +546,11 @@
           const card = document.createElement("div");
           card.className = `client-appt-card status-${st}`;
           card.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-              <strong style="font-size:0.9rem;">יום ${DAYS_HEB[a.dayIdx]} (${dateStr}) • ${a.time}</strong>
-              <span class="status-pill ${st}">${st === "canceled" ? "🔴 בוטל" : st === "confirmed" ? "🟢 הושלם / אושר" : "⚪ עבר"}</span>
+            <div class="appt-row">
+              <strong class="appt-when">יום ${DAYS_HEB[a.dayIdx]}, ${dateStr} · ${a.time}</strong>
+              <span class="status-pill ${st}">${st === "canceled" ? "בוטל" : st === "confirmed" ? "הושלם" : "עבר"}</span>
             </div>
-            <div style="font-size:0.8rem; color:#cbd5e1; margin-top:4px;">${sanitizeStr(a.service, 50)}</div>
+            <div class="appt-service">${sanitizeStr(a.service, 50)}</div>
           `;
           pastList.appendChild(card);
         });
@@ -549,14 +568,14 @@
         sideName.textContent = currentClientUser.username;
         sideName.style.display = "block";
         sideBtn.textContent = "לאזור האישי שלי";
-        mobBtn.textContent = `👤 ${currentClientUser.username.split(" ")[0]}`;
-        if (heroBtn) heroBtn.textContent = `👤 האזור האישי (${currentClientUser.username})`;
+        mobBtn.textContent = currentClientUser.username.split(" ")[0];
+        if (heroBtn) heroBtn.textContent = "לאזור האישי שלי";
         renderPersonalArea();
       } else {
         sideName.style.display = "none";
         sideBtn.textContent = "כניסה / הרשמה לאזור האישי";
         mobBtn.textContent = "אזור אישי";
-        if (heroBtn) heroBtn.textContent = "👤 כניסה לאזור האישי";
+        if (heroBtn) heroBtn.textContent = "כניסה לאזור האישי";
         document.getElementById("sideMyApptsCount").textContent = "0";
       }
     }
@@ -591,15 +610,16 @@
         card.className = "service-card";
         card.onclick = () => openBookingModal(idx);
         card.innerHTML = `
-          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
-            <div>
-              <div style="font-size:1.15rem; font-weight:900; color:#fff;">${sanitizeStr(srv.name, 45)}</div>
-              <div style="font-size:0.76rem; color:#cbd5e1; margin-top:3px;">⏱️ ${sanitizeStr(srv.duration, 25)}</div>
-            </div>
+          <div class="srv-head">
+            <h3 class="srv-name">${sanitizeStr(srv.name, 45)}</h3>
+            <span class="srv-leader" aria-hidden="true"></span>
             <div class="srv-price-badge">${Number(srv.price) || 0} ₪</div>
           </div>
-          <p style="font-size:0.86rem; color:var(--text-muted); line-height:1.5;">${sanitizeStr(srv.desc, 140)}</p>
-          <button type="button" class="btn-gold-3d" style="width:100%; padding:10px;" onclick="event.stopPropagation(); openBookingModal(${idx})">קבע תור ל${sanitizeStr(srv.name, 30)}</button>
+          <p class="srv-desc">${sanitizeStr(srv.desc, 140)}</p>
+          <div class="srv-foot">
+            <span class="srv-dur">${sanitizeStr(srv.duration, 25)}</span>
+            <button type="button" class="srv-book" aria-label="קביעת תור ל${sanitizeStr(srv.name, 30)}" onclick="event.stopPropagation(); openBookingModal(${idx})">לקביעת תור</button>
+          </div>
         `;
         sGrid.appendChild(card);
       });
@@ -610,7 +630,7 @@
         const fallback = DEFAULT_PORTFOLIO[i % DEFAULT_PORTFOLIO.length];
         const card = document.createElement("div");
         card.className = "photo-card";
-        card.innerHTML = `<div class="photo-inner"><img src="${src}" alt="תספורת ${i + 1}" onerror="this.onerror=null;this.src='${fallback}'" /></div><div class="photo-tag"><span>Ilay Barbershop</span><span>הגדל 🔍</span></div>`;
+        card.innerHTML = `<div class="photo-inner"><img src="${src}" alt="תספורת ${i + 1}" loading="lazy" onerror="this.onerror=null;this.src='${fallback}'" /></div>`;
         card.onclick = () => {
           document.getElementById("lightboxImg").src = card.querySelector("img").src;
           document.getElementById("lightboxModal").classList.add("open");
@@ -667,7 +687,7 @@
       grid.innerHTML = "";
       const cfg = weeklySchedule[selectedBookDay];
       if (!cfg || !cfg.active) {
-        grid.innerHTML = `<div style="grid-column:1/-1; text-align:center; color:#fca5a5; padding:10px;">המספרה סגורה ביום זה.</div>`;
+        grid.innerHTML = `<div class="hours-empty">ביום הזה המספרה סגורה. אפשר לבחור יום אחר.</div>`;
         return;
       }
       const step = Math.max(10, (Number(siteConfig.slotInterval) || 30) + (Number(siteConfig.slotBuffer) || 0));
@@ -700,7 +720,7 @@
       const srv = SERVICES[selectedServiceIdx] || SERVICES[0];
       const dateStr = getFormattedDateForDayIdx(selectedBookDay);
       const dayName = DAYS_HEB[selectedBookDay];
-      const publicUrl = `${window.location.origin}/ilay.html#personal-area`;
+      const publicUrl = `${window.location.origin}/#personal-area`;
 
       if (editingApptId) {
         const existing = appointments.find(a => a.id === editingApptId);
