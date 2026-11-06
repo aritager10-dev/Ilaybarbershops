@@ -93,10 +93,18 @@ async function register(ctx) {
   if (!phone) throw V.bad("נא להזין מספר טלפון נייד תקין");
   const password = V.password(b.password);
   if (b.consent !== true) throw V.bad("כדי להירשם צריך לאשר את תנאי השימוש ומדיניות הפרטיות");
-  if (Number(await cmd("HEXISTS", K(ctx, "idx:phone"), phone)) === 1) throw phoneTaken();
-
   const credHash = await A.hashPassword(password);
   const marketingOptIn = b.marketingOptIn === true;
+  const alreadyRegistered = Number(await cmd("HEXISTS", K(ctx, "idx:phone"), phone)) === 1;
+  if (alreadyRegistered && !smsConfigured()) throw phoneTaken();
+  if (alreadyRegistered) {
+    // Same answer as a new number, so the form can't be used to find out who is a customer.
+    // The owner of the phone gets a text telling them to log in instead.
+    await enforceLimit(ctx.ns, "regcode", shortHash(phone), 3, 3600, "נשלחו יותר מדי קודים למספר הזה. נסו שוב מאוחר יותר.");
+    const notice = await sendTracked(ctx, { phone, name: username, message: templates.alreadyRegistered(), logMessage: "הודעה על חשבון קיים" });
+    if (!notice.ok) throw new HttpError(502, "לא הצלחנו לשלוח קוד אימות. נסו שוב בעוד כמה דקות.");
+    return ok(ctx, { verify: true });
+  }
   if (!smsConfigured()) {
     const user = await createAccount(ctx, { username, phone, credHash, marketingOptIn, phoneVerified: false });
     return ok(ctx, { user: selfView(user) });

@@ -13,6 +13,7 @@ const SERVED_EXT = new Set(Object.keys(MIME));
 
 // vercel.json "source" patterns used by this project.
 function sourceRegex(src) {
+  if (src === "/admin.html") return /^\/admin\.html$/;
   if (src === "/(.*)") return /^\/.*$/;
   if (src === "/api/:path*") return /^\/api(\/.*)?$/;
   throw new Error("harness does not know vercel source " + src);

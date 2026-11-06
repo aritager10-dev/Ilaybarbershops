@@ -23,12 +23,15 @@
   <meta name="twitter:description" content="תספורת נקייה, אווירה טובה וסטייל שיושב בול. מחירון, עבודות וקביעת תור אונליין." />
   <meta name="twitter:image" content="https://ilaybarbershops.vercel.app/og-image.png" />
   <link rel="canonical" href="https://ilaybarbershops.vercel.app/" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <title>Ilay Barbershop | עילי בן הרוש, גני תקווה</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://images.unsplash.com">
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css" />
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"BarberShop","name":"Ilay Barbershop","url":"https://ilaybarbershops.vercel.app/","image":"https://ilaybarbershops.vercel.app/og-image.png","telephone":"+972542858711","priceRange":"₪70-₪100","address":{"@type":"PostalAddress","streetAddress":"דרך הים 11","addressLocality":"גני תקווה","addressCountry":"IL"}}</script>
 </head>
 <body class="site">
   <!-- מסך טעינה -->
@@ -276,6 +279,7 @@
           <p class="s-kicker">תיק עבודות</p>
           <h2 class="s-h2">עבודות אחרונות</h2>
           <p class="s-sub">הקישו על תמונה כדי להגדיל, והחליקו כדי לעבור בין התמונות.</p>
+          <p class="s-sub" id="portfolioStockNote" hidden>התמונות כאן להמחשה בלבד.</p>
         </header>
         <div class="portfolio-grid s-gallery" id="portfolioGrid" role="list" aria-label="תיק עבודות" data-reveal data-stagger></div>
       </div>
@@ -1273,6 +1277,9 @@
 
       const pGrid = document.getElementById("portfolioGrid");
       pGrid.innerHTML = "";
+      const isStockPhoto = src => DEFAULT_PORTFOLIO.includes(src);
+      const stockNote = document.getElementById("portfolioStockNote");
+      if (stockNote) stockNote.hidden = !portfolioList.some(isStockPhoto);
       portfolioList.forEach((src, i) => {
         const fallback = DEFAULT_PORTFOLIO[i % DEFAULT_PORTFOLIO.length];
         const safeSrc = isSafeImgSrc(src) ? sizedSrc(src, 900) : fallback;
@@ -1281,7 +1288,7 @@
         card.className = "photo-card";
         card.setAttribute("role", "listitem");
         card.setAttribute("aria-label", `הגדלת תמונה ${i + 1} מתוך ${portfolioList.length}`);
-        card.innerHTML = `<div class="photo-inner"><img src="${esc(safeSrc)}" alt="עבודת תספורת ${i + 1} במספרה של עילי" width="720" height="900" loading="${i < 2 ? "eager" : "lazy"}" decoding="async" onerror="this.onerror=null;this.src='${esc(fallback)}'" /></div>`;
+        card.innerHTML = `<div class="photo-inner"><img src="${esc(safeSrc)}" alt="${isStockPhoto(src) ? `תמונת המחשה של תספורת ${i + 1}` : `עבודת תספורת ${i + 1} במספרה של עילי`}" width="720" height="900" loading="${i < 2 ? "eager" : "lazy"}" decoding="async" onerror="this.onerror=null;this.src='${esc(fallback)}'" /></div>`;
         card.onclick = () => openPhotoViewer(i, card);
         pGrid.appendChild(card);
       });

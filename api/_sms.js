@@ -198,6 +198,7 @@ const templates = {
   adminMoved(ctx, a) { const w = when(a); return `אהלן ${w.name}, עדכון מ-Ilay Barbershop: התור שלך הוזז ליום ${w.day} (${w.date}) בשעה ${w.time}. לאישור הגעה: ${siteUrl(ctx)}`; },
   adminCanceled(ctx, a) { const w = when(a); return `אהלן ${w.name}, הודעה מ-Ilay Barbershop: התור שלך ליום ${w.day} (${w.date}) בשעה ${w.time} בוטל. לקביעת מועד חדש היכנס לאתר.`; },
   reminder(ctx, a) { const w = when(a); return `אהלן ${w.name}, תזכורת מ-Ilay Barbershop: התור שלך ליום ${w.day} (${w.date}) מתקיים בשעה ${w.time}. האם אתה מאשר הגעה? לאישור הגעה מהיר היכנס לאזור האישי: ${siteUrl(ctx)}`; },
+  alreadyRegistered() { return `כבר יש לך חשבון ב-Ilay Barbershop עם המספר הזה. אפשר להיכנס באתר, או לאפס סיסמה במסך הכניסה.`; },
   verifyCode(code) { return `קוד האימות שלך ב-Ilay Barbershop: ${code}. הקוד תקף ל-10 דקות.`; },
   // Replies to the sender are not read, so removal goes through the personal area or a call.
   optOut(ctx, barberPhone) {

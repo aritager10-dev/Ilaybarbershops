@@ -155,14 +155,26 @@ test("register validates password length, name, phone and consent", async () => 
   assert.equal((await c.post("/auth/register", { ...base, consent: false })).status, 400);
 });
 
-test("duplicate phone is refused and points to login or reset; the same name is fine", async () => {
+test("duplicate phone gets the same answer as a new one when SMS is on; the same name is fine", async () => {
   const a = await newClient();
   const c = new Client();
-  const taken = await c.post("/auth/register", { fullName: freshName(), phone: a.phone, password: PASSWORD, consent: true });
-  assert.equal(taken.status, 409);
-  assert.equal(taken.json.reason, "המספר הזה כבר רשום. אפשר להתחבר או לאפס סיסמה.");
+  const fresh = await c.post("/auth/register", { fullName: freshName(), phone: freshPhone(), password: PASSWORD, consent: true });
+  const taken = await c.post("/auth/register", { fullName: freshName(), phone: a.phone, password: "another-pass-22", consent: true });
+  assert.equal(taken.status, fresh.status);
+  assert.deepEqual(taken.json, fresh.json, "the answer must not reveal that the number is registered");
+  const guess = await c.post("/auth/register/verify", { phone: a.phone, code: "123456" });
+  assert.equal(guess.status, 400);
+  const login = await new Client().post("/auth/login", { ident: a.phone, password: PASSWORD });
+  assert.equal(login.status, 200, "the existing account keeps its password");
   const twin = await newClient({ fullName: a.name });
   assert.equal((await twin.get("/me")).json.user.username, a.name, "two customers can share a name");
+});
+
+test("without SMS, a duplicate phone is refused and points to login or reset", async () => {
+  const a = await newUnverifiedClient();
+  const taken = await withoutSms(() => new Client().post("/auth/register", { fullName: freshName(), phone: a.phone, password: PASSWORD, consent: true }));
+  assert.equal(taken.status, 409);
+  assert.equal(taken.json.reason, "המספר הזה כבר רשום. אפשר להתחבר או לאפס סיסמה.");
 });
 
 test("passwords are stored only as salted scrypt hashes, outside the user record", async () => {
@@ -348,7 +360,8 @@ test("a manually added customer without a password can claim the account only th
   assert.equal(add.status, 200);
   assert.equal((await new Client().post("/auth/login", { ident: phone, password: "" })).status, 401);
   assert.equal((await new Client().post("/auth/login", { ident: phone, password: "anything-at-all" })).status, 401);
-  assert.equal((await new Client().post("/auth/register", { fullName: freshName(), phone, password: PASSWORD, consent: true })).status, 409);
+  assert.equal((await new Client().post("/auth/register", { fullName: freshName(), phone, password: PASSWORD, consent: true })).status, 200);
+  assert.equal((await new Client().post("/auth/login", { ident: phone, password: PASSWORD })).status, 401, "signing up again must not take over the account");
   await new Client().post("/auth/reset/request", { phone });
   assert.equal((await new Client().post("/auth/reset/confirm", { phone, code: lastCodeFor(phone), newPassword: "claimed-pass-1" })).status, 200);
   assert.equal((await new Client().post("/auth/login", { ident: phone, password: "claimed-pass-1" })).status, 200);
