@@ -15,15 +15,6 @@ module.exports = {
     { name: "תספורת קלאסי + זקן", price: 80, duration: "35 דק'", desc: "דירוג נקי (מולט, טייפר, בארסט ועוד) עם גזירות, פנס לבחירה וסידור זקן מדויק." },
     { name: "תספורת מוגזם + זקן", price: 100, duration: "50 דק'", desc: "שינוי לוק מלא בגזירות ודירוג למי שלא הסתפר הרבה זמן, כולל עיצוב וסידור זקן." }
   ],
-  weeklySchedule: [
-    { active: true, start: "10:00", end: "20:00" },
-    { active: true, start: "10:00", end: "20:00" },
-    { active: true, start: "10:00", end: "20:00" },
-    { active: true, start: "10:00", end: "20:00" },
-    { active: true, start: "10:00", end: "21:00" },
-    { active: true, start: "09:00", end: "15:00" },
-    { active: false, start: "19:30", end: "22:00" }
-  ],
   // Number of DEFAULT_PORTFOLIO images in core.js; portfolio entries "def:N" refer to them.
   defaultPhotoCount: 5
 };

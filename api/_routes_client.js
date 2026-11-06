@@ -10,7 +10,8 @@ const { K } = D;
 const { sendTracked, sendApptSms, smsConfigured, templates } = require("./_sms");
 const S = require("./_appts");
 const { maybeRunReminders } = require("./_reminders");
-const { DAYS_HEB, heTime, heDate, todayYmd } = require("./_time");
+const { DAYS_HEB, heTime, heDate, todayYmd, isYmd } = require("./_time");
+const { HORIZON_DAYS, publicOpenDays } = require("./_availability");
 const { servePhoto } = require("./_photos");
 const { findOptOutUser } = require("./_optout");
 
@@ -30,18 +31,19 @@ const MAX_ACCOUNTS_IP_DAY = 20;  // Account creation requests per IP per day.
 async function buildPublicSnapshot(ctx, v) {
   const [config, appts] = await Promise.all([D.getConfig(ctx), D.allAppts(ctx)]);
   const now = Date.now();
-  const horizon = now + 8 * 86400 * 1000;
+  const horizon = now + (HORIZON_DAYS + 2) * 86400 * 1000;
   const c = config.siteConfig;
   return {
     v,
     at: now,
     siteConfig: { title: c.title, subtitle: c.subtitle, slotInterval: c.slotInterval, slotBuffer: c.slotBuffer },
     services: config.services,
-    weeklySchedule: config.weeklySchedule,
+    openDays: publicOpenDays(config.availability, now),
+    horizonDays: HORIZON_DAYS,
     portfolio: config.portfolio,
     busy: appts
-      .filter(a => a.status !== "canceled" && a.startsAtMs > now && a.startsAtMs < horizon)
-      .map(a => ({ dayIdx: a.dayIdx, time: a.time, dateStr: a.dateStr }))
+      .filter(a => a.status !== "canceled" && a.date && a.startsAtMs > now && a.startsAtMs < horizon)
+      .map(a => ({ date: a.date, time: a.time }))
   };
 }
 
@@ -73,7 +75,7 @@ async function createAccount(ctx, { username, phone, credHash, marketingOptIn, m
   const user = { id: uid, username, phone, phoneVerified, marketingOptIn: marketingOptIn === true, ...(marketingOptIn === true ? { marketingConsentAt: marketingConsentAt || now } : {}), consentAt: now, createdAt: heDate(now), lastActiveAt: now };
   await pipeline([["HSET", K(ctx, "users"), uid, JSON.stringify(user)], ["SET", K(ctx, `ucred:${uid}`), credHash]]);
   await A.startClientSession(ctx, uid);
-  await D.addNotification(ctx, { type: "new_user", title: "לקוח חדש נרשם למועדון", message: `${username} (${phone}) פתח חשבון חדש באתר.`, uid, pushMessage: "לקוח חדש פתח חשבון באתר" });
+  await D.addNotification(ctx, { type: "new_user", title: "לקוח חדש נרשם למועדון", message: `${username} (${phone}) פתח חשבון חדש באתר.`, uid });
   return user;
 }
 
@@ -249,7 +251,7 @@ async function requireClient(ctx) {
 // adminNote is deliberately absent: the barber's notes never reach clients.
 function ownView(a) {
   return {
-    id: a.id, dayIdx: a.dayIdx, dateStr: a.dateStr, time: a.time, startsAtMs: a.startsAtMs, createdAt: a.createdAt,
+    id: a.id, dayIdx: a.dayIdx, date: a.date, dateStr: a.dateStr, time: a.time, startsAtMs: a.startsAtMs, createdAt: a.createdAt,
     name: a.name, phone: a.phone, srvIdx: a.srvIdx, price: a.price, service: a.service, note: a.note,
     status: a.status, movedCount: a.movedCount, reminderSent: a.reminderSent === true, confirmedAt: a.confirmedAt || null
   };
@@ -296,9 +298,8 @@ function apptIdParam(ctx) {
 }
 
 function parseSlotRequest(body) {
-  const dayIdx = V.intIn(body.dayIdx, 0, 6);
-  if (dayIdx === null || !V.isTime(body.time)) throw V.bad("נא לבחור יום ושעה");
-  return { dayIdx, time: body.time };
+  if (!isYmd(body.date) || !V.isTime(body.time)) throw V.bad("נא לבחור יום ושעה");
+  return { date: body.date, time: body.time };
 }
 
 function serviceFrom(config, srvIdxRaw) {
@@ -314,16 +315,16 @@ const slotTakenError = () => new HttpError(409, "השעה הזו נתפסה כר
 async function createAppointment(ctx) {
   const user = await requireClient(ctx);
   await enforceLimit(ctx.ns, "book", shortHash(user.id), 10, 86400, "הגעת למספר התורים האפשרי ליום אחד. אפשר לפנות לעילי בטלפון.");
-  const { dayIdx, time } = parseSlotRequest(ctx.body);
+  const { date, time } = parseSlotRequest(ctx.body);
   const config = await D.getConfig(ctx);
   const srv = serviceFrom(config, ctx.body.srvIdx);
-  const date = S.assertClientSlot(config, dayIdx, time);
+  S.assertClientSlot(config, date, time);
   const appt = {
     id: D.newId("ap"), uid: user.id, createdAt: Date.now(), name: user.username, phone: user.phone, srvIdx: srv.srvIdx,
     price: srv.price, service: srv.service, note: V.text(ctx.body.note, 120), status: "pending", movedCount: 0, reminderSent: false, source: "client",
     noSms: user.phoneVerified !== true
   };
-  S.placeAt(appt, dayIdx, date, time);
+  S.placeAt(appt, date, time);
 
   if (!(await S.acquireSlot(ctx, date, time, appt.id))) throw slotTakenError();
   // Everything below holds the slot, so any refusal has to give it back.
@@ -348,7 +349,7 @@ async function createAppointment(ctx) {
 
   await D.addNotification(ctx, {
     type: "new_booking", title: "תור חדש נקבע באתר!", message: `${appt.name} (${appt.phone}) קבע תור ל${srv.name} ${S.describeSlot(appt)}.`,
-    apptId: appt.id, dayIdx, uid: user.id, pushMessage: `תור חדש: ${S.describeSlot(appt)}`
+    apptId: appt.id, dayIdx: appt.dayIdx, date, uid: user.id, pushMessage: `תור חדש: ${S.describeSlot(appt)}`
   });
   const sms = await sendApptSms(ctx, appt, templates.clientBooked(ctx, appt), "booking", { uid: user.id, ipCap: true });
   ok(ctx, { appointment: ownView(appt), smsSent: sms.ok });
@@ -358,10 +359,10 @@ async function moveAppointment(ctx) {
   const user = await requireClient(ctx);
   const id = apptIdParam(ctx);
   await enforceLimit(ctx.ns, "move", shortHash(user.id), 20, 86400);
-  const { dayIdx, time } = parseSlotRequest(ctx.body);
+  const { date, time } = parseSlotRequest(ctx.body);
   const config = await D.getConfig(ctx);
   const srv = serviceFrom(config, ctx.body.srvIdx);
-  const date = S.assertClientSlot(config, dayIdx, time);
+  S.assertClientSlot(config, date, time);
 
   let acquired = false;
   let result;
@@ -373,7 +374,7 @@ async function moveAppointment(ctx) {
         if (!(await S.acquireSlot(ctx, date, time, id))) throw slotTakenError();
         acquired = true;
       }
-      S.placeAt(next, dayIdx, date, time);
+      S.placeAt(next, date, time);
       Object.assign(next, { srvIdx: srv.srvIdx, price: srv.price, service: srv.service, status: "pending", movedCount: (Number(prev.movedCount) || 0) + 1, reminderSent: false, noSms: user.phoneVerified !== true });
       delete next.confirmedAt;
     });
@@ -386,7 +387,7 @@ async function moveAppointment(ctx) {
   if (!(prev.date === date && prev.time === time)) await S.releaseSlot(ctx, prev.date, prev.time, id);
   await D.addNotification(ctx, {
     type: "moved", title: "לקוח שינה מועד תור", message: `${appt.name} הזיז את התור ל${S.describeSlot(appt)}.`,
-    apptId: id, dayIdx, uid: user.id, pushMessage: `תור הוזז: ${S.describeSlot(appt)}`
+    apptId: id, dayIdx: appt.dayIdx, date, uid: user.id, pushMessage: `תור הוזז: ${S.describeSlot(appt)}`
   });
   const sms = await sendApptSms(ctx, appt, templates.clientMoved(ctx, appt), "move", { uid: user.id, ipCap: true });
   ok(ctx, { appointment: ownView(appt), smsSent: sms.ok });
@@ -411,7 +412,7 @@ async function confirmAppointment(ctx) {
   await logIncoming(ctx, user, `אישור הגעה לתור ביום ${DAYS_HEB[appt.dayIdx]} בשעה ${appt.time}`, id);
   await D.addNotification(ctx, {
     type: "confirmed", title: "אישור הגעה התקבל!", message: `${appt.name} אישר הגעה לתור ביום ${DAYS_HEB[appt.dayIdx]} בשעה ${appt.time}.`,
-    apptId: id, dayIdx: appt.dayIdx, uid: user.id, pushMessage: `אישור הגעה: יום ${DAYS_HEB[appt.dayIdx]} בשעה ${appt.time}`
+    apptId: id, dayIdx: appt.dayIdx, date: appt.date, uid: user.id
   });
   ok(ctx, { appointment: ownView(appt) });
 }
@@ -433,7 +434,7 @@ async function cancelAppointment(ctx) {
   await logIncoming(ctx, user, `ביטול תור ליום ${DAYS_HEB[appt.dayIdx]} בשעה ${appt.time}`, id);
   await D.addNotification(ctx, {
     type: "canceled", title: "לקוח ביטל תור באתר", message: `${appt.name} (${appt.phone}) ביטל את התור ליום ${DAYS_HEB[appt.dayIdx]} בשעה ${appt.time}.`,
-    apptId: id, dayIdx: appt.dayIdx, uid: user.id, pushMessage: `תור בוטל: יום ${DAYS_HEB[appt.dayIdx]} בשעה ${appt.time}`
+    apptId: id, dayIdx: appt.dayIdx, date: appt.date, uid: user.id, pushMessage: `תור בוטל: ${S.describeSlot(appt)}`
   });
   ok(ctx, { appointment: ownView(appt) });
 }
@@ -478,7 +479,7 @@ async function deleteAccount(ctx) {
   const canceled = await S.eraseCustomer(ctx, user, { byPhone: user.phoneVerified === true });
   await A.revokeAllClientSessions(ctx, user.id);
   clearCookie(ctx.req, ctx.res, ctx.test ? "ilay_sid_test" : "ilay_sid");
-  await D.addNotification(ctx, { type: "account_deleted", title: "לקוח מחק את החשבון שלו", message: canceled ? `חשבון נמחק ו-${canceled} תורים עתידיים בוטלו.` : "חשבון לקוח נמחק.", pushMessage: "לקוח מחק את החשבון שלו" });
+  await D.addNotification(ctx, { type: "account_deleted", title: "לקוח מחק את החשבון שלו", message: canceled ? `חשבון נמחק ו-${canceled} תורים עתידיים בוטלו.` : "חשבון לקוח נמחק." });
   ok(ctx);
 }
 

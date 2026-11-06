@@ -668,3 +668,67 @@ body.adm .toast-popup.show { display: block; animation: adm-toast-in 0.45s var(-
 @media (forced-colors: active) {
   body.adm .day-chip.active .dc-d, body.adm .admin-tab-btn.active { outline: 2px solid CanvasText; }
 }
+
+/* ---------- opening days and hours ---------- */
+.av-notice { margin: 0 0 0.75rem; padding: 0.625rem 0.875rem; border-radius: 10px; background: var(--warn-tint); color: var(--warn); font-size: 0.875rem; font-weight: 600; line-height: 1.4; }
+.square-modal .av-notice { margin-top: 0.75rem; }
+.av-dirty { min-height: 1.5rem; padding: 0.375rem 1rem 0; color: var(--warn); font-size: 0.8125rem; font-weight: 600; }
+.av-hint { padding: 0 0 0.625rem; }
+.hrs-times[hidden] { display: none; }
+body.adm #weeklyRows .hrs-times .input-field { min-height: 2.75rem; }
+#weeklyRows .hrs-row:has(.hrs-times[hidden]) { padding-bottom: 0.25rem; }
+
+.av-cal { padding: 0.5rem 0.25rem 0.75rem; }
+.av-cal__head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding-inline: 0.25rem; margin-bottom: 0.25rem; }
+.av-cal__head .adm-icon-btn { font-size: 1.5rem; line-height: 1; }
+.av-cal__head .adm-icon-btn:disabled { color: var(--label-3); cursor: default; opacity: 0.45; }
+.av-cal__title { font-size: 1.0625rem; font-weight: 700; }
+.av-row { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 0.125rem; margin-bottom: 0.125rem; }
+.av-dow { padding: 0.25rem 0; text-align: center; font-size: 0.8125rem; font-weight: 600; color: var(--label-2); }
+.av-day {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.0625rem; width: 100%; min-height: 3.5rem; padding: 0.25rem 0;
+  border: 1px solid transparent; border-radius: 10px; background: transparent; color: var(--label); font: inherit; cursor: pointer;
+}
+.av-num { font-size: 1rem; font-weight: 600; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.av-tag { font-size: 0.6875rem; font-weight: 600; line-height: 1.1; white-space: nowrap; }
+.av-hours { display: none; font-size: 0.6875rem; font-variant-numeric: tabular-nums; }
+.av-day:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.av-day.is-today { box-shadow: inset 0 0 0 2px var(--cta); }
+.av-day.is-today .av-num { font-weight: 800; text-decoration: underline; text-underline-offset: 0.15em; }
+.av-past { background: transparent; cursor: default; }
+.av-past .av-num { color: var(--label-2); font-weight: 400; }
+.av-closed { background: var(--fill-2); border: 1px dashed var(--label-3); color: var(--label-2); }
+.av-open { background: var(--ok-tint); border-color: var(--ok-line); color: #165c29; }
+.av-weekly { background: var(--accent-tint); border-color: var(--accent); color: var(--accent); }
+.av-closed-date { background: var(--danger-tint); border-color: var(--danger); color: var(--danger); }
+.av-legend { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; margin: 0.75rem 0 0; padding: 0 0.25rem; list-style: none; font-size: 0.8125rem; color: var(--label-2); }
+.av-legend li { display: flex; align-items: center; gap: 0.375rem; }
+.av-swatch { padding: 0.125rem 0.375rem; border-width: 1px; border-style: solid; border-radius: 6px; font-size: 0.6875rem; font-weight: 600; white-space: nowrap; }
+.av-swatch.av-closed { border-style: dashed; }
+.av-sheet-status { margin-bottom: 0.75rem; font-size: 0.9375rem; color: var(--label-2); }
+.av-copy { display: block; margin-top: 0.25rem; }
+.av-copy[hidden] { display: none; }
+.av-sheet-actions { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.75rem; }
+.av-sheet-actions [hidden] { display: none; }
+body.adm .av-danger { color: var(--danger); }
+#availSheetError { margin-top: 0.5rem; }
+
+/* calendar week navigation and closed days */
+.cal-week-nav { display: flex; align-items: center; gap: 0.25rem; padding: 0.25rem 0.375rem; box-shadow: 0 0.5px 0 var(--sep); }
+.cal-week-nav strong { flex: 1; font-size: 0.9375rem; font-weight: 600; text-align: center; }
+.cal-week-nav .adm-icon-btn { font-size: 1.5rem; line-height: 1; }
+.cal-week-nav .adm-link[hidden] { display: none; }
+.dc-closed { font-size: 0.625rem; font-weight: 600; line-height: 1; color: var(--label-2); }
+body.adm .day-chip.is-closed .dc-d { color: var(--label-2); text-decoration: line-through; }
+body.adm .cal-col-header.is-closed { background: var(--fill-2); }
+.cal-open-day { min-height: 2.75rem; font-size: 0.8125rem; }
+body.adm .cal-slot.is-closed { background: repeating-linear-gradient(-45deg, var(--fill-2) 0 6px, transparent 6px 12px); }
+body.adm .cols-7 .cal-slot.is-closed .cal-empty { color: var(--label-2); }
+body.adm .cal-slot.is-closed .cal-empty { color: var(--label-2); }
+
+@media (min-width: 760px) {
+  .av-cal { padding-inline: 0.75rem; }
+  .av-row { gap: 0.25rem; margin-bottom: 0.25rem; }
+  .av-day { min-height: 4.5rem; }
+  .av-hours { display: block; }
+}

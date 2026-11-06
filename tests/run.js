@@ -5,6 +5,7 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const { start } = require("./harness");
+const TIME = require("../api/_time");
 
 const tests = [];
 const test = (name, fn) => tests.push({ name, fn });
@@ -100,14 +101,13 @@ async function newAdmin(ip) {
 
 let slotCursor = 0;
 function freshSlot() {
-  // Walks 08:00..22:30 on each active day (opened wide by the runner), so no two tests share a slot.
-  const dow = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Jerusalem" })).getDay();
-  const active = [1, 2, 3, 4, 5, 6].map(n => (dow + n) % 7).filter(d => d !== 6);
+  // Walks 08:00..22:30 on each coming date except Saturday (opened wide by the runner), so no two tests share a slot.
+  const dates = [1, 2, 3, 4, 5, 6].map(n => TIME.addDays(TIME.todayYmd(), n)).filter(d => TIME.dowOfYmd(d) !== 6);
   const i = slotCursor++;
-  const dayIdx = active[Math.floor(i / 30) % active.length];
+  const date = dates[Math.floor(i / 30) % dates.length];
   const minutes = 8 * 60 + (i % 30) * 30;
-  assert.ok(i < 30 * active.length, "ran out of test slots");
-  return { dayIdx, time: `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}` };
+  assert.ok(i < 30 * dates.length, "ran out of test slots");
+  return { date, dayIdx: TIME.dowOfYmd(date), time: `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}` };
 }
 
 async function book(c, slot = freshSlot(), extra = {}) {
@@ -385,28 +385,25 @@ test("booking takes name, phone, price and duration from the server, not the req
 test("bad booking input is refused: closed day, off-grid, past, bad service, no session", async () => {
   const a = await newClient();
   const slot = freshSlot();
-  assert.equal((await a.post("/appointments", { dayIdx: 6, time: "20:00", srvIdx: 0 })).status, 400, "Saturday is closed");
+  const saturday = [1, 2, 3, 4, 5, 6, 7].map(n => TIME.addDays(TIME.todayYmd(), n)).find(d => TIME.dowOfYmd(d) === 6);
+  assert.equal((await a.post("/appointments", { date: saturday, time: "20:00", srvIdx: 0 })).status, 400, "Saturday is closed");
   assert.equal((await a.post("/appointments", { ...slot, time: "10:17", srvIdx: 0 })).status, 400);
   assert.equal((await a.post("/appointments", { ...slot, time: "03:00", srvIdx: 0 })).status, 400);
   assert.equal((await a.post("/appointments", { ...slot, srvIdx: 99 })).status, 400);
-  assert.equal((await a.post("/appointments", { ...slot, dayIdx: 9, srvIdx: 0 })).status, 400);
+  assert.equal((await a.post("/appointments", { ...slot, date: "not-a-date", srvIdx: 0 })).status, 400);
   assert.equal((await a.post("/appointments", { ...slot, time: "<script>", srvIdx: 0 })).status, 400);
   assert.equal((await new Client().post("/appointments", { ...slot, srvIdx: 0 })).status, 401);
 });
 
 test("past times today are refused", async () => {
-  const parts = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Jerusalem", hourCycle: "h23", hour: "2-digit", weekday: "short" }).formatToParts(new Date());
-  const weekday = parts.find(p => p.type === "weekday").value;
-  const dayIdx = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(weekday);
-  const hour = Number(parts.find(p => p.type === "hour").value);
+  const hour = TIME.parts(Date.now()).h;
+  const date = TIME.todayYmd();
   const admin = await newAdmin();
   // Open today from 00:00 so a past slot exists on the grid regardless of when this test runs.
-  const cfg = (await admin.get("/admin/state")).json.state;
-  const schedule = cfg.weeklySchedule.map((d, i) => (i === dayIdx ? { active: true, start: "00:00", end: "23:30" } : d));
-  await admin.post("/admin/apply", { weeklySchedule: schedule });
+  await admin.post("/admin/availability", { dates: { [date]: { open: true, start: "00:00", end: "23:30" } } });
   const a = await newClient();
-  if (hour >= 1) assert.equal((await a.post("/appointments", { dayIdx, time: "00:00", srvIdx: 0 })).status, 400);
-  await admin.post("/admin/apply", { weeklySchedule: cfg.weeklySchedule });
+  if (hour >= 1) assert.equal((await a.post("/appointments", { date, time: "00:00", srvIdx: 0 })).status, 400);
+  await admin.post("/admin/availability", { dates: { [date]: null } });
 });
 
 test("concurrent double booking: exactly one of 25 succeeds", async () => {
@@ -710,11 +707,10 @@ test("admin status toggle sends no SMS", async () => {
   assert.equal(r.json.state.appointments.find(x => x.id === ap.id).status, "confirmed");
 });
 
-test("admin validation rejects bad services, schedule, config and ids", async () => {
+test("admin validation rejects bad services, config and ids", async () => {
   const admin = await newAdmin();
   assert.equal((await admin.post("/admin/apply", { services: [{ name: "x", price: "free" }] })).status, 400);
   assert.equal((await admin.post("/admin/apply", { services: [] })).status, 400);
-  assert.equal((await admin.post("/admin/apply", { weeklySchedule: [{ active: true, start: "25:00", end: "20:00" }] })).status, 400);
   assert.equal((await admin.post("/admin/apply", { siteConfig: { slotInterval: 0 } })).status, 400);
   assert.equal((await admin.post("/admin/apply", { siteConfig: { barberPhone: "123" } })).status, 400);
   const r = await admin.post("/admin/apply", { appointments: { upsert: [{ id: "bad id'); alert(1)//", ...freshSlot(), name: "שם", phone: freshPhone() }], remove: [] } });
@@ -991,8 +987,8 @@ test("the public endpoint holds no personal data and is cacheable for a short ti
   assert.ok(!/05\d{8}/.test(r.text), "no phone number of any kind, including the barber's");
   assert.ok(!r.text.includes("smsPackageQuota") && !r.text.includes("reminderHoursBefore"));
   assert.deepEqual(Object.keys(r.json.siteConfig).sort(), ["slotBuffer", "slotInterval", "subtitle", "title"]);
-  r.json.busy.forEach(b => assert.deepEqual(Object.keys(b).sort(), ["dateStr", "dayIdx", "time"]));
-  assert.ok(r.json.busy.some(b => b.time === ap.time && b.dayIdx === ap.dayIdx));
+  r.json.busy.forEach(b => assert.deepEqual(Object.keys(b).sort(), ["date", "time"]));
+  assert.ok(r.json.busy.some(b => b.time === ap.time && b.date === ap.date));
 });
 
 test("the public snapshot costs little when nothing changed", async () => {
@@ -1006,9 +1002,9 @@ test("canceled appointments leave the busy list", async () => {
   const a = await newClient();
   const slot = freshSlot();
   const ap = await book(a, slot);
-  assert.ok((await new Client().get("/public")).json.busy.some(b => b.dayIdx === slot.dayIdx && b.time === slot.time));
+  assert.ok((await new Client().get("/public")).json.busy.some(b => b.date === slot.date && b.time === slot.time));
   await a.post(`/appointments/${ap.id}/cancel`);
-  assert.ok(!(await new Client().get("/public")).json.busy.some(b => b.dayIdx === slot.dayIdx && b.time === slot.time));
+  assert.ok(!(await new Client().get("/public")).json.busy.some(b => b.date === slot.date && b.time === slot.time));
 });
 
 // --- SMS ---
@@ -1213,23 +1209,11 @@ test("old appointments are purged by the daily maintenance", async () => {
 });
 
 // --- Notifications ---
-test("ntfy is silent without NTFY_TOPIC, and carries no phone or name with it", async () => {
+test("ntfy is silent without NTFY_TOPIC", async () => {
   const a = await newClient();
   const before = h.outbox.ntfy.length;
   await book(a);
   assert.equal(h.outbox.ntfy.length, before, "no default public topic");
-  process.env.NTFY_TOPIC = "test-topic";
-  try {
-    const b = await newClient();
-    await book(b);
-    await b.post("/me/message", { text: "הטלפון שלי 0501234567" });
-    const sent = h.outbox.ntfy.slice(before);
-    assert.ok(sent.length >= 2);
-    const blob = JSON.stringify(sent);
-    assert.ok(!/05\d{8}/.test(blob), "no phone numbers");
-    assert.ok(!blob.includes(b.name), "no customer names");
-    assert.ok(!blob.includes("הטלפון שלי"), "no client free text");
-  } finally { delete process.env.NTFY_TOPIC; }
 });
 
 test("notifications: read flag persists and only the read flag can change", async () => {
@@ -1965,6 +1949,441 @@ test("deployed files load nothing from Google, the dead legal modal is gone, Hee
   assert.match(fs.readFileSync(path.join(root, "fonts", "OFL.txt"), "utf8"), /SIL Open Font License, Version 1\.1/);
 });
 
+// --- Availability: every date is closed until the owner opens it ---
+const AV = require("../api/_availability");
+const T = require("../api/_time");
+const OPEN = { open: true, start: "10:00", end: "12:00" };
+const ilToday = () => T.todayYmd();
+const plusDays = n => T.addDays(ilToday(), n);
+// First date at least minDays ahead that falls on the weekday.
+function nextWeekday(dow, minDays = 7) { for (let n = minDays; ; n++) if (T.dowOfYmd(plusDays(n)) === dow) return plusDays(n); }
+const avKey = (ns = "") => ns + "cfg:availability";
+const storedAvailability = (ns = "") => JSON.parse(h.fake.run(["GET", avKey(ns)]).result);
+
+// Runs fn with the stored rules replaced (null: nothing stored, the state on the day this ships), then puts them back.
+async function withAvailability(av, fn) {
+  const saved = h.fake.run(["GET", avKey()]).result;
+  const set = v => { if (v === null) h.fake.run(["DEL", avKey()]); else h.fake.run(["SET", avKey(), typeof v === "string" ? v : JSON.stringify(v)]); h.fake.run(["INCR", "ver"]); };
+  set(av);
+  freshCodeBudget();
+  try { return await fn(); } finally { set(saved); }
+}
+// These tests register many customers; the site-wide daily budget for SMS codes is not what they are about.
+const freshCodeBudget = () => h.fake.run(["DEL", "codecap:g:" + T.todayYmd()]);
+const openDaysNow = async () => (await new Client().get("/public")).json.openDays;
+
+test("availability: with nothing stored, every date is closed and nothing can be booked", () => withAvailability(null, async () => {
+  const admin = await newAdmin();
+  const state = (await admin.get("/admin/state")).json.state;
+  assert.equal(state.availability.weekly.length, 7);
+  assert.ok(state.availability.weekly.every(d => d.open === false), "all weekdays closed");
+  assert.deepEqual(state.availability.dates, {});
+  assert.equal(state.weeklySchedule, undefined);
+  assert.deepEqual(await openDaysNow(), []);
+  const a = await newClient();
+  for (const n of [0, 1, 2, 3, 4, 5, 6, 7, 29]) {
+    const r = await a.post("/appointments", { date: plusDays(n), time: "12:00", srvIdx: 0 });
+    assert.equal(r.status, 400, "day +" + n);
+    assert.match(r.json.reason, /סגורה|עברה/);
+  }
+  assert.equal((await a.post("/appointments", { date: plusDays(3), time: "12:00", srvIdx: 0 })).json.reason, "ביום הזה המספרה סגורה. אפשר לבחור יום אחר.");
+}));
+
+test("availability: the old stored schedule opens nothing, and the old save field is ignored", () => withAvailability(null, async () => {
+  const oldSchedule = Array.from({ length: 7 }, () => ({ active: true, start: "08:00", end: "22:00" }));
+  h.fake.run(["SET", "cfg:schedule", JSON.stringify(oldSchedule)]);
+  h.fake.run(["INCR", "ver"]);
+  try {
+    assert.deepEqual(await openDaysNow(), []);
+    const r = await (await newClient()).post("/appointments", { date: plusDays(2), time: "10:00", srvIdx: 0 });
+    assert.equal(r.status, 400);
+    const admin = await newAdmin();
+    assert.equal((await admin.post("/admin/apply", { weeklySchedule: oldSchedule })).status, 200);
+    assert.equal(h.fake.run(["GET", avKey()]).result, null, "does not become availability");
+    assert.deepEqual(await openDaysNow(), []);
+    assert.equal(fs.readFileSync(path.join(__dirname, "..", "api", "_defaults.js"), "utf8").includes("weeklySchedule"), false);
+  } finally { h.fake.run(["DEL", "cfg:schedule"]); }
+}));
+
+test("availability: a weekly rule opens that weekday only, in every week within the horizon", () => withAvailability(null, async () => {
+  const admin = await newAdmin();
+  const dow = 2;
+  const weekly = AV.defaults().weekly.map((d, i) => (i === dow ? { open: true, start: "10:00", end: "12:00" } : d));
+  assert.equal((await admin.post("/admin/availability", { weekly })).status, 200);
+  const days = await openDaysNow();
+  assert.ok(days.length >= 4 && days.length <= 5, "four or five Tuesdays in 30 days: " + days.length);
+  days.forEach(d => { assert.equal(T.dowOfYmd(d.date), dow); assert.equal(d.start, "10:00"); assert.equal(d.end, "12:00"); });
+  const closedDay = nextWeekday(3);
+  assert.equal((await (await newClient()).post("/appointments", { date: closedDay, time: "10:00", srvIdx: 0 })).status, 400);
+}));
+
+test("availability: the same weekday and time in two different weeks are two different slots", () => withAvailability(null, async () => {
+  const admin = await newAdmin();
+  const dow = 4;
+  const weekly = AV.defaults().weekly.map((d, i) => (i === dow ? { open: true, start: "10:00", end: "12:00" } : d));
+  await admin.post("/admin/availability", { weekly });
+  const first = nextWeekday(dow, 7);
+  const second = T.addDays(first, 7);
+  const a = await newClient();
+  const b = await newClient();
+  const apA = await book(a, { date: first, time: "11:00" });
+  const apB = await book(b, { date: second, time: "11:00" });
+  assert.equal(apA.dayIdx, apB.dayIdx);
+  assert.equal(apA.date, first);
+  assert.equal(apB.date, second);
+  assert.notEqual(apA.startsAtMs, apB.startsAtMs);
+  assert.equal(T.todayYmd(apB.startsAtMs), second);
+  assert.equal((await (await newClient()).post("/appointments", { date: second, time: "11:00", srvIdx: 0 })).status, 409, "still one per slot");
+  const busy = (await new Client().get("/public")).json.busy;
+  assert.ok(busy.some(x => x.date === first && x.time === "11:00") && busy.some(x => x.date === second && x.time === "11:00"));
+  // Moving to the same weekday a week later is a real move.
+  const c = await newClient();
+  const apC = await book(c, { date: first, time: "10:00" });
+  const moved = await c.post("/appointments/" + apC.id + "/move", { date: second, time: "10:00", srvIdx: 0 });
+  assert.equal(moved.status, 200);
+  assert.equal(moved.json.appointment.date, second);
+  assert.equal((await (await newClient()).post("/appointments", { date: first, time: "10:00", srvIdx: 0 })).status, 200, "the first week's slot is free again");
+  // The barber can do the same from the calendar.
+  const adminMove = await admin.post("/admin/apply", { appointments: { upsert: [{ id: apA.id, date: T.addDays(second, 7), time: "11:00" }], remove: [] } });
+  assert.deepEqual(adminMove.json.conflicts, []);
+  assert.equal(adminMove.json.state.appointments.find(x => x.id === apA.id).date, T.addDays(second, 7));
+}));
+
+test("availability: a date opens on a closed weekday, closes on an open one, and reset removes the rule", () => withAvailability(null, async () => {
+  const admin = await newAdmin();
+  const dow = 1;
+  const weekly = AV.defaults().weekly.map((d, i) => (i === dow ? { open: true, start: "10:00", end: "12:00" } : d));
+  await admin.post("/admin/availability", { weekly });
+  const closedWeekday = nextWeekday(5, 7);
+  const openWeekday = nextWeekday(dow, 7);
+  // Open on a closed weekday.
+  let r = await admin.post("/admin/availability", { dates: { [closedWeekday]: { open: true, start: "16:00", end: "18:00" } } });
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.json.state.availability.dates[closedWeekday], { open: true, start: "16:00", end: "18:00" });
+  assert.deepEqual((await openDaysNow()).find(d => d.date === closedWeekday), { date: closedWeekday, start: "16:00", end: "18:00" });
+  assert.equal(new Set((await openDaysNow()).map(d => d.date)).size, (await openDaysNow()).length);
+  const a = await newClient();
+  assert.equal((await a.post("/appointments", { date: closedWeekday, time: "10:00", srvIdx: 0 })).status, 400, "that date's own hours apply");
+  assert.equal((await a.post("/appointments", { date: closedWeekday, time: "17:00", srvIdx: 0 })).status, 200);
+  // Only that date: the same weekday a week later stays closed.
+  assert.equal((await a.post("/appointments", { date: T.addDays(closedWeekday, 7), time: "17:00", srvIdx: 0 })).status, 400);
+  // Close one date in an open weekday.
+  await admin.post("/admin/availability", { dates: { [openWeekday]: { open: false } } });
+  assert.ok(!(await openDaysNow()).some(d => d.date === openWeekday));
+  assert.equal((await (await newClient()).post("/appointments", { date: openWeekday, time: "10:00", srvIdx: 0 })).status, 400);
+  assert.ok((await openDaysNow()).some(d => d.date === T.addDays(openWeekday, 7) || T.addDays(openWeekday, 7) > plusDays(29)), "other weeks stay open");
+  // Reset: back to the weekly rule, and back to closed.
+  r = await admin.post("/admin/availability", { dates: { [openWeekday]: null, [closedWeekday]: null } });
+  assert.deepEqual(r.json.state.availability.dates, {});
+  assert.ok((await openDaysNow()).some(d => d.date === openWeekday));
+  assert.ok(!(await openDaysNow()).some(d => d.date === closedWeekday));
+}));
+
+test("availability: saving validates dates, hours and limits", () => withAvailability(null, async () => {
+  const admin = await newAdmin();
+  const post = body => admin.post("/admin/availability", body);
+  const open = date => ({ dates: { [date]: OPEN } });
+  assert.equal((await post(open(plusDays(-1)))).status, 400, "past date");
+  assert.match((await post(open(plusDays(-1)))).json.reason, /עבר/);
+  assert.equal((await post(open(plusDays(0)))).status, 200, "today is fine");
+  assert.equal((await post(open(plusDays(367)))).status, 400, "too far");
+  assert.equal((await post(open(plusDays(366)))).status, 200);
+  for (const bad of ["2026-02-30", "2026-13-01", "20260101", "not-a-date", "__proto__"]) assert.equal((await post(open(bad))).status, 400, bad);
+  assert.equal((await post({ dates: { [plusDays(1)]: { open: true, start: "12:00", end: "12:00" } } })).status, 400, "start equals end");
+  assert.equal((await post({ dates: { [plusDays(1)]: { open: true, start: "14:00", end: "12:00" } } })).status, 400, "start after end");
+  assert.equal((await post({ dates: { [plusDays(1)]: { open: true, start: "25:00", end: "26:00" } } })).status, 400);
+  assert.equal((await post({ dates: { [plusDays(1)]: { open: "yes" } } })).status, 400);
+  assert.equal((await post({ dates: [] })).status, 400);
+  assert.equal((await post({})).status, 400);
+  assert.equal((await post({ weekly: [] })).status, 400);
+  const badRow = AV.defaults().weekly.map((d, i) => (i === 0 ? { open: true, start: "20:00", end: "10:00" } : d));
+  assert.equal((await post({ weekly: badRow })).status, 400);
+  // Removing a rule whose date has passed is always allowed.
+  assert.equal((await post({ dates: { [plusDays(-5)]: null } })).status, 200);
+  // Up to 400 rules.
+  const huge = {};
+  for (let i = 0; i < 401; i++) huge[T.addDays("2030-01-01", i)] = null;
+  assert.equal((await post({ dates: huge })).status, 400, "too many in one request");
+  const full = {};
+  for (let i = 0; i < 400; i++) full[T.addDays("2020-01-01", i)] = { open: false };
+  h.fake.run(["SET", avKey(), JSON.stringify({ weekly: AV.defaults().weekly, dates: full })]);
+  assert.equal((await post({ dates: { [plusDays(0)]: OPEN } })).status, 400, "401st rule");
+  // Nothing refused was written.
+  assert.equal(Object.keys(storedAvailability().dates).length, 400);
+}));
+
+test("availability: two saves at once both survive", () => withAvailability(null, async () => {
+  const admin = await newAdmin();
+  const dates = [1, 2, 3, 4, 5, 6].map(plusDays);
+  const replies = await Promise.all(dates.map(d => admin.post("/admin/availability", { dates: { [d]: OPEN } })));
+  replies.forEach(r => assert.equal(r.status, 200));
+  dates.forEach(d => assert.deepEqual(storedAvailability().dates[d], OPEN));
+}));
+
+test("availability: closed-day booking and move are refused, an open day's hours are the bound", () => withAvailability(null, async () => {
+  const admin = await newAdmin();
+  const openDate = plusDays(11);
+  const closedDate = plusDays(12);
+  await admin.post("/admin/availability", { dates: { [openDate]: { open: true, start: "10:30", end: "12:00" } } });
+  const a = await newClient();
+  const refused = async (time, date = openDate) => (await a.post("/appointments", { date, time, srvIdx: 0 })).status;
+  assert.equal(await refused("10:00"), 400, "before opening");
+  assert.equal(await refused("12:00"), 400, "the closing time is not a slot");
+  assert.equal(await refused("12:30"), 400, "after closing");
+  assert.equal(await refused("10:45"), 400, "off the grid");
+  assert.equal(await refused("10:30", closedDate), 400, "closed date");
+  assert.equal(await refused("10:30", plusDays(30)), 400, "beyond the horizon");
+  assert.match((await a.post("/appointments", { date: plusDays(30), time: "10:30", srvIdx: 0 })).json.reason, /30 ימים/);
+  assert.equal(await refused("10:30", "2026-02-30"), 400);
+  assert.equal((await a.post("/appointments", { dayIdx: 1, time: "10:30", srvIdx: 0 })).status, 400, "a weekday alone is no longer a date");
+  const ap = await book(a, { date: openDate, time: "11:30" });
+  const move = await a.post("/appointments/" + ap.id + "/move", { date: closedDate, time: "10:30", srvIdx: 0 });
+  assert.equal(move.status, 400);
+  assert.match(move.json.reason, /סגורה/);
+  assert.equal((await a.get("/me")).json.appointments.find(x => x.id === ap.id).date, openDate, "stays where it was");
+  assert.equal((await a.post("/appointments/" + ap.id + "/move", { date: openDate, time: "10:30", srvIdx: 0 })).status, 200);
+  // The edge of the horizon, the last bookable date.
+  await admin.post("/admin/availability", { dates: { [plusDays(29)]: OPEN, [plusDays(30)]: OPEN } });
+  assert.equal((await (await newClient()).post("/appointments", { date: plusDays(29), time: "11:00", srvIdx: 0 })).status, 200);
+  assert.ok(!(await openDaysNow()).some(d => d.date === plusDays(30)));
+}));
+
+test("availability: closing a day keeps its appointments valid, visible and cancelable", () => withAvailability(null, async () => {
+  const admin = await newAdmin();
+  const date = plusDays(13);
+  await admin.post("/admin/availability", { dates: { [date]: { open: true, start: "15:00", end: "16:00" } } });
+  const a = await newClient();
+  const ap = await book(a, { date, time: "15:00" });
+  await admin.post("/admin/availability", { dates: { [date]: { open: false } } });
+  assert.ok((await a.get("/me")).json.appointments.some(x => x.id === ap.id && x.status === "pending"));
+  assert.ok((await admin.get("/admin/state")).json.state.appointments.some(x => x.id === ap.id));
+  assert.ok((await new Client().get("/public")).json.busy.some(x => x.date === date && x.time === "15:00"));
+  assert.equal((await a.post("/appointments/" + ap.id + "/confirm")).status, 200);
+  assert.equal((await a.post("/appointments/" + ap.id + "/cancel")).status, 200);
+}));
+
+test("availability: a manual admin appointment works on a closed day and opens nothing to customers", () => withAvailability(null, async () => {
+  const admin = await newAdmin();
+  const date = plusDays(8);
+  const phone = freshPhone();
+  const r = await admin.post("/admin/apply", { appointments: { upsert: [{ id: "ap_override1", date, time: "13:15", name: "לקוח ידני", phone, price: 70, service: "x" }], remove: [] } });
+  assert.deepEqual(r.json.conflicts, []);
+  const appt = r.json.state.appointments.find(x => x.id === "ap_override1");
+  assert.equal(appt.date, date);
+  assert.equal(appt.dayIdx, T.dowOfYmd(date));
+  assert.equal(appt.dateStr, T.dateStrOf(date));
+  assert.deepEqual(await openDaysNow(), []);
+  assert.equal((await (await newClient()).post("/appointments", { date, time: "13:45", srvIdx: 0 })).status, 400);
+  // Still one per slot, and still a real date.
+  const dup = await admin.post("/admin/apply", { appointments: { upsert: [{ id: "ap_override2", date, time: "13:15", name: "לקוח ידני", phone: freshPhone(), price: 70, service: "x" }], remove: [] } });
+  assert.equal(dup.json.conflicts.length, 1);
+  const past = await admin.post("/admin/apply", { appointments: { upsert: [{ id: "ap_override3", date: plusDays(-1), time: "10:00", name: "לקוח ידני", phone: freshPhone(), price: 70, service: "x" }], remove: [] } });
+  assert.match(past.json.conflicts[0].reason, /שעבר/);
+  const noDate = await admin.post("/admin/apply", { appointments: { upsert: [{ id: "ap_override4", dayIdx: 2, time: "10:00", name: "לקוח ידני", phone: freshPhone(), price: 70, service: "x" }], remove: [] } });
+  assert.equal(noDate.json.conflicts.length, 1);
+  await admin.post("/admin/apply", { appointments: { upsert: [], remove: ["ap_override1"] } });
+}));
+
+test("availability: saving is admin only, same-origin, bumps the version and leaves the other namespace alone", () => withAvailability(null, async () => {
+  const body = { dates: { [plusDays(2)]: OPEN } };
+  assert.equal((await new Client().post("/admin/availability", body)).status, 401);
+  assert.equal((await (await newClient()).post("/admin/availability", body)).status, 401, "a customer session is not enough");
+  assert.equal(h.fake.run(["GET", avKey()]).result, null);
+  const admin = await newAdmin();
+  assert.equal((await admin.post("/admin/availability", body, { noOrigin: true })).status, 403);
+  const foreign = new Client({ ip: admin.ip, origin: "https://evil.example" });
+  foreign.jar = admin.jar;
+  assert.equal((await foreign.post("/admin/availability", body)).status, 403);
+  const before = (await admin.get("/admin/version")).json.v;
+  const saved = await admin.post("/admin/availability", body);
+  assert.equal(saved.status, 200);
+  assert.ok((await admin.get("/admin/version")).json.v > before);
+  assert.ok(storedAvailability().dates[plusDays(2)]);
+
+  // test: has its own rules.
+  const testBefore = h.fake.run(["GET", avKey("test:")]).result;
+  h.fake.run(["DEL", avKey("test:")]);
+  try {
+    const t = (await admin.get("/admin/state?test=1")).json.state;
+    assert.ok(t.availability.weekly.every(d => d.open === false), "starts closed in test mode too");
+    assert.deepEqual(t.availability.dates, {});
+    const d = plusDays(3);
+    assert.equal((await admin.post("/admin/availability?test=1", { dates: { [d]: OPEN } })).status, 200);
+    assert.ok(!storedAvailability().dates[d], "the real rules are untouched");
+    assert.ok(storedAvailability("test:").dates[d]);
+    assert.ok((await admin.get("/public?test=1")).json.openDays.some(x => x.date === d));
+  } finally { h.fake.run(["SET", avKey("test:"), testBefore]); }
+}));
+
+test("availability: the public payload has only open dates and hours, and no personal data", () => withAvailability(null, async () => {
+  const admin = await newAdmin();
+  const weekly = AV.defaults().weekly.map((d, i) => (i === 3 ? { open: true, start: "10:00", end: "12:00" } : d));
+  await admin.post("/admin/availability", { weekly, dates: { [plusDays(9)]: OPEN, [plusDays(10)]: { open: false } } });
+  const a = await newClient();
+  await book(a, { date: plusDays(9), time: "10:30" }, { note: "הערה סודית" });
+  const r = await new Client().get("/public");
+  assert.deepEqual(Object.keys(r.json).sort(), ["busy", "horizonDays", "ok", "openDays", "portfolio", "services", "siteConfig", "test", "v"]);
+  r.json.openDays.forEach(d => assert.deepEqual(Object.keys(d).sort(), ["date", "end", "start"]));
+  r.json.busy.forEach(b => assert.deepEqual(Object.keys(b).sort(), ["date", "time"]));
+  assert.equal(r.json.horizonDays, 30);
+  for (const leak of [a.name, a.phone, "הערה סודית", "weekly", "weeklySchedule", "availability", "source"]) assert.ok(!r.text.includes(leak), leak);
+  assert.ok(!r.text.includes(plusDays(10)) || T.dowOfYmd(plusDays(10)) === 3 || r.json.busy.some(b => b.date === plusDays(10)), "an explicitly closed date is simply absent");
+}));
+
+test("availability: rules for past dates are dropped by the daily maintenance", () => withAvailability({ weekly: AV.defaults().weekly, dates: { [plusDays(-3)]: OPEN, [plusDays(-1)]: { open: false }, [plusDays(0)]: OPEN, [plusDays(4)]: OPEN } }, async () => {
+  h.fake.run(["DEL", "remgate"]);
+  h.fake.run(["DEL", "maint"]);
+  await new Client().get("/public");
+  assert.deepEqual(Object.keys(storedAvailability().dates).sort(), [plusDays(0), plusDays(4)].sort());
+}));
+
+test("availability: the manual reminder button stops at the coming week", () => withAvailability(null, async () => {
+  const admin = await newAdmin();
+  const far = plusDays(20);
+  await admin.post("/admin/availability", { dates: { [far]: { open: true, start: "15:00", end: "16:00" } } });
+  const a = await newClient();
+  const ap = await book(a, { date: far, time: "15:00" });
+  await admin.post("/admin/reminders");
+  const stored = (await a.get("/me")).json.appointments.find(x => x.id === ap.id);
+  assert.equal(stored.reminderSent, false, "a month-away booking keeps its one reminder for later");
+}));
+
+test("dates: Israel's midnight decides the date, in winter and in summer", () => {
+  // Winter, UTC+2.
+  assert.equal(T.todayYmd(Date.UTC(2026, 10, 7, 21, 59)), "2026-11-07");
+  assert.equal(T.todayYmd(Date.UTC(2026, 10, 7, 22, 1)), "2026-11-08");
+  // Summer, UTC+3.
+  assert.equal(T.todayYmd(Date.UTC(2026, 6, 1, 20, 59)), "2026-07-01");
+  assert.equal(T.todayYmd(Date.UTC(2026, 6, 1, 21, 1)), "2026-07-02");
+  // At 00:01 in Israel it is still the day before in UTC.
+  const av = { weekly: AV.defaults().weekly, dates: { "2026-11-07": OPEN, "2026-11-08": OPEN } };
+  const site = { slotInterval: 30, slotBuffer: 0 };
+  const before = Date.UTC(2026, 10, 7, 21, 59);
+  const after = Date.UTC(2026, 10, 7, 22, 1);
+  assert.deepEqual(AV.publicOpenDays(av, before).map(d => d.date), ["2026-11-07", "2026-11-08"]);
+  assert.deepEqual(AV.publicOpenDays(av, after).map(d => d.date), ["2026-11-08"]);
+  assert.doesNotThrow(() => AV.assertBookable(av, site, "2026-11-08", "10:00", before));
+  assert.throws(() => AV.assertBookable(av, site, "2026-11-07", "10:00", after), /עברה/);
+  // A weekday comes from the date, and addDays does not slip across the clock change.
+  assert.equal(T.dowOfYmd("2026-11-08"), 0);
+  assert.equal(T.addDays("2027-03-25", 2), "2027-03-27");
+  assert.equal(T.addDays("2027-10-30", 2), "2027-11-01");
+  // The horizon's last date, counted in Israel days.
+  const last = "2026-12-07";
+  const horizonAv = { weekly: AV.defaults().weekly, dates: { [last]: OPEN, "2026-12-08": OPEN } };
+  assert.doesNotThrow(() => AV.assertBookable(horizonAv, site, last, "10:00", after));
+  assert.throws(() => AV.assertBookable(horizonAv, site, "2026-12-08", "10:00", after), /30 ימים/);
+  assert.deepEqual(AV.publicOpenDays(horizonAv, after).map(d => d.date), [last]);
+});
+
+test("dates: summer time changes keep hours right, and the skipped hour is not bookable", () => {
+  const eq = (date, time, utcH, utcM = 0) => {
+    const [y, m, d] = date.split("-").map(Number);
+    assert.equal(T.epochFor(date, time), Date.UTC(y, m - 1, d, utcH, utcM), date + " " + time);
+  };
+  // Clocks go forward on Friday 2027-03-26 at 02:00, and back on Sunday 2027-10-31 at 02:00.
+  eq("2027-03-25", "10:00", 8);
+  assert.equal(T.epochFor("2027-03-26", "01:30"), Date.UTC(2027, 2, 25, 23, 30), "01:30 is still winter time");
+  eq("2027-03-26", "03:00", 0);
+  eq("2027-03-26", "10:00", 7);
+  eq("2027-10-30", "10:00", 7);
+  eq("2027-10-31", "03:00", 1);
+  eq("2027-10-31", "10:00", 8);
+  assert.equal(T.wallClockExists("2027-03-26", "02:30"), false, "02:30 does not exist that morning");
+  assert.equal(T.wallClockExists("2027-03-26", "03:00"), true);
+  assert.equal(T.wallClockExists("2027-10-31", "01:30"), true);
+  const av = { weekly: AV.defaults().weekly, dates: { "2027-03-26": { open: true, start: "00:00", end: "06:00" } } };
+  const site = { slotInterval: 30, slotBuffer: 0 };
+  const dayBefore = Date.UTC(2027, 2, 24, 12);
+  assert.throws(() => AV.assertBookable(av, site, "2027-03-26", "02:30", dayBefore), /לא זמינה/);
+  assert.doesNotThrow(() => AV.assertBookable(av, site, "2027-03-26", "03:00", dayBefore));
+  assert.equal(AV.adminSlotProblem("2027-03-26", "02:30", dayBefore) !== null, true);
+});
+
+test("ntfy: only a customer's booking, move, cancel and message reach the phone", async () => {
+  freshCodeBudget();
+  const pushes = () => h.outbox.ntfy.length;
+  const admin = await newAdmin();
+  const notifCount = async () => (await admin.get("/admin/state")).json.state.adminNotifications.length;
+  process.env.NTFY_TOPIC = "test-topic";
+  try {
+    const silent = async (name, fn) => {
+      const before = pushes();
+      await fn();
+      assert.equal(pushes(), before, name + " must not push: " + JSON.stringify(h.outbox.ntfy.slice(before)));
+    };
+    const pushed = async (name, fn, re) => {
+      const before = pushes();
+      await fn();
+      const sent = h.outbox.ntfy.slice(before);
+      assert.equal(sent.length, 1, name + " pushes once");
+      assert.match(sent[0].message, re, name);
+      return sent[0];
+    };
+
+    let c;
+    await silent("a new customer", async () => { c = await newClient(); });
+    const slot = freshSlot();
+    let ap;
+    const created = await pushed("a customer's booking", async () => { ap = await book(c, slot); }, /תור חדש: יום .* בשעה/);
+    assert.ok(created.message.includes(slot.time) && created.message.includes(T.dateStrOf(slot.date)), "says the day and time");
+    await silent("arrival confirmation", () => c.post("/appointments/" + ap.id + "/confirm"));
+    const s2 = freshSlot();
+    await pushed("a customer's move", () => c.post("/appointments/" + ap.id + "/move", { ...s2, srvIdx: 0 }), /תור הוזז: יום .* בשעה/);
+    await pushed("a customer's message", () => c.post("/me/message", { text: "הטלפון שלי 0501234567 בסוד" }), /הודעה חדשה/);
+    await silent("admin moves it", () => admin.post("/admin/apply", { appointments: { upsert: [{ id: ap.id, ...freshSlot() }], remove: [] } }));
+    await silent("admin cancels it", () => admin.post("/admin/apply", { appointments: { upsert: [{ id: ap.id, status: "canceled" }], remove: [] } }));
+    const manualId = "ap_push_manual";
+    await silent("a manual appointment", () => admin.post("/admin/apply", { appointments: { upsert: [{ id: manualId, ...freshSlot(), name: "ידני", phone: freshPhone(), price: 1, service: "x" }], remove: [] } }));
+    await silent("test SMS", () => admin.post("/admin/sms/test"));
+    await silent("a failed SMS", async () => {
+      h.outbox.smsFail = true;
+      try { await admin.post("/admin/sms/test"); } finally { h.outbox.smsFail = false; }
+    });
+    await silent("the daily SMS cap", async () => {
+      const limit = Number(/CAP_GLOBAL_DAY = (\d+)/.exec(fs.readFileSync(path.join(__dirname, "..", "api", "_sms.js"), "utf8"))[1]);
+      const key = "cap:g:" + T.todayYmd();
+      const saved = h.fake.run(["GET", key]).result;
+      h.fake.run(["SET", key, String(limit), "EX", "172800"]);
+      try { await admin.post("/admin/sms/test"); } finally { h.fake.run(["SET", key, saved || "0", "EX", "172800"]); }
+    });
+    await silent("a reminder", async () => {
+      const r = await newClient();
+      const before = pushes();
+      const booked = await book(r);
+      assert.equal(pushes(), before + 1);
+      h.outbox.ntfy.pop();
+      await admin.post("/admin/reminders");
+      assert.equal((await r.get("/me")).json.appointments.find(x => x.id === booked.id).reminderSent, true);
+    });
+    await silent("a deleted account", async () => {
+      const d = await newClient();
+      await d.post("/me/delete");
+    });
+    const c2 = await newClient();
+    const ap2 = await book(c2);
+    const inApp = await notifCount();
+    const canceled = await pushed("a customer's cancel", () => c2.post("/appointments/" + ap2.id + "/cancel"), /תור בוטל: יום .* בשעה/);
+    assert.equal(await notifCount(), inApp + 1, "the in-app notification stays");
+
+    const blob = JSON.stringify(h.outbox.ntfy);
+    assert.ok(!/05\d{8}/.test(blob), "no phone numbers");
+    assert.ok(!blob.includes(c.name) && !blob.includes(c2.name), "no customer names");
+    assert.ok(!blob.includes("בסוד"), "no customer text");
+    assert.ok(canceled.title && canceled.topic === "test-topic");
+  } finally { delete process.env.NTFY_TOPIC; }
+});
+
+test("ntfy: in-app notifications still appear for the events that do not push", async () => {
+  freshCodeBudget();
+  const admin = await newAdmin();
+  const c = await newClient();
+  const ap = await book(c);
+  await c.post("/appointments/" + ap.id + "/confirm");
+  const types = (await admin.get("/admin/state")).json.state.adminNotifications.map(n => n.type);
+  for (const t of ["new_user", "new_booking", "confirmed"]) assert.ok(types.includes(t), t);
+});
+
 test("no outbound request ever tried to leave the harness", () => {
   assert.deepEqual(h.outbox.blocked, []);
 });
@@ -1973,9 +2392,10 @@ test("no outbound request ever tried to leave the harness", () => {
 (async () => {
   h = await start();
   const setup = await newAdmin();
-  const wide = (await setup.get("/admin/state")).json.state.weeklySchedule.map(d => (d.active ? { active: true, start: "08:00", end: "23:00" } : d));
-  assert.equal((await setup.post("/admin/apply", { weeklySchedule: wide })).status, 200);
-  assert.equal((await setup.post("/admin/apply?test=1", { weeklySchedule: wide })).status, 200);
+  // Everything starts closed, so the tests open every weekday but Saturday, wide.
+  const wide = Array.from({ length: 7 }, (_, i) => ({ open: i !== 6, start: "08:00", end: "23:00" }));
+  assert.equal((await setup.post("/admin/availability", { weekly: wide })).status, 200);
+  assert.equal((await setup.post("/admin/availability?test=1", { weekly: wide })).status, 200);
   let passed = 0;
   const failures = [];
   const started = Date.now();

@@ -266,6 +266,7 @@
           <p class="s-sub">כל התספורות כוללות גזירות ודירוג. בוחרים שירות, ואז יום ושעה.</p>
         </header>
         <div class="s-menu" id="publicServicesGrid" data-reveal data-stagger></div>
+        <p class="hours-empty" id="noOpenDaysNote" hidden>אין כרגע תורים פתוחים. אפשר להתקשר: <a href="tel:0542858711" dir="ltr">054-2858711</a></p>
       </div>
     </section>
 
@@ -397,22 +398,24 @@
       </div>
 
       <div class="s-sheet__body">
-        <div class="s-step">
+        <div class="hours-empty" id="bookingNoDays" hidden></div>
+
+        <div class="s-step" data-needs-open-days>
           <label class="s-step__label" for="bookingServiceSelect">שירות</label>
           <select id="bookingServiceSelect" class="input-field" onchange="selectedServiceIdx=Number(this.value); updateModalHeaderTitle();"></select>
         </div>
 
-        <div class="s-step">
+        <div class="s-step" data-needs-open-days>
           <div class="s-step__label" id="bookingDaysLabel">יום</div>
           <div class="days-row" id="bookingDaysRow" role="group" aria-labelledby="bookingDaysLabel"></div>
         </div>
 
-        <div class="s-step">
+        <div class="s-step" data-needs-open-days>
           <div class="s-step__label" id="bookingHoursLabel">שעה <span class="s-step__aside">שעות מחוקות כבר תפוסות</span></div>
           <div class="hours-matrix" id="bookingHoursGrid" role="group" aria-labelledby="bookingHoursLabel"></div>
         </div>
 
-        <div class="s-step">
+        <div class="s-step" data-needs-open-days>
           <div class="s-step__label">הפרטים שלך</div>
           <div class="s-group">
             <input type="text" id="clientNameInput" class="input-field" aria-label="שם" readonly />
@@ -423,7 +426,7 @@
         </div>
       </div>
 
-      <div class="s-sheet__footer">
+      <div class="s-sheet__footer" data-needs-open-days>
         <button type="button" class="s-btn s-btn--primary s-btn--block s-btn--lg" id="confirmBookingBtn" onclick="confirmClientBooking()">אשר ושבץ תור ביומן</button>
       </div>
     </div>
@@ -829,7 +832,7 @@
   <script>
     // הסשן נשמר בעוגיית HttpOnly בשרת. בדפדפן אין פרטים אישיים מעבר למה שבזיכרון של הדף.
     let currentClientUser = null;
-    let selectedServiceIdx = 0, selectedBookDay = 0, selectedBookHour = null;
+    let selectedServiceIdx = 0, selectedBookDate = null, selectedBookHour = null;
     let editingApptId = null; // עבור שינוי תור קיים ע"י הלקוח
     let pendingActionAfterLogin = null;
     let actionInFlight = false;
@@ -1065,7 +1068,7 @@
       const appt = appointments.find(a => a.id === apptId);
       if (!appt) return;
       editingApptId = appt.id;
-      selectedBookDay = Number(appt.dayIdx) || 0;
+      selectedBookDate = apptDate(appt);
       selectedBookHour = null;
       openBookingModal(appt.srvIdx || 0, true);
     }
@@ -1128,7 +1131,7 @@
       const pastAppts = [];
 
       myAppts.forEach(a => {
-        const ts = a.startsAtMs || getTargetTimestamp(a.dayIdx, a.time);
+        const ts = Number(a.startsAtMs) || 0;
         if (a.status !== "canceled" && ts >= now - 2 * 3600 * 1000) futureAppts.push(a);
         else pastAppts.push(a);
       });
@@ -1140,7 +1143,7 @@
       } else {
         futureAppts.forEach(a => {
           const st = safeStatus(a.status);
-          const dateStr = esc(a.dateStr || getFormattedDateForDayIdx(a.dayIdx));
+          const dateStr = esc(a.dateStr || ddmm(apptDate(a)));
           const isConfirmed = st === "confirmed";
           const id = safeId(a.id);
           const card = document.createElement("div");
@@ -1166,7 +1169,7 @@
       } else {
         pastAppts.forEach(a => {
           const st = safeStatus(a.status);
-          const dateStr = esc(a.dateStr || getFormattedDateForDayIdx(a.dayIdx));
+          const dateStr = esc(a.dateStr || ddmm(apptDate(a)));
           const card = document.createElement("div");
           card.className = `client-appt-card status-${st}`;
           card.innerHTML = `
@@ -1275,8 +1278,18 @@
       });
     }
 
+    const NO_OPEN_DAYS_HTML = `אין כרגע תורים פתוחים. אפשר להתקשר: <a href="tel:0542858711" dir="ltr">054-2858711</a>`;
+
+    // Open days the customer can still use: a day whose last slot has passed is left out.
+    function bookableDays() {
+      const today = ilToday();
+      const now = Date.now();
+      return openDays.filter(d => d.date >= today && daySlots(d.date, d.start, d.end).some(t => ilEpochFor(d.date, t) > now));
+    }
+
     function openBookingModal(srvIdx, isReschedule = false) {
-      if (!verifyClientSession()) {
+      // With nothing open there is nothing to log in for: the sheet just says so.
+      if (bookableDays().length && !verifyClientSession()) {
         pendingActionAfterLogin = () => openBookingModal(srvIdx, isReschedule);
         document.getElementById("authModal").classList.add("open");
         showToast("לקביעת תור חובה להתחבר או להירשם עם שם מלא ומספר טלפון");
@@ -1288,10 +1301,9 @@
       document.getElementById("confirmBookingBtn").textContent = editingApptId ? "שמור מועד חדש לתור" : "אשר ושבץ תור ביומן";
       document.getElementById("bookingServiceSelect").innerHTML = SERVICES.map((s, i) => `<option value="${i}" ${i === selectedServiceIdx ? "selected" : ""}>${sanitizeStr(s.name, 40)} — ${Number(s.price) || 0} ₪</option>`).join("");
       updateModalHeaderTitle();
-      renderBookingDays();
-      renderBookingHours();
-      document.getElementById("clientNameInput").value = currentClientUser.username;
-      document.getElementById("clientPhoneInput").value = currentClientUser.phone;
+      syncBookingDays();
+      document.getElementById("clientNameInput").value = currentClientUser ? currentClientUser.username : "";
+      document.getElementById("clientPhoneInput").value = currentClientUser ? currentClientUser.phone : "";
       document.getElementById("bookingModal").classList.add("open");
     }
 
@@ -1305,45 +1317,64 @@
       document.getElementById("modalServiceTitle").textContent = `${srv.name} (${srv.price} ₪)`;
     }
 
+    // Brings the sheet in line with the open days: on opening it, and when a poll finds the owner changed them.
+    function syncBookingDays() {
+      const days = bookableDays();
+      const none = !days.length;
+      const noDays = document.getElementById("bookingNoDays");
+      noDays.hidden = !none;
+      if (none) noDays.innerHTML = NO_OPEN_DAYS_HTML;
+      document.querySelectorAll("#bookingModal [data-needs-open-days]").forEach(el => { el.hidden = none; });
+      if (!days.some(d => d.date === selectedBookDate)) {
+        selectedBookDate = none ? null : days[0].date;
+        selectedBookHour = null;
+      }
+      renderBookingDays();
+      renderBookingHours();
+    }
+
     function renderBookingDays() {
       const row = document.getElementById("bookingDaysRow");
+      const hadFocus = row.contains(document.activeElement);
       row.innerHTML = "";
-      DAYS_HEB.forEach((d, idx) => {
+      bookableDays().forEach(d => {
+        const active = d.date === selectedBookDate;
+        const weekday = DAYS_HEB[ilDow(d.date)];
         const btn = document.createElement("button");
         btn.type = "button";
-        btn.className = "day-chip" + (idx === selectedBookDay ? " active" : "");
-        btn.setAttribute("aria-pressed", String(idx === selectedBookDay));
-        btn.textContent = d;
+        btn.className = "day-chip" + (active ? " active" : "");
+        btn.dataset.date = d.date;
+        btn.setAttribute("aria-pressed", String(active));
+        btn.setAttribute("aria-label", `יום ${weekday}, ${ddmm(d.date)}`);
+        btn.innerHTML = `<span>${esc(weekday)}</span><span>${esc(ddmm(d.date))}</span>`;
         btn.onclick = () => {
-          selectedBookDay = idx; selectedBookHour = null; renderBookingDays(); renderBookingHours();
+          selectedBookDate = d.date; selectedBookHour = null; renderBookingDays(); renderBookingHours();
           row.querySelector(".day-chip.active")?.focus();
         };
         row.appendChild(btn);
       });
+      const current = row.querySelector(".day-chip.active");
+      if (current) {
+        current.scrollIntoView({ block: "nearest", inline: "nearest" });
+        if (hadFocus) current.focus();
+      }
     }
 
-    // משבצת תפוסה: תור פעיל באותו יום ושעה בשבוע הקרוב. משבצת של היום ששעתה עברה גם לא זמינה.
-    function isSlotTaken(dayIdx, tStr) {
-      if (getTargetTimestamp(dayIdx, tStr) <= Date.now()) return true;
+    // משבצת תפוסה: תור פעיל באותו תאריך ושעה. משבצת ששעתה עברה גם לא זמינה.
+    function isSlotTaken(date, tStr) {
       const now = Date.now();
-      return appointments.some(a => Number(a.dayIdx) === dayIdx && a.time === tStr && a.status !== "canceled" && a.id !== editingApptId && (a.busy || Number(a.startsAtMs) > now));
+      if (ilEpochFor(date, tStr) <= now) return true;
+      return appointments.some(a => apptDate(a) === date && a.time === tStr && a.status !== "canceled" && a.id !== editingApptId && (a.busy || Number(a.startsAtMs) > now));
     }
 
     function renderBookingHours() {
       const grid = document.getElementById("bookingHoursGrid");
       grid.innerHTML = "";
-      const cfg = weeklySchedule[selectedBookDay];
-      if (!cfg || !cfg.active) {
-        grid.innerHTML = `<div class="hours-empty">ביום הזה המספרה סגורה. אפשר לבחור יום אחר.</div>`;
-        return;
-      }
-      const step = Math.max(10, (Number(siteConfig.slotInterval) || 30) + (Number(siteConfig.slotBuffer) || 0));
-      const [sh, sm] = cfg.start.split(":").map(Number);
-      const [eh, em] = cfg.end.split(":").map(Number);
+      const cfg = openDays.find(d => d.date === selectedBookDate);
+      if (!cfg) return;
 
-      for (let cur = sh * 60 + sm; cur < eh * 60 + em; cur += step) {
-        const tStr = `${String(Math.floor(cur / 60)).padStart(2, "0")}:${String(cur % 60).padStart(2, "0")}`;
-        const taken = isSlotTaken(selectedBookDay, tStr);
+      daySlots(cfg.date, cfg.start, cfg.end).forEach(tStr => {
+        const taken = isSlotTaken(cfg.date, tStr);
         const btn = document.createElement("button");
         btn.type = "button";
         btn.className = "hour-chip" + (taken ? " taken" : "") + (selectedBookHour === tStr ? " active" : "");
@@ -1359,7 +1390,7 @@
           };
         }
         grid.appendChild(btn);
-      }
+      });
     }
 
     function confirmClientBooking() {
@@ -1367,7 +1398,7 @@
         if (!verifyClientSession()) return;
         if (!selectedBookHour) return showToast("נא לבחור שעה פנויה");
 
-        const payload = { dayIdx: selectedBookDay, time: selectedBookHour, srvIdx: selectedServiceIdx };
+        const payload = { date: selectedBookDate, time: selectedBookHour, srvIdx: selectedServiceIdx };
         const moving = !!editingApptId;
         const r = moving
           ? await apiPost(`/appointments/${safeId(editingApptId)}/move`, payload)
@@ -1376,7 +1407,7 @@
         if (!r.ok) {
           showToast(r.reason);
           if (r.data.code === "slot_taken") {
-            busySlots.push({ dayIdx: selectedBookDay, time: selectedBookHour, dateStr: getFormattedDateForDayIdx(selectedBookDay) });
+            busySlots.push({ date: selectedBookDate, time: selectedBookHour });
             rebuildClientAppointments();
             selectedBookHour = null;
             renderBookingHours();
@@ -1397,7 +1428,14 @@
     window.onCoreDataUpdated = () => {
       renderSiteContent();
       updateAuthAndPersonalUI();
-      if (document.getElementById("bookingModal").classList.contains("open")) renderBookingHours();
+      const anyOpen = bookableDays().length > 0;
+      const note = document.getElementById("noOpenDaysNote");
+      note.hidden = anyOpen || lastPublicVersion === null;
+      if (document.getElementById("bookingModal").classList.contains("open")) {
+        // Opened as a guest while nothing was open, and now there is: booking starts over from the login.
+        if (anyOpen && !verifyClientSession()) closeBookingModal();
+        else syncBookingDays();
+      }
     };
 
     // עדכונים: כל 30 שניות דרך ה-CDN, ורק כשהלשונית גלויה

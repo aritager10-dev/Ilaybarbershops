@@ -152,7 +152,7 @@ async function assertAxeClean(page, name, context = "document") {
   if (!AXE_SOURCE) return;
   // Axe blends text with any opacity still fading in, so a sheet is checked once it has fully appeared.
   if (context !== "document") {
-    await page.waitFor(`(() => { const root = document.querySelector(${context}); for (let n = root.querySelector(".s-sheet") || root; n; n = n.parentElement) { if (getComputedStyle(n).opacity !== "1") return false; } return !root.getAnimations({ subtree: true }).length; })()`, name + " settles");
+    await page.waitFor(`(() => { const root = document.querySelector(${context}); for (let n = root.querySelector(".s-sheet") || root; n; n = n.parentElement) { if (getComputedStyle(n).opacity !== "1") return false; } return !root.getAnimations({ subtree: true }).some(a => a.playState === "running"); })()`, name + " settles");
     await sleep(400);
   }
   await page.eval(AXE_SOURCE + ";void 0");
@@ -166,7 +166,8 @@ async function noHorizontalScroll(page, name) {
   assert.ok(over <= 1, `${name} scrolls sideways by ${over}px`);
 }
 
-const nextActiveDay = `(() => { const d = israelDayIdx(); let n = (d + 1) % 7; if (!weeklySchedule[n].active) n = (n + 1) % 7; return n; })()`;
+// Chooses the first open date after today in the booking sheet.
+const pickNextDay = `(() => { const c = [...document.querySelectorAll("#bookingDaysRow .day-chip")].find(b => b.dataset.date > ilToday()); c.click(); return c.dataset.date; })()`;
 
 // Submits the register sheet and completes the SMS code step that appears.
 async function submitRegistration(page, h, phone) {
@@ -191,6 +192,27 @@ async function runAtWidth(browser, width, shots, steps) {
   const adminUrl = h.base + "/admin.html";
 
   try {
+    await step("with nothing opened, the public site says so and does not error", async () => {
+      await client.goto(h.base + "/");
+      await client.waitFor("typeof lastPublicVersion !== 'undefined' && lastPublicVersion !== null");
+      await client.waitFor("!document.getElementById('noOpenDaysNote').hidden", "empty message");
+      assert.equal((await client.text("#noOpenDaysNote")).trim(), "אין כרגע תורים פתוחים. אפשר להתקשר: 054-2858711");
+      assert.deepEqual(await client.eval("openDays"), []);
+      await client.waitFor("!document.getElementById('welcomeSplash') || document.getElementById('welcomeSplash').classList.contains('hide')", "splash closes");
+      await client.click(".service-card .srv-book");
+      await client.waitFor("document.getElementById('bookingModal').classList.contains('open')");
+      assert.equal(await client.eval("document.getElementById('authModal').classList.contains('open')"), false, "no login just to hear nothing is open");
+      assert.equal((await client.text("#bookingNoDays")).trim(), "אין כרגע תורים פתוחים. אפשר להתקשר: 054-2858711");
+      assert.equal(await client.eval("document.getElementById('confirmBookingBtn').offsetParent"), null);
+      await noHorizontalScroll(client, "empty booking sheet");
+      await client.shot(shots, width + "-booking-empty");
+      await assertAxeClean(client, "empty booking sheet", '"#bookingModal"');
+      await client.eval("closeBookingModal()");
+      // The rest of this run needs open days: every weekday but Saturday, in the real and the test data.
+      const weekly = Array.from({ length: 7 }, (_, i) => ({ open: i !== 6, start: "10:00", end: "20:00" }));
+      for (const ns of ["", "test:"]) { h.fake.run(["SET", ns + "cfg:availability", JSON.stringify({ weekly, dates: {} })]); h.fake.run(["INCR", ns + "ver"]); }
+    });
+
     await step("public page loads with five photos, in light colours under a dark-preferring browser", async () => {
       await client.goto(h.base + "/");
       await client.waitFor(`typeof lastPublicVersion !== "undefined" && lastPublicVersion !== null`);
@@ -203,6 +225,8 @@ async function runAtWidth(browser, width, shots, steps) {
       // The site prefers the system font and uses Heebo as a fallback, so the face is loaded on demand here.
       assert.deepEqual(await client.eval(`document.fonts.load("16px Heebo", "אa").then(faces => faces.map(f => f.status))`), ["loaded", "loaded"], "self-hosted Heebo loads under the CSP");
       assert.equal(await client.eval(`[...document.styleSheets].some(s => /googleapis/.test(s.href || ""))`), false);
+      // This is the page's second load here, so its splash is skipped and sections are still fading in.
+      if (AXE_SOURCE) await sleep(1500);
       await assertAxeClean(client, "index");
       assert.equal(await client.text("#sidePortfolioCount"), "5");
       assert.equal(await client.eval(`document.querySelectorAll('meta[name="theme-color"]').length`), 1);
@@ -261,8 +285,7 @@ async function runAtWidth(browser, width, shots, steps) {
     await step("book a slot; the note and name stay inert", async () => {
       await client.click(".service-card .srv-book");
       await client.waitFor(`document.getElementById("bookingModal").classList.contains("open")`);
-      const day = await client.eval(nextActiveDay);
-      await client.eval(`document.querySelectorAll("#bookingDaysRow .day-chip")[${day}].click()`);
+      await client.eval(pickNextDay);
       await client.eval(`document.querySelectorAll("#bookingHoursGrid .hour-chip:not(.taken)")[2].click()`);
       await client.fill("#clientNoteInput", notePayload);
       await client.shot(shots, `${width}-booking`);
@@ -278,12 +301,11 @@ async function runAtWidth(browser, width, shots, steps) {
 
     await step("booking sheet exposes taken and selected slots to screen readers and keeps keyboard focus", async () => {
       await client.eval(`openBookingModal(0)`);
-      await client.waitFor(`document.getElementById("bookingModal").classList.contains("open")`);
-      const day = await client.eval(nextActiveDay);
-      await client.eval(`document.querySelectorAll("#bookingDaysRow .day-chip")[${day}].click()`);
-      const dayState = await client.eval(`[...document.querySelectorAll("#bookingDaysRow .day-chip")].map(b => b.getAttribute("aria-pressed"))`);
-      assert.equal(dayState[day], "true");
-      assert.equal(dayState.filter(v => v === "true").length, 1);
+      // The sheet moves focus to its close button just after opening; the choices below come after that.
+      await client.waitFor(`document.activeElement === document.querySelector("#bookingModal .modal-close")`, "sheet takes focus");
+      const chosen = await client.eval(pickNextDay);
+      const dayState = await client.eval(`[...document.querySelectorAll("#bookingDaysRow .day-chip")].map(b => [b.dataset.date, b.getAttribute("aria-pressed")])`);
+      assert.deepEqual(dayState.filter(d => d[1] === "true").map(d => d[0]), [chosen]);
       assert.equal(await client.eval(`document.activeElement === document.querySelector("#bookingDaysRow .day-chip.active")`), true, "focus stays on the chosen day");
       const taken = await client.eval(`(() => { const b = document.querySelector("#bookingHoursGrid .hour-chip.taken"); return b && { disabled: b.disabled, label: b.getAttribute("aria-label"), text: b.textContent, pressed: b.getAttribute("aria-pressed") }; })()`);
       assert.ok(taken, "own booking shows as a taken slot");
@@ -377,7 +399,7 @@ async function runAtWidth(browser, width, shots, steps) {
     });
 
     await step("admin moves it on the board; the client gets the SMS", async () => {
-      const target = await adminPage.eval(`(() => { const a = appointments[0]; const t = generateCalendarHours().find(x => x >= "11:00" && x !== a.time && !appointments.some(b => b.time === x)); moveAppointmentToSlot(a.id, a.dayIdx, t); return t; })()`);
+      const target = await adminPage.eval(`(() => { const a = appointments[0]; const t = generateCalendarHours().find(x => x >= "11:00" && x !== a.time && !appointments.some(b => b.time === x)); moveAppointmentToSlot(a.id, a.date, t); return t; })()`);
       await adminPage.toast("הוזז ונשלח SMS");
       assert.equal(await adminPage.eval(`adminSnapshot.appointments[0].time`), target);
       assert.ok(h.outbox.sms.some(s => s.to === clientPhone && /הוזז/.test(s.message)));
@@ -386,7 +408,7 @@ async function runAtWidth(browser, width, shots, steps) {
     });
 
     await step("a stale tab trying to book a taken slot gets a clear message, and the slot is marked", async () => {
-      const a = await adminPage.eval(`({ dayIdx: appointments[0].dayIdx, time: appointments[0].time })`);
+      const a = await adminPage.eval(`({ date: appointments[0].date, time: appointments[0].time })`);
       await other.eval(`busySlots = []; rebuildClientAppointments(); 0`);
       await other.click(".service-card .srv-book");
       await other.waitFor(`document.getElementById("authModal").classList.contains("open")`);
@@ -396,10 +418,10 @@ async function runAtWidth(browser, width, shots, steps) {
       await other.click("#regConsent");
       await submitRegistration(other, h, "0526667788");
       await other.waitFor(`document.getElementById("bookingModal").classList.contains("open")`, "booking opens after login");
-      await other.eval(`busySlots = []; rebuildClientAppointments(); selectedBookDay = ${a.dayIdx}; selectedBookHour = ${JSON.stringify(a.time)}; 0`);
+      await other.eval(`busySlots = []; rebuildClientAppointments(); selectedBookDate = ${JSON.stringify(a.date)}; selectedBookHour = ${JSON.stringify(a.time)}; 0`);
       await other.click("#confirmBookingBtn");
       await other.toast("נתפסה");
-      assert.equal(await other.eval(`isSlotTaken(${a.dayIdx}, ${JSON.stringify(a.time)})`), true);
+      assert.equal(await other.eval(`isSlotTaken(${JSON.stringify(a.date)}, ${JSON.stringify(a.time)})`), true);
       await other.eval(`closeBookingModal()`);
     });
 
@@ -426,11 +448,192 @@ async function runAtWidth(browser, width, shots, steps) {
       await client.click(".service-card .srv-book");
       await client.waitFor(`document.getElementById("bookingModal").classList.contains("open")`);
       assert.match(await client.text("#modalServiceTitle"), /88/);
-      await client.eval(`document.querySelectorAll("#bookingDaysRow .day-chip")[${await client.eval(nextActiveDay)}].click()`);
+      await client.eval(pickNextDay);
       await client.eval(`document.querySelectorAll("#bookingHoursGrid .hour-chip:not(.taken)")[0].click()`);
       await client.click("#confirmBookingBtn");
       await client.toast("התור נקבע");
       await client.waitFor(`myAppointments.some(a => a.status !== "canceled" && a.price === 88)`);
+    });
+
+    await step("open a date in the admin, the public sees it and books it; once closed it is offered no more", async () => {
+      const today = await adminPage.eval("ilToday()");
+      // A Saturday far enough ahead: closed by the seeded weekly rules, and past the appointments above.
+      let n = 8;
+      const addDays = (d, k) => { const [y, m, dd] = d.split("-").map(Number); return new Date(Date.UTC(y, m - 1, dd + k)).toISOString().slice(0, 10); };
+      while (new Date(addDays(today, n) + "T12:00:00Z").getUTCDay() !== 6) n++;
+      const date = addDays(today, n);
+      const cell = "#availGrid [data-date=\"" + date + "\"]";
+      await adminPage.eval("switchTab('hours')");
+      assert.equal(await adminPage.text("#ttl-hours"), "ימים ושעות פתיחה");
+      assert.equal(await adminPage.text("#tab-hours .adm-subtitle"), "יום שלא פתחת סגור ללקוחות");
+      await noHorizontalScroll(adminPage, "hours tab");
+      assert.equal(await adminPage.eval("document.querySelectorAll('#weeklyRows .hrs-row').length"), 7);
+      assert.equal(await adminPage.eval("[...document.querySelectorAll('#tab-hours .hrs-row, .av-day:not([disabled]), #availPrevMonth, #availNextMonth')].every(el => el.offsetHeight >= 44 && el.offsetWidth >= 44 || el.disabled)"), true, "44px targets");
+      await adminPage.shot(shots, width + "-admin-hours");
+      await adminPage.eval("document.getElementById('availGrid').scrollIntoView({ block: 'center', behavior: 'instant' })");
+      await sleep(4000); // Past any toast, for the picture.
+      await adminPage.shot(shots, width + "-admin-hours-calendar");
+      await assertAxeClean(adminPage, "hours tab", '"#tab-hours"');
+
+      // The month calendar: right to left, Sunday first, past days off, today marked.
+      assert.equal(await adminPage.eval("getComputedStyle(document.getElementById('availGrid')).direction"), "rtl");
+      assert.equal(await adminPage.text("#availGrid .av-dow"), "א");
+      assert.equal(await adminPage.eval("document.querySelector('#availGrid [aria-current=\"date\"]').dataset.date"), today);
+      assert.equal(await adminPage.eval("document.getElementById('availPrevMonth').disabled"), true);
+      assert.equal(await adminPage.eval("[...document.querySelectorAll('#availGrid .av-past')].every(b => b.disabled && b.dataset.date < ilToday())"), true);
+
+      // Keyboard: arrows move through dates, right to left, and only one date is in the Tab order.
+      const key = (k, sel = "document.activeElement") => adminPage.eval(sel + ".dispatchEvent(new KeyboardEvent('keydown', { key: '" + k + "', bubbles: true, cancelable: true }))");
+      await adminPage.eval("document.querySelector('#availGrid [tabindex=\"0\"]').focus()");
+      assert.equal(await adminPage.eval("document.querySelectorAll('#availGrid [tabindex=\"0\"]').length"), 1);
+      await key("ArrowLeft");
+      assert.equal(await adminPage.eval("document.activeElement.dataset.date"), addDays(today, 1), "left is the next day");
+      await key("ArrowDown");
+      assert.equal(await adminPage.eval("document.activeElement.dataset.date"), addDays(today, 8));
+      await key("ArrowUp");
+      await key("ArrowRight");
+      assert.equal(await adminPage.eval("document.activeElement.dataset.date"), today);
+      await key("ArrowRight");
+      assert.equal(await adminPage.eval("document.activeElement.dataset.date"), today, "cannot walk into the past");
+      assert.match(await adminPage.eval("document.activeElement.getAttribute('aria-label')"), /^יום .*, \d+ ב.* \d{4}, היום, /);
+
+      // Find the date's month, then open it.
+      for (let i = 0; i < 3 && !(await adminPage.eval("!!document.querySelector('" + cell.replace(/"/g, '\\"') + "')")); i++) await adminPage.click("#availNextMonth");
+      assert.equal(await adminPage.text(cell + " .av-tag"), "סגור", "untouched date is closed");
+      assert.match(await adminPage.eval("document.querySelector(" + JSON.stringify(cell) + ").getAttribute('aria-label')"), /, סגור$/);
+      await adminPage.eval("document.querySelector(" + JSON.stringify(cell) + ").focus(); document.querySelector(" + JSON.stringify(cell) + ").click()");
+      await adminPage.waitFor("document.getElementById('availSheet').classList.contains('open')");
+      await adminPage.waitFor("document.activeElement.id === 'availStart'", "focus moves into the sheet");
+      assert.match(await adminPage.text("#availSheetStatus"), /סגור/);
+      assert.equal(await adminPage.eval("document.getElementById('availResetBtn').hidden"), true, "nothing to reset yet");
+
+      // Escape closes and returns focus; Tab stays inside.
+      await key("Escape");
+      assert.equal(await adminPage.eval("document.getElementById('availSheet').classList.contains('open')"), false);
+      assert.equal(await adminPage.eval("document.activeElement.dataset.date"), date, "focus returns to the date");
+      await adminPage.click(cell);
+      await adminPage.waitFor("document.activeElement.id === 'availStart'");
+      await adminPage.eval("[...document.querySelectorAll('#availSheet button, #availSheet input')].filter(el => el.offsetParent).pop().focus()");
+      await key("Tab");
+      assert.equal(await adminPage.eval("document.getElementById('availSheet').contains(document.activeElement)"), true, "focus trap");
+      await noHorizontalScroll(adminPage, "date sheet");
+      await adminPage.shot(shots, width + "-admin-date-sheet");
+      await assertAxeClean(adminPage, "date sheet", '"#availSheet"');
+
+      // Bad hours are refused in place; what was typed stays.
+      await adminPage.fill("#availStart", "18:00");
+      await adminPage.fill("#availEnd", "12:00");
+      await adminPage.click("#availOpenBtn");
+      await adminPage.waitFor("!document.getElementById('availSheetError').hidden");
+      assert.equal(await adminPage.eval("document.getElementById('availStart').value"), "18:00");
+
+      await adminPage.fill("#availStart", "12:00");
+      await adminPage.fill("#availEnd", "14:00");
+      await adminPage.click("#availOpenBtn");
+      await adminPage.toast("התאריך נפתח");
+      await adminPage.waitFor("!document.getElementById('availSheet').classList.contains('open')");
+      assert.equal(await adminPage.text(cell + " .av-tag"), "פתוח");
+      assert.match(await adminPage.eval("document.querySelector(" + JSON.stringify(cell) + ").getAttribute('aria-label')"), /פתוח 12:00 עד 14:00/);
+
+      // The public site offers it, and the customer books it.
+      await other.goto(h.base + "/");
+      await other.waitFor("lastPublicVersion !== null && currentClientUser");
+      await other.waitFor("!actionInFlight");
+      await other.waitFor("!document.getElementById('welcomeSplash') || document.getElementById('welcomeSplash').classList.contains('hide')", "splash closes");
+      await other.eval("openBookingModal(0)");
+      await other.waitFor("document.getElementById('bookingModal').classList.contains('open')");
+      const chip = "#bookingDaysRow [data-date=\"" + date + "\"]";
+      await other.waitFor("document.querySelector(" + JSON.stringify(chip) + ")", "the new date is offered");
+      assert.match(await other.text(chip), /מוצ״ש/);
+      assert.equal(await other.eval("[...document.querySelectorAll('#bookingDaysRow .day-chip')].every(b => b.offsetHeight >= 44)"), true);
+      await noHorizontalScroll(other, "booking sheet with many days");
+      await other.click(chip);
+      assert.deepEqual(await other.eval("[...document.querySelectorAll('#bookingHoursGrid .hour-chip')].map(b => b.textContent)"), ["12:00", "12:30", "13:00", "13:30"]);
+      await other.shot(shots, width + "-booking-days");
+      await assertAxeClean(other, "booking sheet with dates", '"#bookingModal"');
+      await other.click("#bookingHoursGrid .hour-chip");
+      await other.click("#confirmBookingBtn");
+      await other.toast("התור נקבע");
+      await other.waitFor("myAppointments.some(a => a.date === " + JSON.stringify(date) + ")");
+
+      // Closed again: not offered, and the appointment stays where it was.
+      await adminPage.eval("pollAdminVersion()");
+      await adminPage.waitFor("appointments.some(a => a.date === " + JSON.stringify(date) + ")");
+      await adminPage.click(cell);
+      await adminPage.waitFor("document.getElementById('availSheet').classList.contains('open')");
+      assert.match(await adminPage.text("#availSheetAppts"), /1 תורים/);
+      await adminPage.click("#availCloseBtn");
+      await adminPage.toast("התאריך נסגר");
+      await adminPage.waitFor("!document.getElementById('availSheet').classList.contains('open')");
+      assert.equal(await adminPage.text(cell + " .av-tag"), "✕ סגור");
+      await other.eval("pollPublicSite()");
+      await other.waitFor("!openDays.some(d => d.date === " + JSON.stringify(date) + ")", "no longer offered");
+      await other.eval("openBookingModal(0)");
+      await other.waitFor("document.querySelector('#bookingDaysRow .day-chip')");
+      assert.equal(await other.eval("!!document.querySelector(" + JSON.stringify(chip) + ")"), false);
+      await other.eval("closeBookingModal()");
+      assert.ok(await other.eval("myAppointments.some(a => a.date === " + JSON.stringify(date) + " && a.status !== 'canceled')"), "the appointment stays");
+
+      // The admin's calendar shows the closed day with the appointment, and reset returns the date to the rule.
+      await adminPage.eval("switchTab('cal'); showBoardDate(" + JSON.stringify(date) + ")");
+      await adminPage.waitFor("document.querySelector('#calendarBoard .appt-card')");
+      assert.match(await adminPage.text("#calSummary"), /סגור ללקוחות/);
+      assert.equal(await adminPage.eval("document.querySelector('#dayFilterBar [data-date=\"" + date + "\"]').classList.contains('is-closed')"), true);
+      await noHorizontalScroll(adminPage, "calendar on a closed day");
+      await adminPage.shot(shots, width + "-admin-cal-closed");
+
+      // Quick open from the calendar opens the same sheet; reset is there now.
+      await adminPage.click("#calendarBoard .cal-open-day");
+      await adminPage.waitFor("document.getElementById('availSheet').classList.contains('open')");
+      await adminPage.click("#availResetBtn");
+      await adminPage.toast("התאריך חזר לכלל הרגיל");
+      await adminPage.waitFor("!availability.dates[" + JSON.stringify(date) + "]");
+
+      // Week navigation reaches the next week's dates, and comes back.
+      await adminPage.eval("moveBoardWeek(0)");
+      const first = await adminPage.eval("boardDates()[0]");
+      assert.equal(first, today);
+      await adminPage.eval("moveBoardWeek(1)");
+      assert.equal(await adminPage.eval("boardDates()[0]"), addDays(today, 7));
+      assert.equal(await adminPage.eval("document.getElementById('calWeekToday').hidden"), false);
+      await adminPage.eval("moveBoardWeek(0)");
+
+      // Manual appointment on a closed day: warned, confirmed, and it does not open the day.
+      await adminPage.eval("boardFilterMode = 'all'; openManualAddModal(" + JSON.stringify(addDays(date, 7)) + ", '11:00')");
+      await adminPage.waitFor("!document.getElementById('manualClosedWarning').hidden");
+      assert.match(await adminPage.text("#manualClosedWarning"), /סגור ללקוחות/);
+      await noHorizontalScroll(adminPage, "manual sheet");
+      await adminPage.fill("#manualNameInput", "לקוח טלפוני");
+      await adminPage.fill("#manualPhoneInput", "0528887766");
+      adminPage.dialogAnswers.push(false);
+      await adminPage.eval("saveManualAppointment()");
+      assert.equal(await adminPage.eval("appointments.some(a => a.phone === '0528887766')"), false, "declining the warning books nothing");
+      adminPage.dialogAnswers.push(true);
+      await adminPage.eval("saveManualAppointment()");
+      await adminPage.toast("התור שובץ");
+      await adminPage.waitFor("adminSnapshot.appointments.some(a => a.phone === '0528887766' && a.date === " + JSON.stringify(addDays(date, 7)) + ")");
+      assert.equal(await adminPage.eval("effectiveDay(" + JSON.stringify(addDays(date, 7)) + ").open"), false);
+      await other.eval("pollPublicSite()");
+      await other.waitFor("!openDays.some(d => d.date === " + JSON.stringify(addDays(date, 7)) + ")");
+
+      // The weekly section: off by default on Saturday, on shows the pickers, unsaved edits survive a poll, a save reaches the calendar.
+      await adminPage.eval("switchTab('hours')");
+      assert.equal(await adminPage.eval("document.getElementById('wk_open_6').checked"), false);
+      assert.equal(await adminPage.eval("document.getElementById('wk_times_6').hidden"), true);
+      await adminPage.click("#wk_open_6");
+      assert.equal(await adminPage.eval("document.getElementById('wk_times_6').hidden"), false);
+      await adminPage.waitFor("document.getElementById('weeklyDirty').textContent.includes('לא נשמרו')");
+      await adminPage.eval("refreshAdminState({ fromPoll: true })");
+      assert.equal(await adminPage.eval("document.getElementById('wk_open_6').checked"), true, "a poll does not wipe unsaved changes");
+      await adminPage.click("#saveWeeklyBtn");
+      await adminPage.toast("הימים הקבועים נשמרו");
+      await adminPage.waitFor("availability.weekly[6].open === true");
+      assert.equal(await adminPage.text(cell + " .av-tag"), "כל שבוע");
+      assert.equal(await adminPage.eval("document.getElementById('wk_open_6').checked"), true);
+      await adminPage.click("#wk_open_6");
+      await adminPage.click("#saveWeeklyBtn");
+      await adminPage.waitFor("availability.weekly[6].open === false");
+      await adminPage.eval("switchTab('cal')");
     });
 
     await step("the admin's other tabs render: statistics, messages, portfolio, hours", async () => {
@@ -599,7 +802,7 @@ async function runAtWidth(browser, width, shots, steps) {
       // The sign-in action must end first: the page ignores a second action while one is running.
       await adminPage.waitFor(`currentClientUser && !actionInFlight`);
       await adminPage.eval(`openBookingModal(0)`);
-      await adminPage.eval(`document.querySelectorAll("#bookingDaysRow .day-chip")[${await adminPage.eval(nextActiveDay)}].click()`);
+      await adminPage.eval(pickNextDay);
       await adminPage.eval(`document.querySelectorAll("#bookingHoursGrid .hour-chip:not(.taken)")[0].click()`);
       await adminPage.click("#confirmBookingBtn");
       await adminPage.toast("התור נקבע");

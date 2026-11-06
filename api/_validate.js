@@ -65,14 +65,6 @@ function services(list) {
   });
 }
 
-function schedule(list) {
-  if (!Array.isArray(list) || list.length !== 7) throw bad("שעות פעילות לא תקינות");
-  return list.map(d => {
-    if (!d || !isTime(d.start) || !isTime(d.end)) throw bad("שעות פעילות לא תקינות");
-    return { active: d.active === true, start: d.start, end: d.end };
-  });
-}
-
 // Only these keys can ever exist in the stored config.
 function siteConfigPatch(raw) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw bad("הגדרות לא תקינות");
@@ -95,4 +87,4 @@ function siteConfigPatch(raw) {
   return out;
 }
 
-module.exports = { text, isId, isTime, mobilePhone, anyPhone, price, intIn, hasLinkLike, clientName, password, services, schedule, siteConfigPatch, bad };
+module.exports = { text, isId, isTime, mobilePhone, anyPhone, price, intIn, hasLinkLike, clientName, password, services, siteConfigPatch, bad };

@@ -23,12 +23,6 @@ function addDays(dateYmd, n) {
   return ymd(t.getUTCFullYear(), t.getUTCMonth() + 1, t.getUTCDate());
 }
 
-// Next occurrence of the weekday, today included (same rule the booking UI always used).
-function dateForDayIdx(dayIdx, now = Date.now()) {
-  const p = parts(now);
-  return addDays(ymd(p.y, p.m, p.d), (Number(dayIdx) - p.dow + 7) % 7);
-}
-
 function epochFor(dateYmd, timeStr) {
   const [y, m, d] = dateYmd.split("-").map(Number);
   const [hh, mm] = timeStr.split(":").map(Number);
@@ -41,9 +35,29 @@ function epochFor(dateYmd, timeStr) {
   return guess;
 }
 
+const YMD_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+// A real calendar date, so "2026-02-30" does not pass.
+function isYmd(v) {
+  const m = typeof v === "string" ? YMD_RE.exec(v) : null;
+  if (!m) return false;
+  const t = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
+  return t.getUTCFullYear() === +m[1] && t.getUTCMonth() === +m[2] - 1 && t.getUTCDate() === +m[3];
+}
+
+function dowOfYmd(dateYmd) {
+  const [y, m, d] = dateYmd.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+}
+
+// False only for the hour the clocks skip when summer time starts.
+function wallClockExists(dateYmd, timeStr) {
+  const p = parts(epochFor(dateYmd, timeStr));
+  return ymd(p.y, p.m, p.d) === dateYmd && `${pad(p.h)}:${pad(p.mi)}` === timeStr;
+}
+
 function dateStrOf(dateYmd) { const [, m, d] = dateYmd.split("-"); return `${d}/${m}`; }
 function heTime(ms = Date.now()) { return new Date(ms).toLocaleTimeString("he-IL", { timeZone: TZ, hour: "2-digit", minute: "2-digit" }); }
 function heDate(ms = Date.now()) { return new Date(ms).toLocaleDateString("he-IL", { timeZone: TZ }); }
 function heDateTime(ms = Date.now()) { return new Date(ms).toLocaleString("he-IL", { timeZone: TZ }); }
 
-module.exports = { DAYS_HEB, parts, todayYmd, addDays, dateForDayIdx, epochFor, dateStrOf, heTime, heDate, heDateTime };
+module.exports = { DAYS_HEB, parts, todayYmd, addDays, isYmd, dowOfYmd, wallClockExists, epochFor, dateStrOf, heTime, heDate, heDateTime };

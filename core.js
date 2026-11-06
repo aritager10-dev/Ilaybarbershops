@@ -88,19 +88,24 @@ function ilParts(ms = Date.now()) {
 }
 function israelDayIdx() { return ilParts().dow; }
 function israelNowMinutes() { const p = ilParts(); return p.h * 60 + p.mi; }
-function ilDateForDayIdx(dayIdx) {
-  const p = ilParts();
-  const t = new Date(Date.UTC(p.y, p.m - 1, p.d + ((Number(dayIdx) - p.dow + 7) % 7)));
-  return { y: t.getUTCFullYear(), m: t.getUTCMonth() + 1, d: t.getUTCDate() };
+const pad2 = n => String(n).padStart(2, "0");
+const ymdOf = p => `${p.y}-${pad2(p.m)}-${pad2(p.d)}`;
+// A date is a "YYYY-MM-DD" string in Israel time. Such strings sort and compare in calendar order.
+function ilToday() { return ymdOf(ilParts()); }
+function ilAddDays(date, n) {
+  const [y, m, d] = date.split("-").map(Number);
+  const t = new Date(Date.UTC(y, m - 1, d + n));
+  return ymdOf({ y: t.getUTCFullYear(), m: t.getUTCMonth() + 1, d: t.getUTCDate() });
 }
-function getFormattedDateForDayIdx(dayIdx) {
-  const t = ilDateForDayIdx(dayIdx);
-  return `${String(t.d).padStart(2, "0")}/${String(t.m).padStart(2, "0")}`;
+function ilDow(date) {
+  const [y, m, d] = date.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
 }
-function getTargetTimestamp(dayIdx, timeStr) {
-  const t = ilDateForDayIdx(dayIdx);
+function ddmm(date) { const [, m, d] = date.split("-"); return `${d}/${m}`; }
+function ilEpochFor(date, timeStr) {
+  const [y, m, d] = date.split("-").map(Number);
   const [hh, mm] = String(timeStr || "12:00").split(":").map(Number);
-  const wall = Date.UTC(t.y, t.m - 1, t.d, hh || 0, mm || 0);
+  const wall = Date.UTC(y, m - 1, d, hh || 0, mm || 0);
   let guess = wall;
   for (let i = 0; i < 2; i++) {
     const p = ilParts(guess);
@@ -108,24 +113,40 @@ function getTargetTimestamp(dayIdx, timeStr) {
   }
   return guess;
 }
-const ymdNum = o => o.y * 10000 + o.m * 100 + o.d;
-const apptYmdNum = a => { const p = ilParts(Number(a.startsAtMs) || 0); return ymdNum(p); };
+// The calendar date of an appointment. Very old rows have no date field, only their start time.
+const apptDate = a => a.date || ymdOf(ilParts(Number(a.startsAtMs) || 0));
 
-// What the calendar board shows: today and the next six days, one slot per weekday.
-function calendarAppointments() {
-  const from = ymdNum(ilDateForDayIdx(israelDayIdx()));
-  const p = ilParts();
-  const end = new Date(Date.UTC(p.y, p.m - 1, p.d + 6));
-  const to = end.getUTCFullYear() * 10000 + (end.getUTCMonth() + 1) * 100 + end.getUTCDate();
-  return appointments.filter(a => { const n = apptYmdNum(a); return n >= from && n <= to; });
+// The bookable start times of one open day, on the same grid the server checks.
+// A time the clocks skip when summer time starts is left out.
+function daySlots(date, start, end) {
+  const step = Math.max(10, (Number(siteConfig.slotInterval) || 30) + (Number(siteConfig.slotBuffer) || 0));
+  const toMin = t => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+  const out = [];
+  for (let cur = toMin(start); cur < toMin(end); cur += step) {
+    const t = `${pad2(Math.floor(cur / 60))}:${pad2(cur % 60)}`;
+    const p = ilParts(ilEpochFor(date, t));
+    if (ymdOf(p) === date && `${pad2(p.h)}:${pad2(p.mi)}` === t) out.push(t);
+  }
+  return out;
 }
+
+// Admin page only: same three steps as api/_availability.js. A rule for the date, then the weekly rule, then closed.
+function effectiveDay(date) {
+  const rule = availability.dates[date];
+  if (rule) return rule.open ? { open: true, source: "date", start: rule.start, end: rule.end } : { open: false, source: "date" };
+  const week = availability.weekly[ilDow(date)];
+  if (week && week.open) return { open: true, source: "weekly", start: week.start, end: week.end };
+  return { open: false, source: "default" };
+}
+
 // What "this week" means in the statistics: the current Sunday-to-Saturday week.
+function currentWeekDates() {
+  const sunday = ilAddDays(ilToday(), -israelDayIdx());
+  return [0, 1, 2, 3, 4, 5, 6].map(n => ilAddDays(sunday, n));
+}
 function currentWeekAppointments() {
-  const p = ilParts();
-  const s = new Date(Date.UTC(p.y, p.m - 1, p.d - p.dow));
-  const e = new Date(Date.UTC(p.y, p.m - 1, p.d - p.dow + 6));
-  const num = t => t.getUTCFullYear() * 10000 + (t.getUTCMonth() + 1) * 100 + t.getUTCDate();
-  return appointments.filter(a => { const n = apptYmdNum(a); return n >= num(s) && n <= num(e); });
+  const week = currentWeekDates();
+  return appointments.filter(a => { const d = apptDate(a); return d >= week[0] && d <= week[6]; });
 }
 
 function compressImageFile(file) {
@@ -170,15 +191,11 @@ let SERVICES = [
   { name: "תספורת מוגזם + זקן", price: 100, duration: "50 דק'", desc: "שינוי לוק מלא בגזירות ודירוג למי שלא הסתפר הרבה זמן, כולל עיצוב וסידור זקן." }
 ];
 
-let weeklySchedule = [
-  { active: true, start: "10:00", end: "20:00" },
-  { active: true, start: "10:00", end: "20:00" },
-  { active: true, start: "10:00", end: "20:00" },
-  { active: true, start: "10:00", end: "20:00" },
-  { active: true, start: "10:00", end: "21:00" },
-  { active: true, start: "09:00", end: "15:00" },
-  { active: false, start: "19:30", end: "22:00" }
-];
+// Public page: the open days the server lists. Admin page: the rules themselves. Until the server answers, everything is closed.
+let openDays = [];
+const closedAvailability = () => ({ weekly: Array.from({ length: 7 }, () => ({ open: false, start: "10:00", end: "20:00" })), dates: {} });
+let availability = closedAvailability();
+let horizonDays = 30;
 
 // Public page: busy placeholders without personal data, plus the visitor's own appointments.
 // Admin page: everything. registeredUsers and smsLogs stay empty on the public page.
@@ -263,9 +280,9 @@ let myAppointments = [];
 function rebuildClientAppointments() {
   const mine = myAppointments.filter(a => a.status !== "canceled");
   // A busy row at the visitor's own slot is their own appointment, shown from the fuller record instead.
-  const others = busySlots.filter(b => !mine.some(o => Number(o.dayIdx) === Number(b.dayIdx) && o.time === b.time));
+  const others = busySlots.filter(b => !mine.some(o => apptDate(o) === b.date && o.time === b.time));
   appointments = [
-    ...others.map((b, i) => ({ id: "busy_" + i, busy: true, dayIdx: b.dayIdx, time: b.time, dateStr: b.dateStr, status: "pending" })),
+    ...others.map((b, i) => ({ id: "busy_" + i, busy: true, date: b.date, time: b.time, status: "pending" })),
     ...myAppointments
   ];
 }
@@ -279,7 +296,8 @@ async function fetchPublicState() {
   lastPublicVersion = d.v;
   siteConfig = { ...siteConfig, ...d.siteConfig };
   SERVICES = d.services;
-  weeklySchedule = d.weeklySchedule;
+  openDays = Array.isArray(d.openDays) ? d.openDays : [];
+  horizonDays = Number(d.horizonDays) || horizonDays;
   setPortfolioFromServer(d.portfolio);
   busySlots = Array.isArray(d.busy) ? d.busy : [];
   rebuildClientAppointments();
@@ -300,7 +318,8 @@ function applyAdminState(state, { fromPoll = false } = {}) {
   lastAdminVersion = state.v;
   siteConfig = { ...siteConfig, ...state.siteConfig };
   SERVICES = state.services;
-  weeklySchedule = state.weeklySchedule;
+  availability = state.availability;
+  horizonDays = Number(state.horizonDays) || horizonDays;
   appointments = state.appointments;
   registeredUsers = state.registeredUsers;
   smsLogs = state.smsLogs;
@@ -340,7 +359,6 @@ function buildAdminDiff() {
   if (logs) diff.logs = logs;
   if (notifs) diff.notifications = notifs;
   if (!same(SERVICES, snap.services)) diff.services = SERVICES;
-  if (!same(weeklySchedule, snap.weeklySchedule)) diff.weeklySchedule = weeklySchedule;
   const cfg = {};
   ADMIN_CONFIG_KEYS.forEach(k => { if (!same(siteConfig[k], snap.siteConfig[k])) cfg[k] = siteConfig[k]; });
   if (Object.keys(cfg).length) diff.siteConfig = cfg;
@@ -383,6 +401,18 @@ async function pollAdminVersion() {
   if (pendingApplies > 0) return;
   const r = await api("/admin/version");
   if (r.ok && r.data.v !== lastAdminVersion) await refreshAdminState({ fromPoll: true });
+}
+
+// Sends only what changed; the server merges it into the stored rules. Waits its turn behind any other save.
+function saveAvailabilityPatch(patch) {
+  pendingApplies++;
+  const run = applyQueue.then(async () => {
+    const r = await apiPost("/admin/availability", patch);
+    if (r.ok) applyAdminState(r.data.state);
+    return r;
+  }).finally(() => { pendingApplies--; });
+  applyQueue = run.catch(() => {});
+  return run;
 }
 
 async function resetMainCalendar(opts = {}) {
@@ -451,8 +481,10 @@ function computeComprehensiveAnalytics(selectedDayFilter = null) {
     }
   });
 
-  const activeWorkdaysInWeek = weeklySchedule.filter(d => d.active).length || 6;
   const daysWithActualBookings = dayCounts.filter(c => c > 0).length;
+  // Days this week that are open to customers, or that have appointments anyway (a manual one on a closed day).
+  const openDaysInWeek = currentWeekDates().filter(d => effectiveDay(d).open).length;
+  const activeWorkdaysInWeek = Math.max(openDaysInWeek, daysWithActualBookings) || 6;
   const divisorDays = daysWithActualBookings > 0 ? daysWithActualBookings : activeWorkdaysInWeek;
 
   // חישוב שרשרת לקוחות/תורים: יומי -> שבועי -> חודשי

@@ -10,7 +10,8 @@ const S = require("./_appts");
 const { sendTracked, sendApptSms, retryLog, hasForeignLink, smsStatus, templates, smsName, MAX_LEN } = require("./_sms");
 const { runReminders, maybeRunReminders } = require("./_reminders");
 const { uploadPhoto, savePortfolio } = require("./_photos");
-const { DAYS_HEB, dateForDayIdx, heDate } = require("./_time");
+const { DAYS_HEB, heDate } = require("./_time");
+const Availability = require("./_availability");
 
 const ok = (ctx, data = {}) => sendJson(ctx.res, 200, { ok: true, ...data });
 const MAX_UPSERTS = 500;
@@ -58,17 +59,18 @@ async function ensureUserForPhone(ctx, name, phone) {
 }
 
 async function createFromAdmin(ctx, raw, out) {
-  const dayIdx = V.intIn(raw.dayIdx, 0, 6);
+  const date = raw.date;
   const name = V.text(raw.name, 40);
   const phone = V.anyPhone(raw.phone);
-  if (dayIdx === null || !V.isTime(raw.time)) { out.conflicts.push({ id: raw.id, reason: "יום או שעה לא תקינים" }); return; }
+  // The barber may place an appointment on a day that is closed to customers. It does not open the day.
+  const problem = Availability.adminSlotProblem(date, raw.time);
+  if (problem) { out.conflicts.push({ id: raw.id, reason: problem }); return; }
   if (name.length < 2 || !phone) { out.conflicts.push({ id: raw.id, reason: "נא להזין שם מלא וטלפון תקין" }); return; }
-  const date = dateForDayIdx(dayIdx);
   const appt = {
     id: raw.id, createdAt: Date.now(), name, phone, price: V.price(raw.price) ?? 0, service: V.text(raw.service, 80),
     srvIdx: V.intIn(raw.srvIdx, 0, 30) ?? 0, adminNote: V.text(raw.adminNote ?? raw.note, 120), status: "pending", movedCount: 0, reminderSent: false, source: "admin"
   };
-  S.placeAt(appt, dayIdx, date, raw.time);
+  S.placeAt(appt, date, raw.time);
   if (!(await S.acquireSlot(ctx, date, raw.time, appt.id))) { out.conflicts.push({ id: raw.id, reason: "השעה הזו כבר תפוסה ביומן!" }); return; }
   await pipeline(D.saveApptCmds(ctx, appt));
   await ensureUserForPhone(ctx, name, phone);
@@ -82,11 +84,10 @@ async function updateFromAdmin(ctx, raw, out) {
   const result = await S.mutateAppt(ctx, raw.id, async (next, stored) => {
     action = null;
     conflict = null;
-    const dayIdx = raw.dayIdx === undefined ? stored.dayIdx : V.intIn(raw.dayIdx, 0, 6);
+    const date = raw.date === undefined ? stored.date : raw.date;
     const time = raw.time === undefined ? stored.time : raw.time;
-    if (dayIdx === null || !V.isTime(time)) { conflict = "יום או שעה לא תקינים"; return false; }
     const status = ["pending", "confirmed", "canceled"].includes(raw.status) ? raw.status : stored.status;
-    const moved = dayIdx !== stored.dayIdx || time !== stored.time;
+    const moved = date !== stored.date || time !== stored.time;
     const wasCanceled = stored.status === "canceled";
     const nowCanceled = status === "canceled";
 
@@ -97,9 +98,10 @@ async function updateFromAdmin(ctx, raw, out) {
     if ("price" in raw) { const p = V.price(raw.price); if (p !== null) next.price = p; }
 
     if (moved && !nowCanceled) {
-      const date = dateForDayIdx(dayIdx);
+      conflict = Availability.adminSlotProblem(date, time);
+      if (conflict) return false;
       if (!(await S.acquireSlot(ctx, date, time, raw.id))) { conflict = "המשבצת תפוסה"; return false; }
-      S.placeAt(next, dayIdx, date, time);
+      S.placeAt(next, date, time);
       Object.assign(next, { status: "pending", movedCount: (Number(stored.movedCount) || 0) + 1, reminderSent: false });
       delete next.confirmedAt;
       delete next.canceledAt;
@@ -122,11 +124,11 @@ async function updateFromAdmin(ctx, raw, out) {
   const { appt, prev } = result;
   if (action === "move") {
     if (prev.status !== "canceled") await S.releaseSlot(ctx, prev.date, prev.time, appt.id);
-    await D.addNotification(ctx, { type: "moved", title: "תור הוזז ביומן", message: `התור של ${appt.name} הועבר ל${S.describeSlot(appt)}.`, apptId: appt.id, dayIdx: appt.dayIdx, pushMessage: `תור הוזז: ${S.describeSlot(appt)}` });
+    await D.addNotification(ctx, { type: "moved", title: "תור הוזז ביומן", message: `התור של ${appt.name} הועבר ל${S.describeSlot(appt)}.`, apptId: appt.id, dayIdx: appt.dayIdx, date: appt.date });
     out.sms[appt.id] = await sendApptSms(ctx, appt, templates.adminMoved(ctx, appt), "move");
   } else if (action === "cancel") {
     await S.releaseSlot(ctx, appt.date, appt.time, appt.id);
-    await D.addNotification(ctx, { type: "canceled", title: "תור בוטל ביומן", message: `התור של ${appt.name} ליום ${DAYS_HEB[appt.dayIdx]} בשעה ${appt.time} בוטל.`, apptId: appt.id, dayIdx: appt.dayIdx, pushMessage: `תור בוטל: יום ${DAYS_HEB[appt.dayIdx]} בשעה ${appt.time}` });
+    await D.addNotification(ctx, { type: "canceled", title: "תור בוטל ביומן", message: `התור של ${appt.name} ליום ${DAYS_HEB[appt.dayIdx]} בשעה ${appt.time} בוטל.`, apptId: appt.id, dayIdx: appt.dayIdx, date: appt.date });
     out.sms[appt.id] = await sendApptSms(ctx, appt, templates.adminCanceled(ctx, appt), "cancel");
   }
 }
@@ -223,7 +225,7 @@ async function applyNotifications(ctx, diff) {
   if (remove.length) await cmd("HDEL", K(ctx, "notifs"), ...remove);
 }
 
-// Body: { appointments, users, logs, notifications: {upsert, remove}; services, weeklySchedule, siteConfig: whole values }.
+// Body: { appointments, users, logs, notifications: {upsert, remove}; services, siteConfig: whole values }.
 // Only what the admin changed is sent, so a client booking made in the meantime is never overwritten.
 async function applyChanges(ctx) {
   const b = ctx.body;
@@ -231,7 +233,6 @@ async function applyChanges(ctx) {
   // Validate whole-value sections first so a bad value rejects the request before anything is written.
   const writes = [];
   if ("services" in b) writes.push(["SET", K(ctx, "cfg:services"), JSON.stringify(V.services(b.services))]);
-  if ("weeklySchedule" in b) writes.push(["SET", K(ctx, "cfg:schedule"), JSON.stringify(V.schedule(b.weeklySchedule))]);
   if ("siteConfig" in b) {
     const patch = V.siteConfigPatch(b.siteConfig);
     const stored = parseJson(await cmd("GET", K(ctx, "cfg:site"))) || {};
@@ -244,6 +245,11 @@ async function applyChanges(ctx) {
   await applyNotifications(ctx, b.notifications);
   await D.bump(ctx);
   ok(ctx, { conflicts: out.conflicts, sms: out.sms, state: await D.adminState(ctx) });
+}
+
+async function saveAvailability(ctx) {
+  await D.mutateAvailability(ctx, current => Availability.applyPatch(current, ctx.body));
+  ok(ctx, { state: await D.adminState(ctx) });
 }
 
 // Clears the current namespace only. Config, prices and photos stay.
@@ -339,6 +345,6 @@ async function postPortfolio(ctx) {
 }
 
 module.exports = {
-  adminLogin, adminLogout, adminSession, adminWhoami, adminVersion, getState, getSmsStatus, applyChanges, resetNamespace,
+  adminLogin, adminLogout, adminSession, adminWhoami, adminVersion, getState, getSmsStatus, applyChanges, saveAvailability, resetNamespace,
   manualReminders, broadcast, optOutUser, testSms, retrySms, postPhoto, postPortfolio
 };

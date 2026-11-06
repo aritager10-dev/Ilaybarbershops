@@ -4,7 +4,8 @@
 const { cmd, pipeline, parseJson } = require("./_redis");
 const { K, allAppts, scrubLogCmds, scrubNotifCmds } = require("./_data");
 const { HttpError } = require("./_http");
-const { DAYS_HEB, dateForDayIdx, epochFor, dateStrOf } = require("./_time");
+const { DAYS_HEB, dowOfYmd, epochFor, dateStrOf } = require("./_time");
+const { assertBookable } = require("./_availability");
 
 // A lock's value is "<apptId>|<ms>". Compare-and-delete must be atomic, so these two run as Lua.
 const RELEASE_SCRIPT = "local v=redis.call('GET',KEYS[1]) if v and string.sub(v,1,#ARGV[1]+1)==ARGV[1]..'|' then return redis.call('DEL',KEYS[1]) end return 0";
@@ -94,26 +95,13 @@ async function eraseCustomer(ctx, user, { byPhone }) {
   return canceled;
 }
 
-// Same grid the booking UI renders.
-function slotOnGrid(cfg, day, time) {
-  const step = Math.max(10, (Number(cfg.slotInterval) || 30) + (Number(cfg.slotBuffer) || 0));
-  const toMin = t => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
-  const target = toMin(time);
-  for (let cur = toMin(day.start); cur < toMin(day.end); cur += step) if (cur === target) return true;
-  return false;
+function assertClientSlot(config, date, time) {
+  assertBookable(config.availability, config.siteConfig, date, time);
 }
 
-function assertClientSlot(config, dayIdx, time) {
-  const day = config.weeklySchedule[dayIdx];
-  if (!day || !day.active) throw new HttpError(400, "ביום הזה המספרה סגורה. אפשר לבחור יום אחר.");
-  if (!slotOnGrid(config.siteConfig, day, time)) throw new HttpError(400, "השעה הזו לא זמינה לקביעת תור");
-  const date = dateForDayIdx(dayIdx);
-  if (epochFor(date, time) <= Date.now()) throw new HttpError(400, "השעה הזו כבר עברה, נא לבחור שעה אחרת");
-  return date;
-}
-
-function placeAt(appt, dayIdx, date, time) {
-  appt.dayIdx = dayIdx;
+// The date is the appointment's identity. dayIdx is only its weekday, kept for messages and the weekly statistics.
+function placeAt(appt, date, time) {
+  appt.dayIdx = dowOfYmd(date);
   appt.date = date;
   appt.dateStr = dateStrOf(date);
   appt.time = time;

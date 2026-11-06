@@ -101,8 +101,7 @@ async function dailyCapRefusal(ctx, phone, { ipCap = false, codeBudget = false }
   const [g, p, i] = (await pipeline(cmds)).map(Number);
   if (g === limits.g + 1) {
     await addNotification(ctx, {
-      type: "sms_cap", title: "הגעת למכסת ה-SMS היומית", message: codeBudget ? "שליחת קודי האימות נעצרה עד מחר." : "שליחת הודעות SMS נעצרה עד מחר. התורים ממשיכים להיקבע כרגיל.",
-      pushMessage: "הגעת למכסת ה-SMS היומית"
+      type: "sms_cap", title: "הגעת למכסת ה-SMS היומית", message: codeBudget ? "שליחת קודי האימות נעצרה עד מחר." : "שליחת הודעות SMS נעצרה עד מחר. התורים ממשיכים להיקבע כרגיל."
     });
   }
   if (g > limits.g) return { reason: "הגעת למכסת ההודעות היומית של האתר", siteCap: true };
@@ -145,7 +144,7 @@ async function sendTracked(ctx, opts) {
     if (!result.ok && smsConfigured() && !(refusal && refusal.siteCap)) {
       await addNotification(ctx, {
         type: "sms_failed", title: "כישלון בשליחת SMS", message: `הודעה אל ${opts.name || ""} (${phone || opts.phone}) נכשלה: ${result.reason}`,
-        apptId: opts.apptId, uid: opts.uid, pushMessage: "הודעת SMS נכשלה, פרטים בממשק הניהול"
+        apptId: opts.apptId, uid: opts.uid
       });
     }
     return result;

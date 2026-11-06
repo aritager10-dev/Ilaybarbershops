@@ -14,7 +14,7 @@
 //   Admin     POST /api/admin/login | logout
 //             GET  /api/admin/whoami              page-load probe, public, reveals only yes or no
 //             GET  /api/admin/session | version | state | sms/status
-//             POST /api/admin/apply | reset | reminders | sms/broadcast | sms/test | sms/retry | photos | portfolio | users/:id/optout
+//             POST /api/admin/apply | availability | reset | reminders | sms/broadcast | sms/test | sms/retry | photos | portfolio | users/:id/optout
 const { RedisError } = require("./_redis");
 const { HttpError, sendJson, readJsonBody, requestHost } = require("./_http");
 const { originAllowed, enforceLimit, ipKey } = require("./_guard");
@@ -54,6 +54,7 @@ const routes = [
   ["GET", /^\/admin\/state$/, M.getState, { admin: true }],
   ["GET", /^\/admin\/sms\/status$/, M.getSmsStatus, { admin: true }],
   ["POST", /^\/admin\/apply$/, M.applyChanges, { admin: true, body: BODY_ADMIN }],
+  ["POST", /^\/admin\/availability$/, M.saveAvailability, { admin: true }],
   ["POST", /^\/admin\/reset$/, M.resetNamespace, { admin: true }],
   ["POST", /^\/admin\/reminders$/, M.manualReminders, { admin: true }],
   ["POST", /^\/admin\/sms\/broadcast$/, M.broadcast, { admin: true }],

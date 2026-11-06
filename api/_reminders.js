@@ -2,7 +2,8 @@
 // at most once every few minutes (remgate) from admin polling and uncached public requests,
 // plus the admin's manual button. Each appointment is claimed with a lock, so a reminder goes out once.
 const { cmd, pipeline, hashValues } = require("./_redis");
-const { K, getConfig, allAppts, byNewest } = require("./_data");
+const { K, getConfig, mutateAvailability, allAppts, byNewest } = require("./_data");
+const { pruned } = require("./_availability");
 const { sendApptSms, templates } = require("./_sms");
 const { mutateAppt } = require("./_appts");
 
@@ -10,6 +11,8 @@ const GATE_SEC = 300;
 const RETENTION_MS = 180 * 24 * 3600 * 1000;
 const MAX_LOGS = 400;
 const MAX_NOTIFS = 200;
+// The manual button only reaches the coming week: bookings can now be a month away, and a reminder is sent once.
+const FORCE_WINDOW_MS = 7 * 24 * 3600 * 1000;
 
 async function runReminders(ctx, { force = false, budgetMs = 6000 } = {}) {
   const started = Date.now();
@@ -20,7 +23,7 @@ async function runReminders(ctx, { force = false, budgetMs = 6000 } = {}) {
   for (const appt of appts) {
     if (appt.status === "canceled" || appt.reminderSent || appt.noSms) continue;
     const diff = Number(appt.startsAtMs) - now;
-    if (!(diff > 0 && (force || diff <= windowMs))) continue;
+    if (!(diff > 0 && diff <= (force ? FORCE_WINDOW_MS : windowMs))) continue;
     if (Date.now() - started > budgetMs) break; // The next run picks up the rest.
     const claimed = await cmd("SET", K(ctx, `remlock:${appt.id}:${appt.startsAtMs}`), "1", "NX", "EX", 8 * 86400);
     if (claimed !== "OK") continue;
@@ -36,7 +39,7 @@ async function runReminders(ctx, { force = false, budgetMs = 6000 } = {}) {
   return { sent, appts };
 }
 
-// Once a day: drop appointments past the retention period and trim the history hashes.
+// Once a day: drop appointments past the retention period, trim the history hashes and drop date rules that have passed.
 async function maintenance(ctx, appts) {
   if ((await cmd("SET", K(ctx, "maint"), "1", "NX", "EX", 86400)) !== "OK") return;
   const cutoff = Date.now() - RETENTION_MS;
@@ -49,6 +52,8 @@ async function maintenance(ctx, appts) {
   hashValues(logs).sort(byNewest).slice(MAX_LOGS).forEach(l => cmds.push(["HDEL", K(ctx, "smslogs"), l.id]));
   hashValues(notifs).sort(byNewest).slice(MAX_NOTIFS).forEach(n => cmds.push(["HDEL", K(ctx, "notifs"), n.id]));
   if (cmds.length) { cmds.push(["INCR", K(ctx, "ver")]); await pipeline(cmds); }
+  const { availability } = await getConfig(ctx);
+  if (pruned(availability)) await mutateAvailability(ctx, current => pruned(current));
 }
 
 // gateValue is the remgate value already read by the caller, which saves a command on most requests.
