@@ -3,9 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
-  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
-  <meta name="color-scheme" content="light dark" />
+  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#ffffff" />
   <meta name="description" content="Ilay Barbershop – עילי בן הרוש, ספר בגני תקווה. מחירון, עבודות וקביעת תור אונליין." />
   <title>Ilay Barbershop | עילי בן הרוש, גני תקווה</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -13,7 +12,6 @@
   <link rel="preconnect" href="https://images.unsplash.com">
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css" />
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.3.4/mqtt.min.js" integrity="sha384-pkdqKjFaO3sj6U3p0jw1a2jxnrn38WxqzlLENwXRihs7xeqAysATUlz5f+4wI9jz" crossorigin="anonymous"></script>
 </head>
 <body class="site">
   <!-- מסך טעינה -->
@@ -30,11 +28,6 @@
     #welcomeSplash .sp-bar i { display: block; height: 100%; width: 40%; border-radius: 2px; background: linear-gradient(90deg, #c8102e, #1d3f8f); animation: spBar 1.1s ease-in-out infinite; }
     @keyframes spPole { to { background-position: 0 79.2px; } }
     @keyframes spBar { 0% { transform: translateX(160%); } 100% { transform: translateX(-260%); } }
-    @media (prefers-color-scheme: dark) {
-      #welcomeSplash { background: #000; color: #f5f5f7; }
-      #welcomeSplash .sp-sub { color: #a1a1a6; }
-      #welcomeSplash .sp-bar { background: #2c2c2e; }
-    }
     @media (prefers-reduced-motion: reduce) {
       #welcomeSplash .sp-pole, #welcomeSplash .sp-bar i { animation: none; }
       #welcomeSplash, #welcomeSplash.hide { transform: none; }
@@ -101,7 +94,7 @@
   <!-- עוגיות -->
   <div class="cookie-banner" id="cookieBanner">
     <p>
-      האתר משתמש באחסון מקומי בדפדפן רק לצורך תפעול: התחברות לאזור האישי ושמירת תורים. אין עוגיות פרסום או מעקב. <a class="s-link" href="privacy.html">מדיניות פרטיות</a>
+      האתר משתמש בעוגיית התחברות חיונית לאזור האישי, ובאחסון מקומי קטן לזכירת הודעה זו. אין עוגיות פרסום או מעקב. <a class="s-link" href="privacy.html">מדיניות פרטיות</a>
     </p>
     <button type="button" class="s-btn s-btn--primary s-btn--sm" onclick="localStorage.setItem('ilay_cookie_ok','1'); document.getElementById('cookieBanner').classList.remove('show');">הבנתי</button>
   </div>
@@ -117,7 +110,7 @@
       <nav class="s-nav" aria-label="ניווט ראשי">
         <button type="button" class="side-btn active" id="nav-all" onclick="switchCategory('all')">ראשי</button>
         <button type="button" class="side-btn" id="nav-services" onclick="switchCategory('services')">מחירון<span class="s-count" id="sideServicesCount">4</span></button>
-        <button type="button" class="side-btn" id="nav-portfolio" onclick="switchCategory('portfolio')">עבודות<span class="s-count" id="sidePortfolioCount">6</span></button>
+        <button type="button" class="side-btn" id="nav-portfolio" onclick="switchCategory('portfolio')">עבודות<span class="s-count" id="sidePortfolioCount">5</span></button>
         <button type="button" class="side-btn" id="nav-personal" onclick="openPersonalAreaOrAuth()">האזור האישי<span class="s-count" id="sideMyApptsCount">0</span></button>
       </nav>
 
@@ -237,6 +230,11 @@
                 <div><dt>שם</dt><dd id="personalCardName"></dd></div>
                 <div><dt>טלפון</dt><dd id="personalCardPhone" dir="ltr"></dd></div>
               </dl>
+              <label class="s-consent" style="margin:0.875rem 0 0.75rem;">
+                <input type="checkbox" id="personalMarketing" onchange="updateMarketingOptIn(this)" />
+                <span>אשמח לקבל מדי פעם הודעות SMS על מבצעים ועדכונים מהמספרה.</span>
+              </label>
+              <button type="button" class="s-link" onclick="deleteMyAccount()">מחיקת החשבון שלי</button>
             </div>
           </aside>
         </div>
@@ -277,7 +275,7 @@
         </div>
         <dl class="s-footer__info">
           <div><dt>כתובת</dt><dd>דרך הים 11, קומה 10, דירה 36, גני תקווה</dd></div>
-          <div><dt>מחירים</dt><dd><span dir="ltr">70–100 ₪</span></dd></div>
+          <div><dt>מחירים</dt><dd><span id="footerPriceRange" dir="ltr">70–100 ₪</span></dd></div>
         </dl>
         <nav class="s-footer__links" aria-label="מידע משפטי">
           <a href="privacy.html">מדיניות פרטיות</a>
@@ -317,7 +315,7 @@
           <label class="s-label" for="regPhone">טלפון נייד</label>
           <input type="tel" id="regPhone" class="input-field" inputmode="numeric" autocomplete="tel" oninput="this.value=this.value.replace(/[^0-9]/g,'')" maxlength="12" placeholder="050-0000000" dir="ltr" />
           <label class="s-label" for="regPass">סיסמה</label>
-          <input type="password" id="regPass" class="input-field" maxlength="30" autocomplete="new-password" placeholder="לפחות 4 תווים" />
+          <input type="password" id="regPass" class="input-field" maxlength="128" autocomplete="new-password" placeholder="לפחות 8 תווים" />
           <p class="s-hint">כל שם וכל מספר טלפון יכולים להירשם פעם אחת בלבד.</p>
 
           <label class="s-consent">
@@ -337,6 +335,22 @@
           <label class="s-label" for="logPass">סיסמה</label>
           <input type="password" id="logPass" class="input-field" autocomplete="current-password" placeholder="הסיסמה שלך" onkeydown="if(event.key==='Enter') loginClient()" />
           <button type="button" class="s-btn s-btn--primary s-btn--block s-btn--lg" onclick="loginClient()">התחברות</button>
+          <p style="text-align:center;margin:0.875rem 0 0;"><button type="button" class="s-link" onclick="switchAuthTab('reset')">שכחת סיסמה?</button></p>
+        </div>
+
+        <div id="resetBox" style="display:none;">
+          <label class="s-label" for="resetPhone">טלפון נייד</label>
+          <input type="tel" id="resetPhone" class="input-field" inputmode="numeric" autocomplete="tel" oninput="this.value=this.value.replace(/[^0-9]/g,'')" maxlength="12" placeholder="050-0000000" dir="ltr" />
+          <p class="s-hint">נשלח קוד ב-SMS למספר הרשום בחשבון. הקוד תקף ל-10 דקות.</p>
+          <button type="button" class="s-btn s-btn--tinted s-btn--block s-btn--lg" onclick="requestResetCode()">שליחת קוד</button>
+          <div id="resetStep2" style="display:none;margin-top:1rem;">
+            <label class="s-label" for="resetCode">הקוד שקיבלת</label>
+            <input type="text" id="resetCode" class="input-field" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6 ספרות" dir="ltr" />
+            <label class="s-label" for="resetNewPass">סיסמה חדשה</label>
+            <input type="password" id="resetNewPass" class="input-field" maxlength="128" autocomplete="new-password" placeholder="לפחות 8 תווים" />
+            <button type="button" class="s-btn s-btn--primary s-btn--block s-btn--lg" onclick="confirmResetCode()">עדכון הסיסמה</button>
+          </div>
+          <p style="text-align:center;margin:0.875rem 0 0;"><button type="button" class="s-link" onclick="switchAuthTab('log')">חזרה להתחברות</button></p>
         </div>
       </div>
     </div>
@@ -403,7 +417,7 @@
         <p><strong>1. כללי:</strong> השימוש באתר <strong>Ilay Barbershop (עילי בן הרוש, דרך הים 11 גני תקווה)</strong> כפוף לתנאים שלהלן.</p>
         <p><strong>2. אזור אישי, מניעת כפילויות וניתוק אוטומטי:</strong> קביעת תור וכניסה לאזור האישי מותנות ברישום חד-פעמי עם שם מלא ומספר טלפון ייחודי. המערכת אוכפת איסור פתיחת חשבון כפול על אותו שם מלא או מספר טלפון. מטעמי אבטחת מידע, חשבון שלא בוצעה בו פעילות במשך <strong>60 ימים (חודשיים)</strong> מתנתק אוטומטית.</p>
         <p><strong>3. תזכורות SMS ואישור הגעה (סעיף 30א לחוק התקשורת):</strong> הלקוח מאשר קבלת הודעות SMS בגין קביעת תור, שינוי/ביטול ותזכורת מספר שעות לפני התור הכוללת קישור לאישור הגעה באזור האישי.</p>
-        <p><strong>4. פרטיות ועוגיות (תיקון 13):</strong> המידע נשמר לצורך ניהול יומן המספרה בלבד ואינו מועבר לצד שלישי.</p>
+        <p><strong>4. פרטיות ועוגיות (תיקון 13):</strong> המידע נשמר לצורך ניהול יומן המספרה בלבד, ומועבר רק לספקי השירות שמפעילים את האתר, כמפורט ב<a class="s-link" href="/privacy.html" target="_blank" rel="noopener">מדיניות הפרטיות</a>.</p>
         <p><strong>5. נגישות:</strong> האתר כולל תפריט נגישות, ניווט במקלדת וטקסט חלופי לתמונות. פרטים מלאים ב<a class="s-link" href="/accessibility.html" target="_blank" rel="noopener">הצהרת הנגישות</a>.</p>
       </div>
       <div class="s-sheet__footer">
@@ -810,12 +824,15 @@
     });
   </script>
   <script>
-    let currentClientUser = JSON.parse(localStorage.getItem("ilay_logged_client_v1") || "null");
+    // הסשן נשמר בעוגיית HttpOnly בשרת. בדפדפן אין פרטים אישיים מעבר למה שבזיכרון של הדף.
+    let currentClientUser = null;
     let selectedServiceIdx = 0, selectedBookDay = 0, selectedBookHour = null;
     let editingApptId = null; // עבור שינוי תור קיים ע"י הלקוח
     let pendingActionAfterLogin = null;
+    let actionInFlight = false;
 
-    // מסך טעינה: בכניסה ראשונה לפחות ~1.2 שניות, אחר כך קצר; תמיד נסגר עד 3.5 שניות
+    // מסך טעינה: בכניסה ראשונה לפחות ~1.2 שניות, אחר כך קצר; מחכה לנתונים מהשרת; תמיד נסגר עד 3.5 שניות
+    let markSiteDataReady = () => {};
     (function () {
       const splash = document.getElementById("welcomeSplash");
       if (!splash) return;
@@ -823,14 +840,15 @@
       try { seen = sessionStorage.getItem("ilay_splash_seen") === "1"; sessionStorage.setItem("ilay_splash_seen", "1"); } catch (_) {}
       const minMs = seen ? 250 : 1200;
       const start = performance.now();
-      let done = false;
+      let done = false, loaded = document.readyState === "complete", dataReady = false;
       const hide = () => {
         if (done) return; done = true;
         splash.classList.add("hide");
         setTimeout(() => splash.remove(), 600);
       };
-      const onReady = () => setTimeout(hide, Math.max(0, minMs - (performance.now() - start)));
-      if (document.readyState === "complete") onReady(); else window.addEventListener("load", onReady, { once: true });
+      const check = () => { if (loaded && dataReady) setTimeout(hide, Math.max(0, minMs - (performance.now() - start))); };
+      markSiteDataReady = () => { dataReady = true; check(); };
+      if (!loaded) window.addEventListener("load", () => { loaded = true; check(); }, { once: true });
       setTimeout(hide, 3500);
     })();
 
@@ -840,90 +858,137 @@
       clearTimeout(window._tTimer);
       window._tTimer = setTimeout(() => t.classList.remove("show"), 3800);
     }
+    window.onCoreError = showToast;
 
     function openLegalModal() { document.getElementById("legalTermsModal").classList.add("open"); }
 
-    function verifyClientSession() {
-      if (!currentClientUser || !currentClientUser.phone) { currentClientUser = null; return false; }
-      const now = Date.now();
-      if (currentClientUser.lastActiveAt && (now - Number(currentClientUser.lastActiveAt) > TWO_MONTHS_MS)) {
-        currentClientUser = null;
-        localStorage.removeItem("ilay_logged_client_v1");
-        showToast("נותקת אוטומטית מהחשבון עקב חודשיים של אי-פעילות.");
-        return false;
-      }
-      currentClientUser.lastActiveAt = now;
-      localStorage.setItem("ilay_logged_client_v1", JSON.stringify(currentClientUser));
-      return true;
+    function verifyClientSession() { return !!(currentClientUser && currentClientUser.phone); }
+
+    // מריץ פעולה אחת בכל פעם, כדי שלחיצה כפולה לא תשלח בקשה פעמיים
+    async function once(fn) {
+      if (actionInFlight) return;
+      actionInFlight = true;
+      try { await fn(); } finally { actionInFlight = false; }
     }
+
+    async function refreshMyData() {
+      if (!currentClientUser) return;
+      const r = await api("/me");
+      if (!r.ok) return;
+      currentClientUser = r.data.user;
+      myAppointments = r.data.appointments;
+      rebuildClientAppointments();
+    }
+
+    window.onApiUnauthorized = () => {
+      const wasLoggedIn = !!currentClientUser;
+      currentClientUser = null;
+      myAppointments = [];
+      rebuildClientAppointments();
+      updateAuthAndPersonalUI();
+      if (wasLoggedIn) {
+        switchCategory("all");
+        document.getElementById("authModal").classList.add("open");
+        switchAuthTab("log");
+        showToast("נותקת מהחשבון. נא להתחבר שוב.");
+      }
+    };
 
     function switchAuthTab(mode) {
       document.getElementById("tabBtnReg").classList.toggle("active", mode === "reg");
-      document.getElementById("tabBtnLog").classList.toggle("active", mode === "log");
+      document.getElementById("tabBtnLog").classList.toggle("active", mode === "log" || mode === "reset");
       document.getElementById("regBox").style.display = mode === "reg" ? "block" : "none";
       document.getElementById("logBox").style.display = mode === "log" ? "block" : "none";
+      document.getElementById("resetBox").style.display = mode === "reset" ? "block" : "none";
+    }
+
+    async function afterSignedIn(user, toast) {
+      currentClientUser = user;
+      document.getElementById("regPass").value = "";
+      document.getElementById("logPass").value = "";
+      await refreshMyData();
+      document.getElementById("authModal").classList.remove("open");
+      updateAuthAndPersonalUI();
+      showToast(toast);
+      runPendingAction();
     }
 
     function registerClient() {
-      const fullName = sanitizeStr(document.getElementById("regFullName").value, 40);
-      const phone = toIsraeliLocalPhone(document.getElementById("regPhone").value);
-      const pass = document.getElementById("regPass").value.trim();
-      const consent = document.getElementById("regConsent").checked;
+      return once(async () => {
+        const fullName = plainStr(document.getElementById("regFullName").value, 40);
+        const phone = toIsraeliLocalPhone(document.getElementById("regPhone").value);
+        const pass = document.getElementById("regPass").value;
+        const consent = document.getElementById("regConsent").checked;
 
-      if (fullName.replace(/[^a-zA-Zא-ת]/g, "").length < 2) return showToast("נא להזין שם מלא תקין");
-      if (phone.length < 9) return showToast("נא להזין מספר טלפון נייד תקין");
-      if (pass.length < 4) return showToast("נא לבחור סיסמה בת 4 תווים לפחות");
-      if (!consent) return showToast("כדי להירשם צריך לאשר את תנאי השימוש ומדיניות הפרטיות");
-      const marketingOptIn = !!(document.getElementById("regMarketing") || {}).checked;
+        if (fullName.replace(/[^a-zA-Zא-ת]/g, "").length < 2) return showToast("נא להזין שם מלא תקין");
+        if (!/^05\d{8}$/.test(phone)) return showToast("נא להזין מספר טלפון נייד תקין");
+        if (pass.length < 8) return showToast("נא לבחור סיסמה בת 8 תווים לפחות");
+        if (!consent) return showToast("כדי להירשם צריך לאשר את תנאי השימוש ומדיניות הפרטיות");
+        const marketingOptIn = !!(document.getElementById("regMarketing") || {}).checked;
 
-      if (registeredUsers.some(u => u.phone === phone)) {
-        switchAuthTab("log");
-        document.getElementById("logIdent").value = phone;
-        return showToast("מספר טלפון זה כבר רשום! לא ניתן לפתוח חשבון כפול – נא להתחבר.");
-      }
-      if (registeredUsers.some(u => (u.username || "").toLowerCase() === fullName.toLowerCase())) {
-        return showToast("השם המלא הזה כבר רשום במערכת! לא ניתן לפתוח חשבון כפול.");
-      }
-
-      const now = Date.now();
-      const newUser = { id: "usr_" + now, username: fullName, phone, password: pass, marketingOptIn, consentAt: now, createdAt: new Date().toLocaleDateString("he-IL"), lastActiveAt: now };
-      registeredUsers.push(newUser);
-      currentClientUser = { username: fullName, phone, lastActiveAt: now };
-      localStorage.setItem("ilay_logged_client_v1", JSON.stringify(currentClientUser));
-      pushRealtimeNotification("new_user", "לקוח חדש נרשם למועדון", `${fullName} (${phone}) פתח חשבון חדש באתר.`);
-
-      document.getElementById("authModal").classList.remove("open");
-      updateAuthAndPersonalUI();
-      showToast(`ברוך הבא ${fullName}! נכנסת לאזור האישי.`);
-      runPendingAction();
+        const r = await apiPost("/auth/register", { fullName, phone, password: pass, consent: true, marketingOptIn });
+        if (!r.ok) {
+          if (r.data.code === "phone_taken") {
+            switchAuthTab("log");
+            document.getElementById("logIdent").value = phone;
+          }
+          return showToast(r.reason);
+        }
+        await afterSignedIn(r.data.user, `ברוך הבא ${r.data.user.username}! נכנסת לאזור האישי.`);
+      });
     }
 
     function loginClient() {
-      const ident = document.getElementById("logIdent").value.trim();
-      const pass = document.getElementById("logPass").value.trim();
-      const cleanPhone = toIsraeliLocalPhone(ident);
-
-      const found = registeredUsers.find(u => (u.phone === cleanPhone || (u.username || "").toLowerCase() === ident.toLowerCase()) && u.password === pass);
-      if (!found) return showToast("פרטי ההתחברות שגויים או שהמשתמש אינו רשום");
-
-      const now = Date.now();
-      found.lastActiveAt = now;
-      currentClientUser = { username: found.username, phone: found.phone, lastActiveAt: now };
-      localStorage.setItem("ilay_logged_client_v1", JSON.stringify(currentClientUser));
-      saveAllStateLocally();
-
-      document.getElementById("authModal").classList.remove("open");
-      updateAuthAndPersonalUI();
-      showToast(`שלום ${found.username}, התחברת לאזור האישי!`);
-      runPendingAction();
+      return once(async () => {
+        const ident = document.getElementById("logIdent").value.trim();
+        const pass = document.getElementById("logPass").value;
+        if (!ident || !pass) return showToast("נא למלא טלפון או שם מלא וסיסמה");
+        const r = await apiPost("/auth/login", { ident, password: pass });
+        if (!r.ok) return showToast(r.reason);
+        await afterSignedIn(r.data.user, `שלום ${r.data.user.username}, התחברת לאזור האישי!`);
+      });
     }
 
     function logoutClientUser() {
-      currentClientUser = null;
-      localStorage.removeItem("ilay_logged_client_v1");
-      updateAuthAndPersonalUI();
-      switchCategory("all");
-      showToast("התנתקת מהאזור האישי");
+      return once(async () => {
+        const r = await apiPost("/auth/logout");
+        if (!r.ok) return showToast(r.reason);
+        currentClientUser = null;
+        myAppointments = [];
+        rebuildClientAppointments();
+        updateAuthAndPersonalUI();
+        switchCategory("all");
+        showToast("התנתקת מהאזור האישי");
+      });
+    }
+
+    function requestResetCode() {
+      return once(async () => {
+        const phone = toIsraeliLocalPhone(document.getElementById("resetPhone").value);
+        if (!/^05\d{8}$/.test(phone)) return showToast("נא להזין מספר טלפון נייד תקין");
+        const r = await apiPost("/auth/reset/request", { phone });
+        if (!r.ok) return showToast(r.reason);
+        document.getElementById("resetStep2").style.display = "block";
+        showToast(r.data.message);
+      });
+    }
+
+    function confirmResetCode() {
+      return once(async () => {
+        const phone = toIsraeliLocalPhone(document.getElementById("resetPhone").value);
+        const code = document.getElementById("resetCode").value.trim();
+        const newPassword = document.getElementById("resetNewPass").value;
+        if (!/^\d{6}$/.test(code)) return showToast("נא להזין את הקוד בן 6 הספרות");
+        if (newPassword.length < 8) return showToast("נא לבחור סיסמה בת 8 תווים לפחות");
+        const r = await apiPost("/auth/reset/confirm", { phone, code, newPassword });
+        if (!r.ok) return showToast(r.reason);
+        document.getElementById("resetCode").value = "";
+        document.getElementById("resetNewPass").value = "";
+        document.getElementById("resetStep2").style.display = "none";
+        document.getElementById("logIdent").value = phone;
+        switchAuthTab("log");
+        showToast(r.data.message);
+      });
     }
 
     function openPersonalAreaOrAuth() {
@@ -947,26 +1012,24 @@
 
     // אישור הגעה ע"י הלקוח -> הופך לירוק ביומן הניהול + שולח התראה חיה לעילי!
     function confirmMyAppointmentArrival(apptId) {
-      const appt = appointments.find(a => a.id === apptId);
-      if (!appt) return;
-      appt.status = "confirmed";
-      appt.confirmedAt = new Date().toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
-      logIncomingClientMessage(appt.phone, appt.name, `אישור הגעה לתור ביום ${DAYS_HEB[appt.dayIdx]} בשעה ${appt.time}`, "incoming", appt.id);
-      pushRealtimeNotification("confirmed", "אישור הגעה התקבל!", `${appt.name} אישר הגעה לתור ביום ${DAYS_HEB[appt.dayIdx]} בשעה ${appt.time}.`, appt.id, appt.dayIdx);
-      renderPersonalArea();
-      showToast("אישרת הגעה. עילי רואה את זה ביומן.");
+      return once(async () => {
+        const r = await apiPost(`/appointments/${safeId(apptId)}/confirm`);
+        if (!r.ok) return showToast(r.reason);
+        await refreshMyData();
+        renderPersonalArea();
+        showToast("אישרת הגעה. עילי רואה את זה ביומן.");
+      });
     }
 
-    // ביטול תור ע"י הלקוח מתוך האזור האישי -> מסנכרן מיד ליומן הניהול!
+    // ביטול תור ע"י הלקוח מתוך האזור האישי
     function cancelMyAppointmentByClient(apptId) {
-      const appt = appointments.find(a => a.id === apptId);
-      if (!appt) return;
-      appt.status = "canceled";
-      appt.canceledAt = Date.now();
-      logIncomingClientMessage(appt.phone, appt.name, `ביטול תור ליום ${DAYS_HEB[appt.dayIdx]} בשעה ${appt.time}`, "incoming", appt.id);
-      pushRealtimeNotification("canceled", "לקוח ביטל תור באתר", `${appt.name} (${appt.phone}) ביטל את התור ליום ${DAYS_HEB[appt.dayIdx]} בשעה ${appt.time}.`, appt.id, appt.dayIdx);
-      renderPersonalArea();
-      showToast("התור בוטל והיומן של עילי עודכן בזמן אמת.");
+      return once(async () => {
+        const r = await apiPost(`/appointments/${safeId(apptId)}/cancel`);
+        if (!r.ok) return showToast(r.reason);
+        await refreshMyData();
+        renderPersonalArea();
+        showToast("התור בוטל והיומן של עילי עודכן.");
+      });
     }
 
     // פתיחת חלונית לשינוי מועד התור ע"י הלקוח
@@ -981,23 +1044,51 @@
 
     function sendClientMessageToAdmin() {
       if (!verifyClientSession()) return;
-      const txt = sanitizeStr(document.getElementById("clientDirectMsgInput").value, 160);
-      if (!txt) return showToast("נא להקליד הודעה");
-      logIncomingClientMessage(currentClientUser.phone, currentClientUser.username, txt, "incoming");
-      pushRealtimeNotification("client_msg", `הודעה חדשה מ-${currentClientUser.username}`, `${currentClientUser.username} (${currentClientUser.phone}): "${txt}"`);
-      document.getElementById("clientDirectMsgInput").value = "";
-      showToast("ההודעה נשלחה ישירות לממשק הניהול של עילי!");
+      return once(async () => {
+        const txt = plainStr(document.getElementById("clientDirectMsgInput").value, 160);
+        if (!txt) return showToast("נא להקליד הודעה");
+        const r = await apiPost("/me/message", { text: txt });
+        if (!r.ok) return showToast(r.reason);
+        document.getElementById("clientDirectMsgInput").value = "";
+        showToast("ההודעה נשלחה ישירות לממשק הניהול של עילי!");
+      });
+    }
+
+    function updateMarketingOptIn(checkbox) {
+      return once(async () => {
+        const r = await apiPost("/me/marketing", { optIn: checkbox.checked });
+        if (!r.ok) {
+          checkbox.checked = !checkbox.checked;
+          return showToast(r.reason);
+        }
+        currentClientUser = r.data.user;
+        showToast(checkbox.checked ? "נרשמת לקבלת עדכונים ומבצעים ב-SMS." : "הוסרת מרשימת העדכונים והמבצעים.");
+      });
+    }
+
+    function deleteMyAccount() {
+      if (!confirm("למחוק את החשבון שלך? התורים העתידיים יבוטלו, והפרטים האישיים שלך יימחקו. אי אפשר לבטל.")) return;
+      return once(async () => {
+        const r = await apiPost("/me/delete");
+        if (!r.ok) return showToast(r.reason);
+        currentClientUser = null;
+        myAppointments = [];
+        rebuildClientAppointments();
+        updateAuthAndPersonalUI();
+        switchCategory("all");
+        showToast("החשבון שלך נמחק.");
+      });
     }
 
     function renderPersonalArea() {
       if (!verifyClientSession()) return;
-      const myPhone = toIsraeliLocalPhone(currentClientUser.phone);
-      const myAppts = appointments.filter(a => toIsraeliLocalPhone(a.phone) === myPhone || (a.name || "").toLowerCase() === currentClientUser.username.toLowerCase());
+      const myAppts = appointments.filter(a => !a.busy);
 
-      document.getElementById("sideMyApptsCount").textContent = myAppts.filter(a => a.status !== "canceled").length;
+      document.getElementById("sideMyApptsCount").textContent = myAppts.filter(a => a.status !== "canceled" && Number(a.startsAtMs) >= Date.now() - 2 * 3600 * 1000).length;
       document.getElementById("personalWelcomeTitle").textContent = `שלום, ${currentClientUser.username}`;
       document.getElementById("personalCardName").textContent = currentClientUser.username;
       document.getElementById("personalCardPhone").textContent = currentClientUser.phone;
+      document.getElementById("personalMarketing").checked = currentClientUser.marketingOptIn === true;
 
       const now = Date.now();
       const futureList = document.getElementById("personalFutureApptsList");
@@ -1013,26 +1104,29 @@
         if (a.status !== "canceled" && ts >= now - 2 * 3600 * 1000) futureAppts.push(a);
         else pastAppts.push(a);
       });
+      futureAppts.sort((a, b) => a.startsAtMs - b.startsAtMs);
+      pastAppts.sort((a, b) => b.startsAtMs - a.startsAtMs);
 
       if (!futureAppts.length) {
         futureList.innerHTML = `<div class="s-empty">אין לך תורים קרובים. אפשר לקבוע דרך "תור חדש".</div>`;
       } else {
         futureAppts.forEach(a => {
-          const st = a.status || "pending";
-          const dateStr = a.dateStr || getFormattedDateForDayIdx(a.dayIdx);
+          const st = safeStatus(a.status);
+          const dateStr = esc(a.dateStr || getFormattedDateForDayIdx(a.dayIdx));
           const isConfirmed = st === "confirmed";
+          const id = safeId(a.id);
           const card = document.createElement("div");
           card.className = `client-appt-card status-${st}`;
           card.innerHTML = `
             <div class="appt-row">
-              <strong class="appt-when">יום ${DAYS_HEB[a.dayIdx]}, ${dateStr} · ${a.time}</strong>
+              <strong class="appt-when">יום ${esc(DAYS_HEB[a.dayIdx])}, ${dateStr} · ${esc(safeTime(a.time))}</strong>
               <span class="status-pill ${st}">${isConfirmed ? "הגעה אושרה" : "ממתין לאישור הגעה"}</span>
             </div>
             <div class="appt-service">${sanitizeStr(a.service, 50)}</div>
             <div class="appt-actions">
-              ${!isConfirmed ? `<button type="button" class="btn-confirm-arrival" onclick="confirmMyAppointmentArrival('${a.id}')">אני מגיע/ה – אישור הגעה</button>` : `<div class="appt-ok">ההגעה שלך אושרה</div>`}
-              <button type="button" class="btn-glass" onclick="openRescheduleByClient('${a.id}')">שינוי מועד</button>
-              <button type="button" class="btn-glass is-danger" onclick="cancelMyAppointmentByClient('${a.id}')">ביטול</button>
+              ${!isConfirmed ? `<button type="button" class="btn-confirm-arrival" onclick="confirmMyAppointmentArrival('${id}')">אני מגיע/ה – אישור הגעה</button>` : `<div class="appt-ok">ההגעה שלך אושרה</div>`}
+              <button type="button" class="btn-glass" onclick="openRescheduleByClient('${id}')">שינוי מועד</button>
+              <button type="button" class="btn-glass is-danger" onclick="cancelMyAppointmentByClient('${id}')">ביטול</button>
             </div>
           `;
           futureList.appendChild(card);
@@ -1043,13 +1137,13 @@
         pastList.innerHTML = `<div class="s-empty">עדיין אין תורים קודמים.</div>`;
       } else {
         pastAppts.forEach(a => {
-          const st = a.status || "pending";
-          const dateStr = a.dateStr || getFormattedDateForDayIdx(a.dayIdx);
+          const st = safeStatus(a.status);
+          const dateStr = esc(a.dateStr || getFormattedDateForDayIdx(a.dayIdx));
           const card = document.createElement("div");
           card.className = `client-appt-card status-${st}`;
           card.innerHTML = `
             <div class="appt-row">
-              <strong class="appt-when">יום ${DAYS_HEB[a.dayIdx]}, ${dateStr} · ${a.time}</strong>
+              <strong class="appt-when">יום ${esc(DAYS_HEB[a.dayIdx])}, ${dateStr} · ${esc(safeTime(a.time))}</strong>
               <span class="status-pill ${st}">${st === "canceled" ? "בוטל" : st === "confirmed" ? "הושלם" : "עבר"}</span>
             </div>
             <div class="appt-service">${sanitizeStr(a.service, 50)}</div>
@@ -1105,6 +1199,12 @@
       document.getElementById("sideServicesCount").textContent = SERVICES.length;
       document.getElementById("sidePortfolioCount").textContent = portfolioList.length;
 
+      const prices = SERVICES.map(s => Number(s.price) || 0);
+      const lo = Math.min(...prices), hi = Math.max(...prices);
+      const range = lo === hi ? `${lo} ₪` : `${lo}–${hi} ₪`;
+      document.getElementById("heroPriceRange").textContent = range;
+      document.getElementById("footerPriceRange").textContent = range;
+
       const sGrid = document.getElementById("publicServicesGrid");
       sGrid.innerHTML = "";
       SERVICES.forEach((srv, idx) => {
@@ -1129,12 +1229,13 @@
       pGrid.innerHTML = "";
       portfolioList.forEach((src, i) => {
         const fallback = DEFAULT_PORTFOLIO[i % DEFAULT_PORTFOLIO.length];
+        const safeSrc = isSafeImgSrc(src) ? sizedSrc(src, 900) : fallback;
         const card = document.createElement("button");
         card.type = "button";
         card.className = "photo-card";
         card.setAttribute("role", "listitem");
         card.setAttribute("aria-label", `הגדלת תמונה ${i + 1} מתוך ${portfolioList.length}`);
-        card.innerHTML = `<div class="photo-inner"><img src="${sizedSrc(src, 900)}" alt="עבודת תספורת ${i + 1} במספרה של עילי" width="720" height="900" loading="${i < 2 ? "eager" : "lazy"}" decoding="async" onerror="this.onerror=null;this.src='${fallback}'" /></div>`;
+        card.innerHTML = `<div class="photo-inner"><img src="${esc(safeSrc)}" alt="עבודת תספורת ${i + 1} במספרה של עילי" width="720" height="900" loading="${i < 2 ? "eager" : "lazy"}" decoding="async" onerror="this.onerror=null;this.src='${esc(fallback)}'" /></div>`;
         card.onclick = () => openPhotoViewer(i, card);
         pGrid.appendChild(card);
       });
@@ -1151,7 +1252,7 @@
       selectedServiceIdx = srvIdx < SERVICES.length ? srvIdx : 0;
       document.getElementById("bookingModalSub").textContent = editingApptId ? "שינוי מועד תור קיים • Ilay Barbershop" : "קביעת תור • Ilay Barbershop";
       document.getElementById("confirmBookingBtn").textContent = editingApptId ? "שמור מועד חדש לתור" : "אשר ושבץ תור ביומן";
-      document.getElementById("bookingServiceSelect").innerHTML = SERVICES.map((s, i) => `<option value="${i}" ${i === selectedServiceIdx ? "selected" : ""}>${sanitizeStr(s.name, 40)} — ${s.price} ₪</option>`).join("");
+      document.getElementById("bookingServiceSelect").innerHTML = SERVICES.map((s, i) => `<option value="${i}" ${i === selectedServiceIdx ? "selected" : ""}>${sanitizeStr(s.name, 40)} — ${Number(s.price) || 0} ₪</option>`).join("");
       updateModalHeaderTitle();
       renderBookingDays();
       renderBookingHours();
@@ -1183,6 +1284,13 @@
       });
     }
 
+    // משבצת תפוסה: תור פעיל באותו יום ושעה בשבוע הקרוב. משבצת של היום ששעתה עברה גם לא זמינה.
+    function isSlotTaken(dayIdx, tStr) {
+      if (getTargetTimestamp(dayIdx, tStr) <= Date.now()) return true;
+      const now = Date.now();
+      return appointments.some(a => Number(a.dayIdx) === dayIdx && a.time === tStr && a.status !== "canceled" && a.id !== editingApptId && (a.busy || Number(a.startsAtMs) > now));
+    }
+
     function renderBookingHours() {
       const grid = document.getElementById("bookingHoursGrid");
       grid.innerHTML = "";
@@ -1197,7 +1305,7 @@
 
       for (let cur = sh * 60 + sm; cur < eh * 60 + em; cur += step) {
         const tStr = `${String(Math.floor(cur / 60)).padStart(2, "0")}:${String(cur % 60).padStart(2, "0")}`;
-        const taken = appointments.some(a => Number(a.dayIdx) === selectedBookDay && a.time === tStr && a.status !== "canceled" && a.id !== editingApptId);
+        const taken = isSlotTaken(selectedBookDay, tStr);
         const btn = document.createElement("button");
         btn.type = "button";
         btn.className = "hour-chip" + (taken ? " taken" : "") + (selectedBookHour === tStr ? " active" : "");
@@ -1207,74 +1315,36 @@
       }
     }
 
-    async function confirmClientBooking() {
-      if (!verifyClientSession()) return;
-      if (!selectedBookHour) return showToast("נא לבחור שעה פנויה");
+    function confirmClientBooking() {
+      return once(async () => {
+        if (!verifyClientSession()) return;
+        if (!selectedBookHour) return showToast("נא לבחור שעה פנויה");
 
-      // מניעת תור כפול על אותה משבצת
-      const slotTaken = appointments.some(a => Number(a.dayIdx) === selectedBookDay && a.time === selectedBookHour && a.status !== "canceled" && a.id !== editingApptId);
-      if (slotTaken) {
-        renderBookingHours();
-        return showToast("השעה הזו נתפסה כרגע, נא לבחור שעה אחרת");
-      }
+        const payload = { dayIdx: selectedBookDay, time: selectedBookHour, srvIdx: selectedServiceIdx };
+        const moving = !!editingApptId;
+        const r = moving
+          ? await apiPost(`/appointments/${safeId(editingApptId)}/move`, payload)
+          : await apiPost("/appointments", { ...payload, note: plainStr(document.getElementById("clientNoteInput").value, 120) });
 
-      const srv = SERVICES[selectedServiceIdx] || SERVICES[0];
-      const dateStr = getFormattedDateForDayIdx(selectedBookDay);
-      const dayName = DAYS_HEB[selectedBookDay];
-      const publicUrl = `${window.location.origin}/#personal-area`;
-
-      if (editingApptId) {
-        const existing = appointments.find(a => a.id === editingApptId);
-        if (existing) {
-          existing.dayIdx = selectedBookDay;
-          existing.dateStr = dateStr;
-          existing.time = selectedBookHour;
-          existing.startsAtMs = getTargetTimestamp(selectedBookDay, selectedBookHour);
-          existing.srvIdx = selectedServiceIdx;
-          existing.price = srv.price;
-          existing.service = `${srv.name} • ${srv.price} ₪`;
-          existing.status = "pending";
-          existing.movedCount = (Number(existing.movedCount) || 0) + 1;
-          existing.reminderSent = false;
-
-          pushRealtimeNotification("moved", "לקוח שינה מועד תור", `${existing.name} הזיז את התור ליום ${dayName} (${dateStr}) בשעה ${selectedBookHour}.`, existing.id, selectedBookDay);
-          sendTrackedSms(existing.phone, existing.name, `היי ${existing.name}, מועד התור שלך ב-Ilay Barbershop עודכן ליום ${dayName} (${dateStr}) בשעה ${selectedBookHour}.`, "move", existing.id);
-          closeBookingModal();
-          updateAuthAndPersonalUI();
-          switchCategory("personal");
-          return showToast("מועד התור עודכן בהצלחה ביומן!");
+        if (!r.ok) {
+          showToast(r.reason);
+          if (r.data.code === "slot_taken") {
+            busySlots.push({ dayIdx: selectedBookDay, time: selectedBookHour, dateStr: getFormattedDateForDayIdx(selectedBookDay) });
+            rebuildClientAppointments();
+            selectedBookHour = null;
+            renderBookingHours();
+          }
+          return;
         }
-      }
 
-      const newAppt = {
-        id: "ap_" + Date.now() + "_" + Math.random().toString(36).slice(2, 5),
-        dayIdx: selectedBookDay,
-        dateStr,
-        time: selectedBookHour,
-        createdAt: Date.now(),
-        startsAtMs: getTargetTimestamp(selectedBookDay, selectedBookHour),
-        name: currentClientUser.username,
-        phone: currentClientUser.phone,
-        srvIdx: selectedServiceIdx,
-        price: srv.price,
-        service: `${srv.name} • ${srv.price} ₪`,
-        note: sanitizeStr(document.getElementById("clientNoteInput").value, 120),
-        status: "pending",
-        movedCount: 0,
-        reminderSent: false
-      };
-
-      appointments.push(newAppt);
-      pushRealtimeNotification("new_booking", "תור חדש נקבע באתר!", `${newAppt.name} (${newAppt.phone}) קבע תור ל${srv.name} ביום ${dayName} (${dateStr}) בשעה ${newAppt.time}.`, newAppt.id, selectedBookDay);
-
-      const smsMsg = `היי ${newAppt.name}, התור שלך ל-Ilay Barbershop נקבע ליום ${dayName} (${dateStr}) בשעה ${newAppt.time}. לצפייה ואישור הגעה באזור האישי: ${publicUrl}`;
-      sendTrackedSms(newAppt.phone, newAppt.name, smsMsg, "booking", newAppt.id);
-
-      closeBookingModal();
-      document.getElementById("clientNoteInput").value = "";
-      updateAuthAndPersonalUI();
-      switchCategory("personal");
-      showToast("התור נקבע בהצלחה! תוכל לאשר הגעה כאן באזור האישי.");
+        await refreshMyData();
+        closeBookingModal();
+        selectedBookHour = null;
+        document.getElementById("clientNoteInput").value = "";
+        updateAuthAndPersonalUI();
+        switchCategory("personal");
+        showToast(moving ? "מועד התור עודכן בהצלחה ביומן!" : "התור נקבע בהצלחה! תוכל לאשר הגעה כאן באזור האישי.");
+      });
     }
 
     window.onCoreDataUpdated = () => {
@@ -1283,12 +1353,31 @@
       if (document.getElementById("bookingModal").classList.contains("open")) renderBookingHours();
     };
 
-    window.addEventListener("DOMContentLoaded", () => {
-      if (!localStorage.getItem("ilay_cookie_ok")) document.getElementById("cookieBanner").classList.add("show");
+    // עדכונים: כל 30 שניות דרך ה-CDN, ורק כשהלשונית גלויה
+    async function pollPublicSite() {
+      if (await fetchPublicState()) {
+        await refreshMyData();
+        window.onCoreDataUpdated();
+      }
+    }
+
+    window.addEventListener("DOMContentLoaded", async () => {
+      try { if (!localStorage.getItem("ilay_cookie_ok")) document.getElementById("cookieBanner").classList.add("show"); } catch (_) {}
       renderSiteContent();
       updateAuthAndPersonalUI();
-      initCloudSyncEngine();
       initRealistic3DBarberScene();
+
+      await resolveTestMode();
+      const [gotPublic, me] = await Promise.all([fetchPublicState(), api("/me?soft=1")]);
+      if (me.ok && me.data.user) {
+        currentClientUser = me.data.user;
+        myAppointments = me.data.appointments;
+        rebuildClientAppointments();
+      }
+      if (lastPublicVersion === null && !gotPublic) showToast("לא הצלחנו לטעון את הנתונים העדכניים. נסו לרענן את הדף.");
+      window.onCoreDataUpdated();
+      markSiteDataReady();
+      pollWhileVisible(pollPublicSite, 30000);
       if (window.location.hash === "#personal-area") openPersonalAreaOrAuth();
     });
   </script>

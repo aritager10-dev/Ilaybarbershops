@@ -2,7 +2,7 @@
    Shared base + admin.html styles (admin dashboard look unchanged)
    ===================================================================== */
 :root {
-  color-scheme: dark;
+  color-scheme: light;
   --bg-deep: #06080d;
   --bg-glass: rgba(14, 18, 27, 0.86);
   --bg-card: rgba(19, 24, 36, 0.94);
@@ -183,7 +183,7 @@ select option { background-color: #0e131f !important; color: #f8fafc !important;
 
 /* =====================================================================
    Public site (index.html) - everything scoped to body.site
-   Light/dark system palette, translucent materials, one accent.
+   Light system palette, translucent materials, one accent.
    ===================================================================== */
 body.site {
   --bg: #ffffff;
@@ -234,39 +234,7 @@ body.site {
   overflow: visible;
   overflow-x: clip;
 }
-@media (prefers-color-scheme: dark) {
-  body.site {
-    --bg: #000000;
-    --bg-2: #111113;
-    --card: #1c1c1e;
-    --sheet: #1c1c1e;
-    --label: #f5f5f7;
-    --label-2: #a1a1a6;
-    --label-3: #98989f;
-    --sep: rgba(84, 84, 88, 0.6);
-    --fill: rgba(120, 120, 128, 0.32);
-    --fill-2: rgba(120, 120, 128, 0.2);
-    --accent: #8fb0ff;
-    --accent-press: #a9c2ff;
-    --accent-tint: rgba(143, 176, 255, 0.16);
-    --on-accent: #0a1a3f;
-    --cta: #ff5c6c;
-    --cta-press: #ff7a87;
-    --on-cta: #2a0508;
-    --pole-red: #ff4d5e;
-    --pole-blue: #4f7dff;
-    --pole-white: #f5f5f7;
-    --ok: #30d158;
-    --ok-tint: rgba(48, 209, 88, 0.16);
-    --danger: #ff6961;
-    --danger-tint: rgba(255, 105, 97, 0.16);
-    --material: rgba(22, 22, 23, 0.72);
-    --material-solid: #161617;
-    --edge-hi: rgba(255, 255, 255, 0.08);
-    --shadow-sheet: 0 -10px 40px rgba(0, 0, 0, 0.5);
-    color-scheme: dark;
-  }
-}
+
 
 .site, .site * { -webkit-user-select: auto; user-select: auto; }
 .site button { font-family: inherit; color: inherit; -webkit-tap-highlight-color: transparent; }
@@ -619,9 +587,7 @@ body.site.acc-no-anim :active { transform: none !important; }
 @media (prefers-contrast: more) {
   body.site { --material: var(--material-solid); --sep: rgba(0, 0, 0, 0.5); --label-2: #3a3a3c; --label-3: #48484a; --fill: rgba(120, 120, 128, 0.24); --fill-2: rgba(120, 120, 128, 0.18); }
 }
-@media (prefers-contrast: more) and (prefers-color-scheme: dark) {
-  body.site { --sep: rgba(255, 255, 255, 0.5); --label-2: #d1d1d6; --label-3: #c7c7cc; }
-}
+
 
 /* ---------- 560+ ---------- */
 @media (min-width: 560px) {
@@ -697,7 +663,7 @@ body.site.acc-no-anim :active { transform: none !important; }
   100% { transform: translate3d(calc(var(--dx) * 0.3), var(--dy), 0) rotate(calc(var(--r1) * 0.6)); }
 }
 .s-bg-icons.is-paused .s-em > span { animation-play-state: paused; }
-@media (prefers-color-scheme: dark) { .s-em { opacity: 0.16; } }
+
 
 /* shared barber-pole stripe (red / white / blue / white, 45°). Period along x = 32px / sin45 = 45.25px */
 body.site { --pole: repeating-linear-gradient(-45deg, var(--pole-red) 0 8px, var(--pole-white) 8px 16px, var(--pole-blue) 16px 24px, var(--pole-white) 24px 32px); }
@@ -736,7 +702,7 @@ body.site { --pole: repeating-linear-gradient(-45deg, var(--pole-red) 0 8px, var
 .s-hero::after { bottom: -40vmax; left: -30vmax; background: radial-gradient(circle, var(--pole-red), transparent 65%); animation: s-glow-b 22s ease-in-out infinite alternate; }
 @keyframes s-glow-a { to { transform: translate3d(-6vmax, 4vmax, 0) scale(1.08); } }
 @keyframes s-glow-b { to { transform: translate3d(5vmax, -5vmax, 0) scale(1.1); } }
-@media (prefers-color-scheme: dark) { .s-hero::before, .s-hero::after { opacity: 0.22; } }
+
 
 /* primary CTA: stripe ring appears on hover/press */
 .s-btn--primary { position: relative; isolation: isolate; }

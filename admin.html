@@ -3,16 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="color-scheme" content="light dark" />
-  <meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)" />
-  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#ffffff" />
   <title>ניהול ויומן | Ilay Barbershop</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css" />
   <link rel="stylesheet" href="admin.css" />
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.3.4/mqtt.min.js" integrity="sha384-pkdqKjFaO3sj6U3p0jw1a2jxnrn38WxqzlLENwXRihs7xeqAysATUlz5f+4wI9jz" crossorigin="anonymous"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" integrity="sha384-bs/nf9FbdNouRbMiFcrcZfLXYPKiPaGVGplVbv7dLGECccEXDW+S3zjqSKR5ZEaD" crossorigin="anonymous"></script>
 </head>
 <body class="adm">
@@ -52,9 +50,9 @@
       <h1 class="login-title" id="loginTitle">כניסה למערכת הניהול</h1>
       <div class="adm-group login-group">
         <label class="adm-sr" for="barberUser">שם משתמש</label>
-        <input type="text" id="barberUser" class="input-field" placeholder="שם משתמש" autocomplete="off" autocapitalize="off" spellcheck="false" />
+        <input type="text" id="barberUser" class="input-field" placeholder="שם משתמש" autocomplete="username" autocapitalize="off" spellcheck="false" />
         <label class="adm-sr" for="barberPass">סיסמה</label>
-        <input type="password" id="barberPass" class="input-field" placeholder="סיסמה" autocomplete="off" onkeydown="if(event.key==='Enter') verifyBarberLogin()" />
+        <input type="password" id="barberPass" class="input-field" placeholder="סיסמה" autocomplete="current-password" onkeydown="if(event.key==='Enter') verifyBarberLogin()" />
       </div>
       <label class="adm-check-row" for="rememberAdmin">
         <span>שמור חיבור במכשיר זה</span>
@@ -105,7 +103,7 @@
               <button type="button" role="menuitem" onclick="switchTab('analytics')"><svg class="ic" aria-hidden="true"><use href="#i-chart"/></svg>הכנסות וסטטיסטיקה</button>
               <button type="button" role="menuitem" class="is-danger" onclick="if(confirm('לאפס את כל התורים ביומן?')){appointments=[];broadcastCloudState();renderAllAdmin();}"><svg class="ic" aria-hidden="true"><use href="#i-reset"/></svg>איפוס יומן</button>
               <div class="adm-menu__sep" role="separator"></div>
-              <button type="button" role="menuitem" onclick="localStorage.removeItem('ilay_saved_admin_label'); location.reload();"><svg class="ic" aria-hidden="true"><use href="#i-logout"/></svg>התנתק</button>
+              <button type="button" role="menuitem" onclick="adminLogout()"><svg class="ic" aria-hidden="true"><use href="#i-logout"/></svg>התנתק</button>
             </div>
           </div>
         </div>
@@ -276,6 +274,10 @@
         <div class="adm-row">
           <label class="adm-row__label" for="reminderHoursInput">תזכורת (שעות לפני תור)</label>
           <input type="number" id="reminderHoursInput" class="input-field adm-row__input" value="3" min="1" max="48" inputmode="numeric" />
+        </div>
+        <div class="adm-row">
+          <label class="adm-row__label" for="barberPhoneInput">טלפון הספר (להודעת בדיקה)</label>
+          <input type="tel" id="barberPhoneInput" class="input-field adm-row__input" inputmode="numeric" dir="ltr" />
         </div>
       </div>
       <p class="adm-group-foot">פרטי הספק (משתמש, מפתח API, שם שולח) מוגדרים ב-Vercel ← Settings ← Environment Variables, ולא כאן, כדי שלא ייחשפו לגולשים.</p>
@@ -467,10 +469,6 @@
   <div class="toast-popup" id="toastPopup" role="status" aria-live="polite"></div>
   <script src="core.js"></script>
   <script>
-    const SECURE_ADMINS = [
-      { u: "ilaybenharosh", p: "Ilay2947!", label: "עילי בן הרוש" },
-      { u: "aridev", p: "5354633", label: "AriDev" }
-    ];
     let boardFilterMode = "all";
     let stagedPhotosData = [];
     let replaceTargetPhotoIdx = null;
@@ -484,21 +482,65 @@
       window._admToast = setTimeout(() => t.classList.remove("show"), 3600);
     }
 
-    function verifyBarberLogin() {
-      const u = document.getElementById("barberUser").value.trim().toLowerCase();
-      const p = document.getElementById("barberPass").value.trim();
-      const matched = SECURE_ADMINS.find(a => a.u === u && a.p === p);
-      if (!matched) { document.getElementById("loginError").style.display = "block"; return; }
-      if (document.getElementById("rememberAdmin").checked) localStorage.setItem("ilay_saved_admin_label", matched.label);
-      unlockAdmin(matched.label);
+    async function verifyBarberLogin() {
+      const errBox = document.getElementById("loginError");
+      errBox.style.display = "none";
+      const r = await apiPost("/admin/login", {
+        username: document.getElementById("barberUser").value,
+        password: document.getElementById("barberPass").value,
+        remember: document.getElementById("rememberAdmin").checked
+      });
+      document.getElementById("barberPass").value = "";
+      if (!r.ok) {
+        errBox.textContent = r.reason;
+        errBox.style.display = "block";
+        return;
+      }
+      await enterAdmin(r.data.label);
     }
+
+    // נפתח רק אחרי שהשרת אישר את הסשן
+    let adminPollStarted = false;
+    let adminUnlocked = false;
+    async function enterAdmin(label) {
+      unlockAdmin(label);
+      adminUnlocked = true;
+      await refreshAdminState();
+      renderAllAdmin();
+      if (!adminPollStarted) {
+        adminPollStarted = true;
+        pollWhileVisible(() => (adminUnlocked ? pollAdminVersion() : null), 15000);
+      }
+    }
+
+    function lockAdminScreen() {
+      adminUnlocked = false;
+      adminSnapshot = null;
+      appointments = []; registeredUsers = []; smsLogs = []; adminNotifications = [];
+      document.getElementById("adminApp").classList.remove("authenticated");
+      document.getElementById("loginScreen").style.display = "";
+    }
+
+    async function adminLogout() {
+      await apiPost("/admin/logout");
+      lockAdminScreen();
+    }
+
+    window.onApiUnauthorized = () => {
+      if (!adminUnlocked) return;
+      lockAdminScreen();
+      const errBox = document.getElementById("loginError");
+      errBox.textContent = "החיבור פג. נא להיכנס שוב.";
+      errBox.style.display = "block";
+    };
+  
 
     function unlockAdmin(label) {
       document.getElementById("loginScreen").style.display = "none";
       document.getElementById("adminApp").classList.add("authenticated");
       document.getElementById("adminHeaderTitle").textContent = `ניהול ויומן • ${label}`;
       const topDaySelect = document.getElementById("topStatDayFilter");
-      if (topDaySelect) topDaySelect.value = String(new Date().getDay());
+      if (topDaySelect) topDaySelect.value = String(israelDayIdx());
       renderAllAdmin();
     }
 
@@ -537,13 +579,13 @@
         item.innerHTML = `
           <div class="notif-item__top">
             <span class="notif-item__title">${sanitizeStr(n.title, 45)}</span>
-            <span class="notif-item__time">${n.timeStr || ""}</span>
+            <span class="notif-item__time">${esc(n.timeStr || "")}</span>
           </div>
           <div class="notif-item__msg">${sanitizeStr(n.message, 120)}</div>
         `;
         item.onclick = () => {
           n.read = true;
-          saveAllStateLocally();
+          broadcastCloudState();
           renderNotificationsBell();
           document.getElementById("notifDrawer").classList.remove("open");
           if (n.dayIdx !== null && n.dayIdx !== undefined) {
@@ -558,7 +600,7 @@
 
     function markAllNotifsRead() {
       adminNotifications.forEach(n => { n.read = true; });
-      saveAllStateLocally();
+      broadcastCloudState();
       renderNotificationsBell();
     }
 
@@ -569,7 +611,7 @@
       for (let cur = 9 * 60; cur <= 21 * 60; cur += step) {
         out.push(`${String(Math.floor(cur / 60)).padStart(2, "0")}:${String(cur % 60).padStart(2, "0")}`);
       }
-      appointments.forEach(a => { if (a.time && !out.includes(a.time)) out.push(a.time); });
+      calendarAppointments().forEach(a => { if (safeTime(a.time) && !out.includes(a.time)) out.push(a.time); });
       return out.sort();
     }
 
@@ -585,25 +627,18 @@
     async function moveAppointmentToSlot(apptId, newDayIdx, newTime) {
       const appt = appointments.find(a => a.id === apptId);
       if (!appt || (Number(appt.dayIdx) === Number(newDayIdx) && appt.time === newTime)) return;
-      const occupied = appointments.find(a => Number(a.dayIdx) === Number(newDayIdx) && a.time === newTime && a.status !== "canceled" && a.id !== apptId);
+      const occupied = calendarAppointments().find(a => Number(a.dayIdx) === Number(newDayIdx) && a.time === newTime && a.status !== "canceled" && a.id !== apptId);
       if (occupied) return showToast("המשבצת תפוסה על ידי " + occupied.name);
 
       appt.dayIdx = Number(newDayIdx);
-      appt.dateStr = getFormattedDateForDayIdx(newDayIdx);
       appt.time = newTime;
-      appt.startsAtMs = getTargetTimestamp(newDayIdx, newTime);
-      appt.status = "pending";
-      appt.movedCount = (Number(appt.movedCount) || 0) + 1;
-      appt.reminderSent = false;
-
-      pushRealtimeNotification("moved", "תור הוזז ביומן", `התור של ${appt.name} הועבר ליום ${DAYS_HEB[newDayIdx]} (${appt.dateStr}) בשעה ${newTime}.`, appt.id, newDayIdx);
       renderAllAdmin();
 
-      const publicUrl = `${window.location.origin}/#personal-area`;
-      const msg = `אהלן ${appt.name}, עדכון מ-Ilay Barbershop: התור שלך הוזז ליום ${DAYS_HEB[newDayIdx]} (${appt.dateStr}) בשעה ${newTime}. לאישור הגעה: ${publicUrl}`;
-      await sendTrackedSms(appt.phone, appt.name, msg, "move", appt.id, "sms");
-      showToast(`התור של ${appt.name} הוזז ונשלח SMS!`);
+      // השרת תופס את המשבצת החדשה, מעדכן את התור ושולח ללקוח SMS
+      const r = await broadcastCloudState();
+      if (r.ok) showToast(smsOutcome(r, apptId) ? `התור של ${appt.name} הוזז ונשלח SMS!` : `התור של ${appt.name} הוזז, אבל ה-SMS לא נשלח.`);
     }
+  
 
     async function cancelAppointmentAdmin(apptId, ev) {
       if (ev) ev.stopPropagation();
@@ -611,20 +646,18 @@
       if (!appt) return;
       if (appt.status === "canceled") {
         appointments = appointments.filter(a => a.id !== apptId);
-        broadcastCloudState();
         renderAllAdmin();
+        await broadcastCloudState();
         return;
       }
       appt.status = "canceled";
-      appt.canceledAt = Date.now();
-      pushRealtimeNotification("canceled", "תור בוטל ביומן", `התור של ${appt.name} ליום ${DAYS_HEB[appt.dayIdx]} בשעה ${appt.time} בוטל.`, appt.id, appt.dayIdx);
       renderAllAdmin();
-
-      const dateStr = appt.dateStr || getFormattedDateForDayIdx(appt.dayIdx);
-      const msg = `אהלן ${appt.name}, הודעה מ-Ilay Barbershop: התור שלך ליום ${DAYS_HEB[appt.dayIdx]} (${dateStr}) בשעה ${appt.time} בוטל. לקביעת מועד חדש היכנס לאתר.`;
-      await sendTrackedSms(appt.phone, appt.name, msg, "cancel", appt.id, "sms");
-      showToast(`התור של ${appt.name} סומן כבוטל ונשלח SMS!`);
+      const r = await broadcastCloudState();
+      if (r.ok) showToast(smsOutcome(r, apptId) ? `התור של ${appt.name} סומן כבוטל ונשלח SMS!` : `התור של ${appt.name} בוטל, אבל ה-SMS לא נשלח.`);
     }
+
+    function smsOutcome(result, apptId) { return !!(result.sms && result.sms[apptId] && result.sms[apptId].ok); }
+  
 
     function sendWhatsappFromCard(apptId, ev) {
       if (ev) ev.stopPropagation();
@@ -632,20 +665,21 @@
       if (!appt) return;
       const dateStr = appt.dateStr || getFormattedDateForDayIdx(appt.dayIdx);
       const msg = `אהלן ${appt.name}, תזכורת מ-Ilay Barbershop לתור שלך ביום ${DAYS_HEB[appt.dayIdx]} (${dateStr}) בשעה ${appt.time}. נתראה!`;
-      sendTrackedSms(appt.phone, appt.name, msg, "reminder", appt.id, "whatsapp");
-      const clean = appt.phone.replace(/[^0-9]/g, "").replace(/^0/, "972");
-      window.open(`https://wa.me/${clean}?text=${encodeURIComponent(msg)}`, "_blank");
+      logWhatsappSend(appt.phone, appt.name, msg, appt.id);
+      const clean = String(appt.phone).replace(/[^0-9]/g, "").replace(/^0/, "972");
+      window.open(`https://wa.me/${clean}?text=${encodeURIComponent(msg)}`, "_blank", "noopener");
     }
 
     function renderCalendarBoard() {
       const showCanceled = document.getElementById("showCanceledInCal")?.checked ?? true;
       const bar = document.getElementById("dayFilterBar");
-      const todayIdx = new Date().getDay();
+      const boardAppts = calendarAppointments();
+      const todayIdx = israelDayIdx();
       bar.innerHTML = `<button type="button" class="day-chip day-chip--week ${boardFilterMode === 'all' ? 'active' : ''}" aria-pressed="${boardFilterMode === 'all'}" aria-label="כל השבוע" onclick="boardFilterMode='all';renderCalendarBoard()"><span class="dc-w">שבוע</span><svg class="ic" aria-hidden="true"><use href="#i-week"/></svg><span class="dc-dot" aria-hidden="true"></span></button>`;
       DAYS_HEB.forEach((d, idx) => {
         const ds = getFormattedDateForDayIdx(idx);
         const sch = weeklySchedule[idx];
-        const dayCount = appointments.filter(a => Number(a.dayIdx) === idx && a.status !== "canceled").length;
+        const dayCount = boardAppts.filter(a => Number(a.dayIdx) === idx && a.status !== "canceled").length;
         bar.innerHTML += `<button type="button" class="day-chip ${boardFilterMode === idx ? 'active' : ''} ${idx === todayIdx ? 'is-today' : ''} ${sch && sch.active ? '' : 'is-closed'}" aria-pressed="${boardFilterMode === idx}" aria-label="יום ${d} ${ds}${idx === todayIdx ? ' (היום)' : ''}, ${dayCount} תורים" onclick="boardFilterMode=${idx};renderCalendarBoard()"><span class="dc-w">${d}</span><span class="dc-d">${ds.split("/")[0]}</span><span class="dc-dot ${dayCount ? 'has' : ''}" aria-hidden="true"></span></button>`;
       });
 
@@ -657,7 +691,7 @@
       // שורת סיכום / מצב ריק ידידותי
       const summary = document.getElementById("calSummary");
       if (summary) {
-        const inView = appointments.filter(a => activeDays.includes(Number(a.dayIdx)));
+        const inView = boardAppts.filter(a => activeDays.includes(Number(a.dayIdx)));
         const live = inView.filter(a => a.status !== "canceled");
         const conf = live.filter(a => a.status === "confirmed").length;
         const where = activeDays.length === 1 ? (activeDays[0] === todayIdx ? "היום" : `ביום ${DAYS_HEB[activeDays[0]]}`) : "השבוע";
@@ -670,10 +704,10 @@
       board.innerHTML += `<div class="cal-col-header cal-corner" aria-hidden="true"></div>`;
       activeDays.forEach(dIdx => {
         const sched = weeklySchedule[dIdx];
-        board.innerHTML += `<div class="cal-col-header ${dIdx === todayIdx ? 'is-today' : ''}"><span class="cal-col-day">${DAYS_HEB[dIdx]} <b>${getFormattedDateForDayIdx(dIdx)}</b></span><small>${sched && sched.active ? sched.start + "–" + sched.end : "סגור"}</small></div>`;
+        board.innerHTML += `<div class="cal-col-header ${dIdx === todayIdx ? 'is-today' : ''}"><span class="cal-col-day">${DAYS_HEB[dIdx]} <b>${getFormattedDateForDayIdx(dIdx)}</b></span><small>${sched && sched.active ? esc(safeTime(sched.start)) + "–" + esc(safeTime(sched.end)) : "סגור"}</small></div>`;
       });
 
-      const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+      const nowMin = israelNowMinutes();
       const hoursList = generateCalendarHours();
       const nowSlot = activeDays.includes(todayIdx) ? hoursList.filter(h => { const [hh, mm] = h.split(":").map(Number); return hh * 60 + mm <= nowMin; }).pop() : null;
 
@@ -694,7 +728,7 @@
             if (id) moveAppointmentToSlot(id, dIdx, hourStr);
           };
 
-          const slotAppts = appointments.filter(a => Number(a.dayIdx) === dIdx && a.time === hourStr && (showCanceled || a.status !== "canceled"));
+          const slotAppts = boardAppts.filter(a => Number(a.dayIdx) === dIdx && a.time === hourStr && (showCanceled || a.status !== "canceled"));
           if (slotAppts.length) {
             slotAppts.forEach(appt => {
               const st = appt.status === "confirmed" ? "confirmed" : appt.status === "canceled" ? "canceled" : "pending";
@@ -711,10 +745,10 @@
                   <div class="appt-phone" dir="ltr">${sanitizeStr(appt.phone, 15)}</div>
                 </div>
                 <div class="appt-actions-row">
-                  <button type="button" class="appt-btn-mini appt-status status-pill ${st}" onclick="toggleApptStatusAdmin('${appt.id}', event)" title="לחץ לשינוי בין ממתין לאושר" aria-label="סטטוס: ${stLabel}. לחץ לשינוי בין ממתין לאושר">${stLabel}</button>
+                  <button type="button" class="appt-btn-mini appt-status status-pill ${st}" onclick="toggleApptStatusAdmin('${safeId(appt.id)}', event)" title="לחץ לשינוי בין ממתין לאושר" aria-label="סטטוס: ${stLabel}. לחץ לשינוי בין ממתין לאושר">${stLabel}</button>
                   <span class="appt-icons">
-                    <button type="button" class="appt-btn-mini appt-icon appt-icon--wa" onclick="sendWhatsappFromCard('${appt.id}', event)" title="שלח WhatsApp" aria-label="שלח WhatsApp ל${nm}"><svg class="ic" aria-hidden="true"><use href="#i-chat"/></svg></button>
-                    <button type="button" class="appt-btn-mini appt-icon appt-icon--cancel" onclick="cancelAppointmentAdmin('${appt.id}', event)" title="${st === 'canceled' ? 'מחיקה מהיומן' : 'ביטול תור'}" aria-label="${st === 'canceled' ? 'מחיקה מהיומן' : 'ביטול התור של'} ${st === 'canceled' ? '' : nm}"><svg class="ic" aria-hidden="true"><use href="#${st === 'canceled' ? 'i-trash' : 'i-x'}"/></svg></button>
+                    <button type="button" class="appt-btn-mini appt-icon appt-icon--wa" onclick="sendWhatsappFromCard('${safeId(appt.id)}', event)" title="שלח WhatsApp" aria-label="שלח WhatsApp ל${nm}"><svg class="ic" aria-hidden="true"><use href="#i-chat"/></svg></button>
+                    <button type="button" class="appt-btn-mini appt-icon appt-icon--cancel" onclick="cancelAppointmentAdmin('${safeId(appt.id)}', event)" title="${st === 'canceled' ? 'מחיקה מהיומן' : 'ביטול תור'}" aria-label="${st === 'canceled' ? 'מחיקה מהיומן' : 'ביטול התור של'} ${st === 'canceled' ? '' : nm}"><svg class="ic" aria-hidden="true"><use href="#${st === 'canceled' ? 'i-trash' : 'i-x'}"/></svg></button>
                   </span>
                 </div>
               `;
@@ -740,29 +774,43 @@
       if (!files.length) return;
       stagedPhotosData = [];
       for (const file of files) {
-        stagedPhotosData.push(await compressImageFile(file));
+        const src = await compressImageFile(file);
+        if (isSafeImgSrc(src)) stagedPhotosData.push(src);
+        else showToast("סוג התמונה לא נתמך (JPEG, PNG או WEBP בלבד)");
       }
+      if (!stagedPhotosData.length) { ev.target.value = ""; return; }
       ev.target.value = "";
       document.getElementById("stagingCount").textContent = stagedPhotosData.length;
       const previewGrid = document.getElementById("stagingPreviewGrid");
       previewGrid.innerHTML = "";
       stagedPhotosData.forEach((src, i) => {
-        previewGrid.innerHTML += `<div class="photo-card"><div class="photo-inner"><img src="${src}" alt="תצוגה מקדימה ${i + 1}" /></div><div class="photo-tag"><span>תצוגה מקדימה #${i + 1}</span></div></div>`;
+        previewGrid.innerHTML += `<div class="photo-card"><div class="photo-inner"><img src="${esc(src)}" alt="תצוגה מקדימה ${i + 1}" /></div><div class="photo-tag"><span>תצוגה מקדימה #${i + 1}</span></div></div>`;
       });
       document.getElementById("photoPreviewStagingBox").style.display = "block";
     }
 
+    async function uploadOnePhoto(dataUrl) {
+      const r = await apiPost("/admin/photos", { image: dataUrl });
+      if (!r.ok) showToast(r.reason);
+      return r.ok ? r.data.id : null;
+    }
+
     async function commitStagedPhotos(replaceAll) {
       if (!stagedPhotosData.length) return;
-      if (replaceAll) portfolioList = [...stagedPhotosData];
-      else portfolioList.push(...stagedPhotosData);
+      const newIds = [];
+      for (const src of stagedPhotosData) {
+        const id = await uploadOnePhoto(src);
+        if (!id) return;
+        newIds.push(id);
+      }
+      const r = await savePortfolioEntries(replaceAll ? newIds : [...portfolioIds, ...newIds]);
+      if (!r.ok) return showToast(r.reason);
       stagedPhotosData = [];
       document.getElementById("photoPreviewStagingBox").style.display = "none";
-      await savePortfolioLocally(portfolioList);
-      broadcastPortfolioToCloud(portfolioList);
       renderPortfolioAdmin();
       showToast("התמונות נשמרו ומסונכרנות כעת באתר הלקוחות!");
     }
+  
 
     function cancelStagedPhotos() {
       stagedPhotosData = [];
@@ -778,23 +826,28 @@
       const file = ev.target.files?.[0];
       if (!file || replaceTargetPhotoIdx === null) return;
       const compressed = await compressImageFile(file);
-      portfolioList[replaceTargetPhotoIdx] = compressed;
+      const idx = replaceTargetPhotoIdx;
       replaceTargetPhotoIdx = null;
       ev.target.value = "";
-      await savePortfolioLocally(portfolioList);
-      broadcastPortfolioToCloud(portfolioList);
+      const id = await uploadOnePhoto(compressed);
+      if (!id) return;
+      const next = [...portfolioIds];
+      next[idx] = id;
+      const r = await savePortfolioEntries(next);
+      if (!r.ok) return showToast(r.reason);
       renderPortfolioAdmin();
       showToast("התמונה הוחלפה ועודכנה באתר!");
     }
+  
 
     async function deletePortfolioPhoto(idx) {
-      if (portfolioList.length <= 1) return showToast("חייבת להישאר לפחות תמונה אחת בתיק");
-      portfolioList.splice(idx, 1);
-      await savePortfolioLocally(portfolioList);
-      broadcastPortfolioToCloud(portfolioList);
+      if (portfolioIds.length <= 1) return showToast("חייבת להישאר לפחות תמונה אחת בתיק");
+      const r = await savePortfolioEntries(portfolioIds.filter((_, i) => i !== idx));
+      if (!r.ok) return showToast(r.reason);
       renderPortfolioAdmin();
       showToast("התמונה נמחקה ועודכנה באתר!");
     }
+  
 
     function renderPortfolioAdmin() {
       document.getElementById("tabPhotoCount").textContent = portfolioList.length;
@@ -804,7 +857,7 @@
         const fallback = DEFAULT_PORTFOLIO[i % DEFAULT_PORTFOLIO.length];
         grid.innerHTML += `
           <div class="photo-card">
-            <div class="photo-inner"><img src="${src}" alt="תמונה ${i + 1}" onerror="this.onerror=null;this.src='${fallback}'" /></div>
+            <div class="photo-inner"><img src="${esc(isSafeImgSrc(src) ? src : fallback)}" alt="תמונה ${i + 1}" onerror="this.onerror=null;this.src='${esc(fallback)}'" /></div>
             <div class="photo-tag">
               <button type="button" class="appt-btn-mini photo-btn" onclick="triggerReplacePhoto(${i})" aria-label="החלפת תמונה ${i + 1}"><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg>החלף</button>
               <button type="button" class="appt-btn-mini photo-btn is-danger" onclick="deletePortfolioPhoto(${i})" aria-label="מחיקת תמונה ${i + 1}"><svg class="ic" aria-hidden="true"><use href="#i-trash"/></svg>מחק</button>
@@ -816,7 +869,7 @@
 
     // --- סטטיסטיקה פרקטית ונקייה: יומי -> שבועי -> חודשי + גרפים פשוטים ---
     function renderAnalyticsDashboard() {
-      const selectedDay = Number(document.getElementById("topStatDayFilter")?.value ?? new Date().getDay());
+      const selectedDay = Number(document.getElementById("topStatDayFilter")?.value ?? israelDayIdx());
       const data = computeComprehensiveAnalytics(selectedDay);
       const R = data.revenue, A = data.appts, C = data.clients;
 
@@ -872,7 +925,7 @@
         </div>
       `;
 
-      // צבעי הגרפים נלקחים מהפלטה של admin.css (בהיר/כהה)
+      // צבעי הגרפים נלקחים מהפלטה של admin.css
       const cs = getComputedStyle(document.body);
       const cv = (n, fb) => (cs.getPropertyValue(n) || "").trim() || fb;
       const chartFont = { family: cv("--font", "system-ui, sans-serif"), size: 12 };
@@ -939,10 +992,10 @@
     function exportFullReportToCSV() {
       let csv = "\uFEFFסוג רשומה,שם לקוח,טלפון,יום/תאריך,שעה,שירות/הודעה,סטטוס,מחיר (₪)\n";
       appointments.forEach(a => {
-        csv += `תור,"${csvCell(a.name)}","${a.phone}","יום ${DAYS_HEB[a.dayIdx]} (${a.dateStr || ''})","${a.time}","${csvCell(a.service)}","${a.status || 'pending'}","${a.price || 0}"\n`;
+        csv += `תור,"${csvCell(a.name)}","${csvCell(a.phone)}","יום ${DAYS_HEB[a.dayIdx]} (${csvCell(a.dateStr || '')})","${csvCell(a.time)}","${csvCell(a.service)}","${csvCell(a.status || 'pending')}","${Number(a.price) || 0}"\n`;
       });
       registeredUsers.forEach(u => {
-        csv += `לקוח רשום,"${csvCell(u.username)}","${u.phone}","${u.createdAt || ''}","-","חבר מועדון","פעיל","-"\n`;
+        csv += `לקוח רשום,"${csvCell(u.username)}","${csvCell(u.phone)}","${csvCell(u.createdAt || '')}","-","חבר מועדון","פעיל","-"\n`;
       });
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
@@ -955,7 +1008,7 @@
     }
 
     function renderStatsAndSmsHub() {
-      const selectedDay = Number(document.getElementById("topStatDayFilter")?.value ?? new Date().getDay());
+      const selectedDay = Number(document.getElementById("topStatDayFilter")?.value ?? israelDayIdx());
       const data = computeComprehensiveAnalytics(selectedDay);
       const R = data.revenue, A = data.appts, C = data.clients, M = data.messages;
 
@@ -995,12 +1048,12 @@
         row.className = "user-row";
         row.innerHTML = `
           <div class="user-row__main">
-            <div class="user-row__title">${sanitizeStr(l.name, 25)} <span class="user-row__phone" dir="ltr">${l.phone}</span> <span class="user-row__tag">${l.category}</span></div>
+            <div class="user-row__title">${sanitizeStr(l.name, 25)} <span class="user-row__phone" dir="ltr">${esc(l.phone)}</span> <span class="user-row__tag">${esc(l.category)}</span></div>
             <div class="user-row__sub">${sanitizeStr(l.message, 65)}</div>
           </div>
           <div class="user-row__side">
             <span class="status-pill ${l.status === 'sent' || l.status === 'received' ? 'confirmed' : 'canceled'}">${l.status === 'sent' ? 'נמסר' : l.status === 'received' ? 'התקבל' : 'נכשל'}</span>
-            ${l.status === 'failed' ? `<button type="button" class="appt-btn-mini adm-mini-btn" onclick="retryFailedSmsLog('${l.id}').then(ok=>showToast(ok?'נשלח בהצלחה!':'נכשל שוב'))"><svg class="ic" aria-hidden="true"><use href="#i-reset"/></svg>שלח שוב</button>` : ""}
+            ${l.status === 'failed' && !l.noRetry ? `<button type="button" class="appt-btn-mini adm-mini-btn" onclick="retryFailedSmsLog('${safeId(l.id)}').then(ok=>showToast(ok?'נשלח בהצלחה!':'נכשל שוב'))"><svg class="ic" aria-hidden="true"><use href="#i-reset"/></svg>שלח שוב</button>` : ""}
           </div>
         `;
         histBox.appendChild(row);
@@ -1015,28 +1068,37 @@
         r.innerHTML = `
           <div class="user-row__main">
             <div class="user-row__title">${sanitizeStr(u.username, 30)} <span class="user-row__tag">${visits} תורים</span></div>
-            <div class="user-row__sub user-row__phone" dir="ltr">${u.phone}</div>
+            <div class="user-row__sub user-row__phone" dir="ltr">${esc(u.phone)}</div>
           </div>
-          <button type="button" class="appt-btn-mini adm-mini-btn is-danger" aria-label="הסרת ${sanitizeStr(u.username, 30)} מהמועדון" onclick="registeredUsers.splice(${idx},1);broadcastCloudState();renderAllAdmin();">הסר</button>
+          <button type="button" class="appt-btn-mini adm-mini-btn is-danger" aria-label="הסרת ${sanitizeStr(u.username, 30)} מהמועדון" onclick="removeClubUser(${idx})">הסר</button>
         `;
         uBox.appendChild(r);
       });
     }
 
-    async function triggerManualRemindersNow() {
-      const count = await checkAndSendUpcomingReminders(true);
+    function removeClubUser(idx) {
+      registeredUsers.splice(idx, 1);
       renderAllAdmin();
-      showToast(count > 0 ? `נשלחו ${count} תזכורות SMS לתורים הקרובים!` : "כל התורים הממתינים כבר קיבלו תזכורת.");
+      broadcastCloudState();
     }
 
+    async function triggerManualRemindersNow() {
+      const r = await checkAndSendUpcomingReminders();
+      if (!r.ok) return showToast(r.reason);
+      renderAllAdmin();
+      const count = r.data.sent;
+      showToast(count > 0 ? `נשלחו ${count} תזכורות SMS לתורים הקרובים!` : "כל התורים הממתינים כבר קיבלו תזכורת.");
+    }
+  
+
     function addManualClubUser() {
-      const name = sanitizeStr(document.getElementById("manualClubName").value, 35);
+      const name = plainStr(document.getElementById("manualClubName").value, 35);
       const phone = toIsraeliLocalPhone(document.getElementById("manualClubPhone").value);
       if (name.length < 2 || phone.length < 9) return showToast("נא להזין שם מלא וטלפון תקין");
       if (registeredUsers.some(u => u.phone === phone || (u.username || "").toLowerCase() === name.toLowerCase())) {
         return showToast("לקוח עם שם מלא או מספר טלפון זה כבר קיים!");
       }
-      registeredUsers.push({ id: "usr_" + Date.now(), username: name, phone, password: "", createdAt: new Date().toLocaleDateString("he-IL"), lastActiveAt: Date.now() });
+      registeredUsers.push({ id: "usr_" + Date.now(), username: name, phone, createdAt: new Date().toLocaleDateString("he-IL"), lastActiveAt: Date.now() });
       broadcastCloudState();
       renderAllAdmin();
       document.getElementById("manualClubName").value = "";
@@ -1051,15 +1113,12 @@
       const list = marketingRecipients();
       if (!raw) return showToast("נא להקליד הודעה");
       if (!list.length) return showToast("אין עדיין לקוחות שאישרו קבלת הודעות שיווקיות");
-      let okCount = 0;
-      for (const u of list) {
-        const msg = raw.replace(/\{שם\}/g, u.username || "") + "\nלהסרה השב/י \"הסר\"";
-        const ok = await sendTrackedSms(u.phone, u.username, msg, "broadcast", null, "sms");
-        if (ok) okCount++;
-      }
-      renderAllAdmin();
-      showToast(`נשלחו ${okCount} מתוך ${list.length} הודעות תפוצה`);
+      const r = await apiPost("/admin/sms/broadcast", { message: raw });
+      if (!r.ok) return showToast(r.reason);
+      applyAdminState(r.data.state);
+      showToast(`נשלחו ${r.data.sent} מתוך ${r.data.total} הודעות תפוצה`);
     }
+  
 
     function renderTestModeCard() {
       const st = document.getElementById("testModeState");
@@ -1071,16 +1130,22 @@
       btn.textContent = TEST_MODE ? "חזרה ליומן האמיתי" : "מעבר למצב בדיקות";
     }
 
-    function confirmResetCalendar() {
+    async function confirmResetCalendar() {
       const where = TEST_MODE ? "של מצב הבדיקות" : "האמיתי";
       const clearClients = document.getElementById("resetClientsToo").checked;
       const msg = `למחוק את כל התורים, היסטוריית ההודעות וההתראות ביומן ${where}?` + (clearClients ? "\nגם רשימת הלקוחות תימחק." : "") + "\nהמחירון, שעות הפעילות ותיק העבודות נשארים. אי אפשר לבטל.";
       if (!confirm(msg)) return;
-      if (!TEST_MODE && prompt('כדי לאשר, הקלד: איפוס') !== "איפוס") { showToast("האיפוס בוטל"); return; }
-      resetMainCalendar({ clearClients });
+      let typed;
+      if (!TEST_MODE) {
+        typed = prompt('כדי לאשר, הקלד: איפוס');
+        if (typed !== "איפוס") { showToast("האיפוס בוטל"); return; }
+      }
+      const r = await resetMainCalendar({ clearClients, confirm: typed });
+      if (!r.ok) return showToast(r.reason);
       renderAllAdmin();
       showToast("היומן אופס. מתחילים מאפס.");
     }
+  
 
     let smsStatusChecked = false;
     async function refreshSmsServerStatus(force = false) {
@@ -1098,62 +1163,66 @@
     }
 
     async function sendTestSms() {
-      const phone = siteConfig.barberPhone;
-      if (!phone) { showToast("אין מספר טלפון של הספר בהגדרות"); return; }
       showToast("שולח…");
-      const ok = await sendTrackedSms(phone, "בדיקה", "בדיקת SMS מ-Ilay Barbershop. אם קיבלת את זה, ההודעות עובדות.", "test");
-      const last = smsLogs[0];
-      showToast(ok ? "נשלח! בדוק את הטלפון." : "נכשל: " + (last && last.reason ? last.reason : "בדוק הגדרות ב-Vercel"));
+      const r = await apiPost("/admin/sms/test");
+      if (!r.ok) return showToast(r.reason);
+      applyAdminState(r.data.state);
+      showToast(r.data.sent ? "נשלח! בדוק את הטלפון." : "נכשל: " + (r.data.reason || "בדוק הגדרות ב-Vercel"));
     }
+  
 
-    function saveSmsSettings() {
+    async function saveSmsSettings() {
       siteConfig.smsPackageQuota = Math.max(1, Number(document.getElementById("smsQuotaInput").value) || 1000);
       siteConfig.reminderHoursBefore = Math.max(1, Number(document.getElementById("reminderHoursInput").value) || 3);
-      broadcastCloudState();
+      const phone = toIsraeliLocalPhone(document.getElementById("barberPhoneInput").value);
+      if (!/^05\d{8}$/.test(phone)) return showToast("מספר הטלפון של הספר לא תקין");
+      siteConfig.barberPhone = phone;
+      const r = await broadcastCloudState();
       renderAllAdmin();
-      showToast("הגדרות ה-SMS נשמרו!");
+      if (r.ok) showToast("הגדרות ה-SMS נשמרו!");
     }
+  
 
     function openManualAddModal() {
       document.getElementById("manualDaySelect").innerHTML = DAYS_HEB.map((d, i) => `<option value="${i}">יום ${d} (${getFormattedDateForDayIdx(i)})</option>`).join("");
-      document.getElementById("manualHourSelect").innerHTML = generateCalendarHours().map(h => `<option value="${h}">${h}</option>`).join("");
-      document.getElementById("manualServiceSelect").innerHTML = SERVICES.map((s, i) => `<option value="${i}">${sanitizeStr(s.name, 35)} (${s.price} ₪)</option>`).join("");
+      document.getElementById("manualHourSelect").innerHTML = generateCalendarHours().map(h => `<option value="${esc(h)}">${esc(h)}</option>`).join("");
+      document.getElementById("manualServiceSelect").innerHTML = SERVICES.map((s, i) => `<option value="${i}">${sanitizeStr(s.name, 35)} (${Number(s.price) || 0} ₪)</option>`).join("");
       document.getElementById("manualAddModal").classList.add("open");
     }
 
     async function saveManualAppointment() {
       const dayIdx = Number(document.getElementById("manualDaySelect").value);
       const time = document.getElementById("manualHourSelect").value;
-      const srv = SERVICES[Number(document.getElementById("manualServiceSelect").value)] || SERVICES[0];
-      const name = sanitizeStr(document.getElementById("manualNameInput").value, 35);
+      const srvIdx = Number(document.getElementById("manualServiceSelect").value);
+      const srv = SERVICES[srvIdx] || SERVICES[0];
+      const name = plainStr(document.getElementById("manualNameInput").value, 35);
       const phone = toIsraeliLocalPhone(document.getElementById("manualPhoneInput").value);
       if (name.length < 2 || phone.length < 9) return showToast("נא להזין שם מלא וטלפון תקין");
 
-      if (appointments.some(a => Number(a.dayIdx) === dayIdx && a.time === time && a.status !== "canceled")) {
+      if (calendarAppointments().some(a => Number(a.dayIdx) === dayIdx && a.time === time && a.status !== "canceled")) {
         return showToast("השעה הזו כבר תפוסה ביומן!");
       }
 
-      const dateStr = getFormattedDateForDayIdx(dayIdx);
-      const newAppt = {
-        id: "ap_" + Date.now(), dayIdx, dateStr, time,
-        createdAt: Date.now(),
-        startsAtMs: getTargetTimestamp(dayIdx, time),
-        name, phone, price: srv.price, service: `${srv.name} • ${srv.price} ₪`,
-        note: sanitizeStr(document.getElementById("manualNoteInput").value, 100),
-        status: "pending", movedCount: 0, reminderSent: false
-      };
-      appointments.push(newAppt);
-      if (!registeredUsers.some(u => u.phone === phone)) {
-        registeredUsers.push({ id: "usr_" + Date.now(), username: name, phone, password: "", createdAt: new Date().toLocaleDateString("he-IL"), lastActiveAt: Date.now() });
-      }
-      broadcastCloudState();
+      const id = "ap_" + Date.now();
+      appointments.push({
+        id, dayIdx, time, startsAtMs: getTargetTimestamp(dayIdx, time), dateStr: getFormattedDateForDayIdx(dayIdx),
+        name, phone, srvIdx, price: srv.price, service: `${srv.name} • ${srv.price} ₪`,
+        note: plainStr(document.getElementById("manualNoteInput").value, 100),
+        status: "pending"
+      });
       document.getElementById("manualAddModal").classList.remove("open");
       renderAllAdmin();
 
-      const publicUrl = `${window.location.origin}/#personal-area`;
-      await sendTrackedSms(phone, name, `היי ${name}, נקבע לך תור ב-Ilay Barbershop ליום ${DAYS_HEB[dayIdx]} (${dateStr}) בשעה ${time}. לאישור הגעה: ${publicUrl}`, "booking", newAppt.id, "sms");
-      showToast("התור שובץ ונשלחה הודעת SMS ללקוח!");
+      // השרת תופס את המשבצת, יוצר ללקוח רשומה במועדון אם צריך, ושולח SMS
+      const r = await broadcastCloudState();
+      if (r.ok) {
+        document.getElementById("manualNameInput").value = "";
+        document.getElementById("manualPhoneInput").value = "";
+        document.getElementById("manualNoteInput").value = "";
+        showToast(smsOutcome(r, id) ? "התור שובץ ונשלחה הודעת SMS ללקוח!" : "התור שובץ, אבל ה-SMS לא נשלח.");
+      }
     }
+  
 
     // --- עריכת מחירון, הוספת תספורת חדשה, מחיקה ושעות פעילות ---
     function syncEditedServicesFromDOM() {
@@ -1162,19 +1231,19 @@
         const p = document.getElementById(`sp_${i}`);
         const d = document.getElementById(`sd_${i}`);
         const desc = document.getElementById(`sdesc_${i}`);
-        if (n && n.value.trim()) s.name = sanitizeStr(n.value, 40);
+        if (n && n.value.trim()) s.name = plainStr(n.value, 40);
         if (p && Number(p.value) >= 0) s.price = Number(p.value);
-        if (d && d.value.trim()) s.duration = sanitizeStr(d.value, 20);
-        if (desc) s.desc = sanitizeStr(desc.value, 120);
+        if (d && d.value.trim()) s.duration = plainStr(d.value, 20);
+        if (desc) s.desc = plainStr(desc.value, 120);
       });
     }
 
-    function addNewServiceToMenu() {
+    async function addNewServiceToMenu() {
       syncEditedServicesFromDOM();
-      const name = sanitizeStr(document.getElementById("newSrvName").value, 40);
+      const name = plainStr(document.getElementById("newSrvName").value, 40);
       const price = Number(document.getElementById("newSrvPrice").value) || 80;
-      const duration = sanitizeStr(document.getElementById("newSrvTime").value, 20) || "30 דק'";
-      const desc = sanitizeStr(document.getElementById("newSrvDesc").value, 120) || "תספורת מותאמת אישית.";
+      const duration = plainStr(document.getElementById("newSrvTime").value, 20) || "30 דק'";
+      const desc = plainStr(document.getElementById("newSrvDesc").value, 120) || "תספורת מותאמת אישית.";
 
       if (!name) return showToast("נא להזין שם לתספורת החדשה");
 
@@ -1184,18 +1253,18 @@
       document.getElementById("newSrvTime").value = "";
       document.getElementById("newSrvDesc").value = "";
 
-      broadcastCloudState();
+      const r = await broadcastCloudState();
       renderEditors();
-      showToast(`התספורת "${name}" נוספה למחירון והתעדכנה באתר הלקוחות!`);
+      if (r.ok) showToast(`התספורת "${name}" נוספה למחירון והתעדכנה באתר הלקוחות!`);
     }
 
-    function deleteServiceFromMenu(idx) {
+    async function deleteServiceFromMenu(idx) {
       syncEditedServicesFromDOM();
       if (SERVICES.length <= 1) return showToast("חייבת להישאר לפחות תספורת אחת במחירון");
       const removed = SERVICES.splice(idx, 1)[0];
-      broadcastCloudState();
+      const r = await broadcastCloudState();
       renderEditors();
-      showToast(`התספורת "${removed.name}" הוסרה מהמחירון.`);
+      if (r.ok) showToast(`התספורת "${removed.name}" הוסרה מהמחירון.`);
     }
 
     function renderEditors() {
@@ -1203,6 +1272,7 @@
       renderTestModeCard();
       document.getElementById("smsQuotaInput").value = siteConfig.smsPackageQuota || 1000;
       document.getElementById("reminderHoursInput").value = siteConfig.reminderHoursBefore || 3;
+      document.getElementById("barberPhoneInput").value = siteConfig.barberPhone || "";
       document.getElementById("editSiteTitle").value = siteConfig.title;
       document.getElementById("editSiteSubtitle").value = siteConfig.subtitle;
 
@@ -1212,7 +1282,7 @@
         sCont.innerHTML += `
           <div class="srv-row">
             <div class="srv-field srv-field--name"><label for="sn_${i}">שם התספורת</label><input type="text" id="sn_${i}" class="input-field" value="${sanitizeStr(s.name, 40)}" /></div>
-            <div class="srv-field srv-field--price"><label for="sp_${i}">מחיר (₪)</label><input type="number" id="sp_${i}" class="input-field" inputmode="numeric" value="${s.price}" /></div>
+            <div class="srv-field srv-field--price"><label for="sp_${i}">מחיר (₪)</label><input type="number" id="sp_${i}" class="input-field" inputmode="numeric" value="${Number(s.price) || 0}" /></div>
             <div class="srv-field srv-field--time"><label for="sd_${i}">זמן</label><input type="text" id="sd_${i}" class="input-field" value="${sanitizeStr(s.duration, 20)}" /></div>
             <div class="srv-field srv-field--desc"><label for="sdesc_${i}">תיאור</label><input type="text" id="sdesc_${i}" class="input-field" value="${sanitizeStr(s.desc, 120)}" /></div>
             <button type="button" class="adm-icon-btn srv-del" aria-label="מחיקת ${sanitizeStr(s.name, 40)} מהמחירון" title="מחק" onclick="deleteServiceFromMenu(${i})"><svg class="ic" aria-hidden="true"><use href="#i-trash"/></svg></button>
@@ -1235,25 +1305,25 @@
             </label>
             <div class="hrs-times">
               <label for="ds_${i}">משעה</label>
-              <input type="time" id="ds_${i}" value="${cfg.start}" class="input-field" />
+              <input type="time" id="ds_${i}" value="${esc(safeTime(cfg.start))}" class="input-field" />
               <label for="de_${i}">עד</label>
-              <input type="time" id="de_${i}" value="${cfg.end}" class="input-field" />
+              <input type="time" id="de_${i}" value="${esc(safeTime(cfg.end))}" class="input-field" />
             </div>
           </div>
         `;
       });
     }
 
-    function saveServicesAndTitles() {
-      siteConfig.title = sanitizeStr(document.getElementById("editSiteTitle").value, 50) || "ILAY BARBERSHOP";
-      siteConfig.subtitle = sanitizeStr(document.getElementById("editSiteSubtitle").value, 90) || "תספורת נקייה, אווירה טובה וסטייל שיושב בול.";
+    async function saveServicesAndTitles() {
+      siteConfig.title = plainStr(document.getElementById("editSiteTitle").value, 50) || "ILAY BARBERSHOP";
+      siteConfig.subtitle = plainStr(document.getElementById("editSiteSubtitle").value, 90) || "תספורת נקייה, אווירה טובה וסטייל שיושב בול.";
       syncEditedServicesFromDOM();
-      broadcastCloudState();
+      const r = await broadcastCloudState();
       renderEditors();
-      showToast("המחירון והכותרות נשמרו והסתנכרנו עם אתר הלקוחות!");
+      if (r.ok) showToast("המחירון והכותרות נשמרו והסתנכרנו עם אתר הלקוחות!");
     }
 
-    function saveHoursSettings() {
+    async function saveHoursSettings() {
       siteConfig.slotInterval = Number(document.getElementById("slotIntervalSelect").value) || 30;
       siteConfig.slotBuffer = Number(document.getElementById("slotBufferSelect").value) || 0;
       DAYS_HEB.forEach((_, i) => {
@@ -1263,31 +1333,40 @@
           end: document.getElementById(`de_${i}`).value || "20:00"
         };
       });
-      broadcastCloudState();
-      renderCalendarBoard();
+      const r = await broadcastCloudState();
       renderAllAdmin();
-      showToast("שעות הפעילות, מרווח התורים וההפסקות נשמרו והסתנכרנו עם האתר!");
+      if (r.ok) showToast("שעות הפעילות, מרווח התורים וההפסקות נשמרו והסתנכרנו עם האתר!");
     }
 
-    function renderAllAdmin() {
+    function renderAllAdmin(opts = {}) {
       renderNotificationsBell();
       renderCalendarBoard();
       renderStatsAndSmsHub();
       renderPortfolioAdmin();
-      renderEditors();
+      if (!opts.keepEditors) renderEditors();
       if (document.getElementById("tab-analytics").style.display === "block") renderAnalyticsDashboard();
     }
 
-    window.onCoreDataUpdated = () => renderAllAdmin();
+    // עדכון שמגיע מהפולינג לא דורס טופס שהמנהל באמצע למלא
+    function adminIsEditing() {
+      const el = document.activeElement;
+      const typing = el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) && el.closest("#tab-edit, #tab-hours, #tab-sms");
+      const onEditorTab = ["tab-edit", "tab-hours"].some(id => document.getElementById(id).style.display === "block");
+      return !!typing || onEditorTab;
+    }
+  
+
+    window.onCoreDataUpdated = () => { if (adminUnlocked) renderAllAdmin({ keepEditors: pollUpdateInProgress && adminIsEditing() }); };
+    window.onCoreError = showToast;
     window.onLiveNotificationReceived = notif => {
       renderAllAdmin();
       showToast(`${notif.title}: ${notif.message}`);
     };
 
-    window.addEventListener("DOMContentLoaded", () => {
-      initCloudSyncEngine();
-      const saved = localStorage.getItem("ilay_saved_admin_label");
-      if (saved) unlockAdmin(saved);
+    window.addEventListener("DOMContentLoaded", async () => {
+      await resolveTestMode();
+      const r = await api("/admin/whoami");
+      if (r.ok && r.data.label) await enterAdmin(r.data.label);
     });
   </script>
 
@@ -1298,7 +1377,7 @@
       const mqMobile = window.matchMedia("(max-width: 759px)");
 
       // בנייד היומן נפתח על היום הנוכחי (תצוגת יום נקייה); "כל השבוע" זמין בלחיצה
-      if (mqMobile.matches) boardFilterMode = new Date().getDay();
+      if (mqMobile.matches) boardFilterMode = israelDayIdx();
 
       document.addEventListener("DOMContentLoaded", () => {
         // פס מצב הבדיקות (core.js) קבוע למעלה: הסרגל העליון נצמד מתחתיו
@@ -1307,8 +1386,7 @@
           document.documentElement.style.setProperty("--adm-tm", tb ? tb.offsetHeight + "px" : "0px");
         };
         syncTestBar();
-        const tb = $("testModeBar");
-        if (tb && window.ResizeObserver) new ResizeObserver(syncTestBar).observe(tb);
+        window.addEventListener("resize", syncTestBar);
 
         // לשוניות: aria-current + גלילה לראש התוכן במעבר
         const tabBtns = document.querySelectorAll(".admin-tab-btn");
@@ -1374,11 +1452,6 @@
             else if (!sheet.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
           }
         });
-
-        // מעבר מצב בהיר/כהה: צביעה מחדש של הגרפים
-        const mqDark = window.matchMedia("(prefers-color-scheme: dark)");
-        const onScheme = () => { if ($("tab-analytics").style.display === "block") renderAnalyticsDashboard(); };
-        mqDark.addEventListener ? mqDark.addEventListener("change", onScheme) : mqDark.addListener(onScheme);
       });
     })();
   </script>
