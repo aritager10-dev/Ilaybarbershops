@@ -26,10 +26,7 @@
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <title>Ilay Barbershop | עילי בן הרוש, גני תקווה</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="preconnect" href="https://images.unsplash.com">
-  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/fonts/heebo.css" />
   <link rel="stylesheet" href="style.css" />
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"BarberShop","name":"Ilay Barbershop","url":"https://ilaybarbershops.vercel.app/","image":"https://ilaybarbershops.vercel.app/og-image.png","telephone":"+972542858711","priceRange":"₪70-₪100","address":{"@type":"PostalAddress","streetAddress":"דרך הים 11","addressLocality":"גני תקווה","addressCountry":"IL"}}</script>
 </head>
@@ -281,7 +278,7 @@
           <p class="s-sub">הקישו על תמונה כדי להגדיל, והחליקו כדי לעבור בין התמונות.</p>
           <p class="s-sub" id="portfolioStockNote" hidden>התמונות כאן להמחשה בלבד.</p>
         </header>
-        <div class="portfolio-grid s-gallery" id="portfolioGrid" role="list" aria-label="תיק עבודות" data-reveal data-stagger></div>
+        <ul class="portfolio-grid s-gallery" id="portfolioGrid" role="list" aria-label="תיק עבודות" data-reveal data-stagger></ul>
       </div>
     </section>
 
@@ -325,9 +322,9 @@
       <div class="s-sheet__body">
         <p class="s-sheet__note">כדי לקבוע תור צריך חשבון – זה לוקח חצי דקה, ותקבל תזכורת ב-SMS לפני התור.</p>
 
-        <div class="s-tabs" role="tablist">
-          <button type="button" class="s-tab active" id="tabBtnReg" onclick="switchAuthTab('reg')">הרשמה</button>
-          <button type="button" class="s-tab" id="tabBtnLog" onclick="switchAuthTab('log')">כבר רשום? התחברות</button>
+        <div class="s-tabs" role="group" aria-label="הרשמה או התחברות">
+          <button type="button" class="s-tab active" id="tabBtnReg" aria-pressed="true" onclick="switchAuthTab('reg')">הרשמה</button>
+          <button type="button" class="s-tab" id="tabBtnLog" aria-pressed="false" onclick="switchAuthTab('log')">כבר רשום? התחברות</button>
         </div>
 
         <div id="regBox">
@@ -341,7 +338,7 @@
 
           <label class="s-consent">
             <input type="checkbox" id="regConsent" />
-            <span>קראתי ואני מאשר/ת את <a class="s-link" href="/terms.html" target="_blank" rel="noopener">תנאי השימוש</a> ואת <a class="s-link" href="/privacy.html" target="_blank" rel="noopener">מדיניות הפרטיות</a>, ומסכים/ה לקבל SMS על התורים שלי (אישור, שינוי, ביטול ותזכורת).</span>
+            <span>אני מסכים/ה ל<a class="s-link" href="/terms.html" target="_blank" rel="noopener">תנאי השימוש</a> ול<a class="s-link" href="/privacy.html" target="_blank" rel="noopener">מדיניות הפרטיות</a>, ולקבלת SMS על התורים שלי (אישור, שינוי, ביטול ותזכורת).</span>
           </label>
           <label class="s-consent">
             <input type="checkbox" id="regMarketing" />
@@ -406,13 +403,13 @@
         </div>
 
         <div class="s-step">
-          <div class="s-step__label">יום</div>
-          <div class="days-row" id="bookingDaysRow"></div>
+          <div class="s-step__label" id="bookingDaysLabel">יום</div>
+          <div class="days-row" id="bookingDaysRow" role="group" aria-labelledby="bookingDaysLabel"></div>
         </div>
 
         <div class="s-step">
-          <div class="s-step__label">שעה <span class="s-step__aside">שעות מחוקות כבר תפוסות</span></div>
-          <div class="hours-matrix" id="bookingHoursGrid"></div>
+          <div class="s-step__label" id="bookingHoursLabel">שעה <span class="s-step__aside">שעות מחוקות כבר תפוסות</span></div>
+          <div class="hours-matrix" id="bookingHoursGrid" role="group" aria-labelledby="bookingHoursLabel"></div>
         </div>
 
         <div class="s-step">
@@ -428,29 +425,6 @@
 
       <div class="s-sheet__footer">
         <button type="button" class="s-btn s-btn--primary s-btn--block s-btn--lg" id="confirmBookingBtn" onclick="confirmClientBooking()">אשר ושבץ תור ביומן</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- תקנון -->
-  <div class="modal-backdrop" id="legalTermsModal" onclick="if(event.target===this) this.classList.remove('open')">
-    <div class="s-sheet s-sheet--wide" role="dialog" aria-modal="true" aria-labelledby="legalTitle">
-      <div class="s-grabber" aria-hidden="true"></div>
-      <div class="modal-head">
-        <h3 class="s-sheet__title" id="legalTitle">תקנון האתר, מדיניות פרטיות והצהרת נגישות</h3>
-        <button type="button" class="modal-close" aria-label="סגירה" onclick="document.getElementById('legalTermsModal').classList.remove('open')">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
-        </button>
-      </div>
-      <div class="s-sheet__body s-legal">
-        <p><strong>1. כללי:</strong> השימוש באתר <strong>Ilay Barbershop (עילי בן הרוש, דרך הים 11 גני תקווה)</strong> כפוף לתנאים שלהלן.</p>
-        <p><strong>2. אזור אישי, מניעת כפילויות וניתוק אוטומטי:</strong> קביעת תור וכניסה לאזור האישי מותנות ברישום חד-פעמי עם שם מלא ומספר טלפון ייחודי. המערכת אוכפת איסור פתיחת חשבון כפול על אותו מספר טלפון, ואפשר להחזיק עד 2 תורים קרובים בו-זמנית. מטעמי אבטחת מידע, חשבון שלא בוצעה בו פעילות במשך <strong>60 ימים (חודשיים)</strong> מתנתק אוטומטית.</p>
-        <p><strong>3. תזכורות SMS ואישור הגעה (סעיף 30א לחוק התקשורת):</strong> הלקוח מאשר קבלת הודעות SMS בגין קביעת תור, שינוי/ביטול ותזכורת מספר שעות לפני התור הכוללת קישור לאישור הגעה באזור האישי.</p>
-        <p><strong>4. פרטיות ועוגיות (תיקון 13):</strong> המידע נשמר לצורך ניהול יומן המספרה בלבד, ומועבר רק לספקי השירות שמפעילים את האתר, כמפורט ב<a class="s-link" href="/privacy.html" target="_blank" rel="noopener">מדיניות הפרטיות</a>.</p>
-        <p><strong>5. נגישות:</strong> האתר כולל תפריט נגישות, ניווט במקלדת וטקסט חלופי לתמונות. פרטים מלאים ב<a class="s-link" href="/accessibility.html" target="_blank" rel="noopener">הצהרת הנגישות</a>.</p>
-      </div>
-      <div class="s-sheet__footer">
-        <button type="button" class="s-btn s-btn--dark s-btn--block" onclick="document.getElementById('legalTermsModal').classList.remove('open')">קראתי והבנתי</button>
       </div>
     </div>
   </div>
@@ -520,7 +494,7 @@
       };
     }
 
-    /* ---------- Bottom sheets (booking, auth, legal) ---------- */
+    /* ---------- Bottom sheets (booking, auth) ---------- */
     function setupSheet(backdrop) {
       const sheet = backdrop.querySelector(".s-sheet");
       if (!sheet) return;
@@ -890,8 +864,6 @@
     }
     window.onCoreError = showToast;
 
-    function openLegalModal() { document.getElementById("legalTermsModal").classList.add("open"); }
-
     function verifyClientSession() { return !!(currentClientUser && currentClientUser.phone); }
 
     // מריץ פעולה אחת בכל פעם, כדי שלחיצה כפולה לא תשלח בקשה פעמיים
@@ -925,8 +897,14 @@
     };
 
     function switchAuthTab(mode) {
-      document.getElementById("tabBtnReg").classList.toggle("active", mode === "reg" || mode === "regVerify");
-      document.getElementById("tabBtnLog").classList.toggle("active", mode === "log" || mode === "reset");
+      const regActive = mode === "reg" || mode === "regVerify";
+      const logActive = mode === "log" || mode === "reset";
+      const regTab = document.getElementById("tabBtnReg");
+      const logTab = document.getElementById("tabBtnLog");
+      regTab.classList.toggle("active", regActive);
+      regTab.setAttribute("aria-pressed", String(regActive));
+      logTab.classList.toggle("active", logActive);
+      logTab.setAttribute("aria-pressed", String(logActive));
       document.getElementById("regBox").style.display = mode === "reg" ? "block" : "none";
       document.getElementById("regVerifyBox").style.display = mode === "regVerify" ? "block" : "none";
       document.getElementById("logBox").style.display = mode === "log" ? "block" : "none";
@@ -1281,16 +1259,19 @@
       const stockNote = document.getElementById("portfolioStockNote");
       if (stockNote) stockNote.hidden = !portfolioList.some(isStockPhoto);
       portfolioList.forEach((src, i) => {
-        const fallback = DEFAULT_PORTFOLIO[i % DEFAULT_PORTFOLIO.length];
-        const safeSrc = isSafeImgSrc(src) ? sizedSrc(src, 900) : fallback;
+        // Only a default photo may fall back to another default: a broken upload must not pull a photo from Unsplash.
+        const stock = isStockPhoto(src);
+        const onError = stock ? `onerror="this.onerror=null;this.src='${esc(DEFAULT_PORTFOLIO[i % DEFAULT_PORTFOLIO.length])}'"` : "";
+        const safeSrc = isSafeImgSrc(src) ? sizedSrc(src, 900) : "";
+        const item = document.createElement("li");
         const card = document.createElement("button");
         card.type = "button";
         card.className = "photo-card";
-        card.setAttribute("role", "listitem");
         card.setAttribute("aria-label", `הגדלת תמונה ${i + 1} מתוך ${portfolioList.length}`);
-        card.innerHTML = `<div class="photo-inner"><img src="${esc(safeSrc)}" alt="${isStockPhoto(src) ? `תמונת המחשה של תספורת ${i + 1}` : `עבודת תספורת ${i + 1} במספרה של עילי`}" width="720" height="900" loading="${i < 2 ? "eager" : "lazy"}" decoding="async" onerror="this.onerror=null;this.src='${esc(fallback)}'" /></div>`;
+        card.innerHTML = `<div class="photo-inner"><img src="${esc(safeSrc)}" alt="${stock ? `תמונת המחשה של תספורת ${i + 1}` : `עבודת תספורת ${i + 1} במספרה של עילי`}" width="720" height="900" loading="${i < 2 ? "eager" : "lazy"}" decoding="async" ${onError} /></div>`;
         card.onclick = () => openPhotoViewer(i, card);
-        pGrid.appendChild(card);
+        item.appendChild(card);
+        pGrid.appendChild(item);
       });
     }
 
@@ -1331,8 +1312,12 @@
         const btn = document.createElement("button");
         btn.type = "button";
         btn.className = "day-chip" + (idx === selectedBookDay ? " active" : "");
+        btn.setAttribute("aria-pressed", String(idx === selectedBookDay));
         btn.textContent = d;
-        btn.onclick = () => { selectedBookDay = idx; selectedBookHour = null; renderBookingDays(); renderBookingHours(); };
+        btn.onclick = () => {
+          selectedBookDay = idx; selectedBookHour = null; renderBookingDays(); renderBookingHours();
+          row.querySelector(".day-chip.active")?.focus();
+        };
         row.appendChild(btn);
       });
     }
@@ -1363,7 +1348,16 @@
         btn.type = "button";
         btn.className = "hour-chip" + (taken ? " taken" : "") + (selectedBookHour === tStr ? " active" : "");
         btn.textContent = tStr;
-        if (!taken) btn.onclick = () => { selectedBookHour = tStr; renderBookingHours(); };
+        if (taken) {
+          btn.disabled = true;
+          btn.setAttribute("aria-label", `${tStr}, לא זמין`);
+        } else {
+          btn.setAttribute("aria-pressed", String(selectedBookHour === tStr));
+          btn.onclick = () => {
+            selectedBookHour = tStr; renderBookingHours();
+            grid.querySelector(".hour-chip.active")?.focus();
+          };
+        }
         grid.appendChild(btn);
       }
     }

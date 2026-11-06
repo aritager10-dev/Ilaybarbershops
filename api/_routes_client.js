@@ -12,6 +12,7 @@ const S = require("./_appts");
 const { maybeRunReminders } = require("./_reminders");
 const { DAYS_HEB, heTime, heDate, todayYmd } = require("./_time");
 const { servePhoto } = require("./_photos");
+const { findOptOutUser } = require("./_optout");
 
 const ok = (ctx, data = {}) => sendJson(ctx.res, 200, { ok: true, ...data });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -65,11 +66,11 @@ function selfView(u) { return { username: u.username, phone: u.phone, marketingO
 
 const phoneTaken = () => new HttpError(409, "המספר הזה כבר רשום. אפשר להתחבר או לאפס סיסמה.", { code: "phone_taken" });
 
-async function createAccount(ctx, { username, phone, credHash, marketingOptIn, phoneVerified }) {
+async function createAccount(ctx, { username, phone, credHash, marketingOptIn, marketingConsentAt, phoneVerified }) {
   const uid = D.newId("usr");
   if (Number(await cmd("HSETNX", K(ctx, "idx:phone"), phone, uid)) !== 1) throw phoneTaken();
   const now = Date.now();
-  const user = { id: uid, username, phone, phoneVerified, marketingOptIn: marketingOptIn === true, consentAt: now, createdAt: heDate(now), lastActiveAt: now };
+  const user = { id: uid, username, phone, phoneVerified, marketingOptIn: marketingOptIn === true, ...(marketingOptIn === true ? { marketingConsentAt: marketingConsentAt || now } : {}), consentAt: now, createdAt: heDate(now), lastActiveAt: now };
   await pipeline([["HSET", K(ctx, "users"), uid, JSON.stringify(user)], ["SET", K(ctx, `ucred:${uid}`), credHash]]);
   await A.startClientSession(ctx, uid);
   await D.addNotification(ctx, { type: "new_user", title: "לקוח חדש נרשם למועדון", message: `${username} (${phone}) פתח חשבון חדש באתר.`, uid, pushMessage: "לקוח חדש פתח חשבון באתר" });
@@ -115,7 +116,7 @@ async function register(ctx) {
   const salt = crypto.randomBytes(16).toString("hex");
   const pendingKey = K(ctx, `regpending:${phone}`);
   await pipeline([
-    ["SET", pendingKey, JSON.stringify({ username, credHash, marketingOptIn, salt, hash: codeHash(phone, salt, code) }), "EX", CODE_TTL],
+    ["SET", pendingKey, JSON.stringify({ username, credHash, marketingOptIn, marketingConsentAt: marketingOptIn ? Date.now() : null, salt, hash: codeHash(phone, salt, code) }), "EX", CODE_TTL],
     ["DEL", K(ctx, `regatt:${phone}`)]
   ]);
   const sms = await sendTracked(ctx, { phone, name: username, message: templates.verifyCode(code), logMessage: "קוד לאימות טלפון (התוכן לא נשמר)", category: "verify", codeBudget: true, ipCap: true });
@@ -141,7 +142,7 @@ async function registerVerify(ctx) {
     throw fail;
   }
   if (!codeMatches(phone, pending, code)) throw fail;
-  const user = await createAccount(ctx, { username: pending.username, phone, credHash: pending.credHash, marketingOptIn: pending.marketingOptIn, phoneVerified: true });
+  const user = await createAccount(ctx, { username: pending.username, phone, credHash: pending.credHash, marketingOptIn: pending.marketingOptIn, marketingConsentAt: pending.marketingConsentAt, phoneVerified: true });
   await pipeline([["DEL", pendingKey], ["DEL", K(ctx, `regatt:${phone}`)]]);
   ok(ctx, { user: selfView(user) });
 }
@@ -222,7 +223,7 @@ async function resetConfirm(ctx) {
   if (!user) throw fail;
   const credHash = await A.hashPassword(newPassword);
   // The code proves the phone. A marketing opt-in made before that proof may have been someone else's, so it does not carry over.
-  if (user.phoneVerified !== true) user.marketingOptIn = false;
+  if (user.phoneVerified !== true) { user.marketingOptIn = false; delete user.marketingConsentAt; }
   user.phoneVerified = true;
   await pipeline([
     ["SET", K(ctx, `ucred:${uid}`), credHash],
@@ -453,37 +454,28 @@ async function setMarketing(ctx) {
   const user = await requireClient(ctx);
   await enforceLimit(ctx.ns, "acct", shortHash(user.id), 30, 3600);
   if (typeof ctx.body.optIn !== "boolean") throw V.bad("בקשה לא תקינה");
-  user.marketingOptIn = ctx.body.optIn;
-  await pipeline([["HSET", K(ctx, "users"), user.id, JSON.stringify(user)], ["INCR", K(ctx, "ver")]]);
+  if (!ctx.body.optIn) return ok(ctx, { user: selfView(await D.optOutMarketing(ctx, user)) });
+  if (user.marketingOptIn !== true) {
+    user.marketingOptIn = true;
+    user.marketingConsentAt = Date.now();
+    await pipeline([["HSET", K(ctx, "users"), user.id, JSON.stringify(user)], ["INCR", K(ctx, "ver")]]);
+  }
   ok(ctx, { user: selfView(user) });
 }
 
-// Removes the account and everything tied to it. Past appointments stay only as anonymous
-// rows for the revenue statistics; future ones are canceled and their slots freed.
+// The one-tap link from a marketing SMS. Same-origin and rate limited; the reply never says whether the token matched
+// anyone or whether that number was on the list.
+async function publicOptOut(ctx) {
+  await enforceLimit("", "optout", ipKey(ctx.req), 30, 3600);
+  const found = await findOptOutUser(ctx.body.t);
+  if (found) await D.optOutMarketing({ ...ctx, ns: found.ns }, found.user);
+  ok(ctx);
+}
+
 async function deleteAccount(ctx) {
   const user = await requireClient(ctx);
   await enforceLimit(ctx.ns, "acct", shortHash(user.id), 30, 3600);
-  const appts = await ownAppts(ctx, user);
-  const now = Date.now();
-  const cmds = [];
-  let canceled = 0;
-  for (const a of appts) {
-    const future = a.status !== "canceled" && a.startsAtMs > now;
-    if (future) { await S.releaseSlot(ctx, a.date, a.time, a.id); canceled++; }
-    if (future || a.status === "canceled") cmds.push(["HDEL", K(ctx, "appts"), a.id]);
-    else {
-      await S.mutateAppt(ctx, a.id, next => { Object.assign(next, { name: "לקוח שנמחק", phone: "", note: "", adminNote: "" }); delete next.uid; });
-    }
-    cmds.push(["SREM", K(ctx, `phoneappts:${user.phone}`), a.id]);
-  }
-  cmds.push(...await D.scrubLogCmds(ctx, user), ...await D.scrubNotifCmds(ctx, user, appts.map(a => a.id)));
-  cmds.push(
-    ["DEL", K(ctx, `umsgs:${user.id}`)], ["DEL", K(ctx, `ucred:${user.id}`)],
-    ["DEL", K(ctx, `reset:${user.phone}`)], ["HDEL", K(ctx, "users"), user.id],
-    ["HDEL", K(ctx, "idx:phone"), user.phone],
-    ["INCR", K(ctx, "ver")]
-  );
-  await pipeline(cmds);
+  const canceled = await S.eraseCustomer(ctx, user, { byPhone: user.phoneVerified === true });
   await A.revokeAllClientSessions(ctx, user.id);
   clearCookie(ctx.req, ctx.res, ctx.test ? "ilay_sid_test" : "ilay_sid");
   await D.addNotification(ctx, { type: "account_deleted", title: "לקוח מחק את החשבון שלו", message: canceled ? `חשבון נמחק ו-${canceled} תורים עתידיים בוטלו.` : "חשבון לקוח נמחק.", pushMessage: "לקוח מחק את החשבון שלו" });
@@ -492,5 +484,5 @@ async function deleteAccount(ctx) {
 
 module.exports = {
   getPublic, getPhoto, testCheck, register, registerVerify, login, logout, resetRequest, resetConfirm, getMe, createAppointment, moveAppointment,
-  confirmAppointment, cancelAppointment, sendMessage, setMarketing, deleteAccount
+  confirmAppointment, cancelAppointment, sendMessage, setMarketing, publicOptOut, deleteAccount
 };

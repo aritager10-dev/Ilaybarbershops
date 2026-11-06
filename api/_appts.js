@@ -2,7 +2,7 @@
 // Slot semantics are the ones the booking UI always had: a slot is one start time on one date.
 // Service duration does not block neighbouring slots.
 const { cmd, pipeline, parseJson } = require("./_redis");
-const { K } = require("./_data");
+const { K, allAppts, scrubLogCmds, scrubNotifCmds } = require("./_data");
 const { HttpError } = require("./_http");
 const { DAYS_HEB, dateForDayIdx, epochFor, dateStrOf } = require("./_time");
 
@@ -63,6 +63,37 @@ async function mutateAppt(ctx, id, fn) {
   throw new HttpError(409, "התור התעדכן ממש עכשיו, נסו שוב");
 }
 
+// Removes a customer and everything tied to them, for self-deletion and admin deletion alike. Upcoming appointments
+// are dropped and their slots freed, canceled ones are dropped, and past ones stay only as anonymous rows for the
+// revenue statistics. byPhone is false for an account that never proved its phone: it then reaches only its own rows.
+// The caller revokes the sessions. Returns how many upcoming appointments were canceled.
+async function eraseCustomer(ctx, user, { byPhone }) {
+  const appts = (await allAppts(ctx)).filter(a => a.uid === user.id || (byPhone && a.phone === user.phone));
+  const now = Date.now();
+  const cmds = [];
+  let canceled = 0;
+  for (const a of appts) {
+    const future = a.status !== "canceled" && a.startsAtMs > now;
+    if (future) { await releaseSlot(ctx, a.date, a.time, a.id); canceled++; }
+    if (future || a.status === "canceled") {
+      cmds.push(["HDEL", K(ctx, "appts"), a.id]);
+      if (a.phone) cmds.push(["SREM", K(ctx, `phoneappts:${a.phone}`), a.id]);
+    } else {
+      await mutateAppt(ctx, a.id, next => { Object.assign(next, { name: "לקוח שנמחק", phone: "", note: "", adminNote: "" }); delete next.uid; });
+    }
+  }
+  cmds.push(...await scrubLogCmds(ctx, user, { byPhone }), ...await scrubNotifCmds(ctx, user, appts.map(a => a.id), { byPhone }));
+  cmds.push(
+    ["DEL", K(ctx, `umsgs:${user.id}`)], ["DEL", K(ctx, `ucred:${user.id}`)],
+    ["DEL", K(ctx, `reset:${user.phone}`)], ["DEL", K(ctx, `resetatt:${user.phone}`)],
+    ["DEL", K(ctx, `regpending:${user.phone}`)], ["DEL", K(ctx, `regatt:${user.phone}`)],
+    ["HDEL", K(ctx, "users"), user.id], ["HDEL", K(ctx, "idx:phone"), user.phone],
+    ["INCR", K(ctx, "ver")]
+  );
+  await pipeline(cmds);
+  return canceled;
+}
+
 // Same grid the booking UI renders.
 function slotOnGrid(cfg, day, time) {
   const step = Math.max(10, (Number(cfg.slotInterval) || 30) + (Number(cfg.slotBuffer) || 0));
@@ -91,4 +122,4 @@ function placeAt(appt, dayIdx, date, time) {
 
 function describeSlot(a) { return `יום ${DAYS_HEB[a.dayIdx]} (${a.dateStr}) בשעה ${a.time}`; }
 
-module.exports = { acquireSlot, releaseSlot, mutateAppt, assertClientSlot, placeAt, describeSlot, RELEASE_SCRIPT, SWAP_SCRIPT, CAS_SCRIPT };
+module.exports = { acquireSlot, releaseSlot, mutateAppt, eraseCustomer, assertClientSlot, placeAt, describeSlot, RELEASE_SCRIPT, SWAP_SCRIPT, CAS_SCRIPT };

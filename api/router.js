@@ -6,6 +6,7 @@
 //             GET  /api/photo/:id                 portfolio image
 //             GET  /api/test/check                200 only with an admin session and ?test=1
 //             POST /api/auth/register | register/verify | login | logout | reset/request | reset/confirm
+//             POST /api/optout                    marketing opt-out from the SMS link, no login
 //   Client    GET  /api/me                        account, own appointments, own messages
 //             POST /api/appointments              create
 //             POST /api/appointments/:id/move | confirm | cancel
@@ -13,7 +14,7 @@
 //   Admin     POST /api/admin/login | logout
 //             GET  /api/admin/whoami              page-load probe, public, reveals only yes or no
 //             GET  /api/admin/session | version | state | sms/status
-//             POST /api/admin/apply | reset | reminders | sms/broadcast | sms/test | sms/retry | photos | portfolio
+//             POST /api/admin/apply | reset | reminders | sms/broadcast | sms/test | sms/retry | photos | portfolio | users/:id/optout
 const { RedisError } = require("./_redis");
 const { HttpError, sendJson, readJsonBody, requestHost } = require("./_http");
 const { originAllowed, enforceLimit, ipKey } = require("./_guard");
@@ -36,6 +37,7 @@ const routes = [
   ["POST", /^\/auth\/logout$/, C.logout],
   ["POST", /^\/auth\/reset\/request$/, C.resetRequest],
   ["POST", /^\/auth\/reset\/confirm$/, C.resetConfirm],
+  ["POST", /^\/optout$/, C.publicOptOut, { public: true }],
   ["GET", /^\/me$/, C.getMe],
   ["POST", /^\/me\/message$/, C.sendMessage],
   ["POST", /^\/me\/marketing$/, C.setMarketing],
@@ -55,6 +57,7 @@ const routes = [
   ["POST", /^\/admin\/reset$/, M.resetNamespace, { admin: true }],
   ["POST", /^\/admin\/reminders$/, M.manualReminders, { admin: true }],
   ["POST", /^\/admin\/sms\/broadcast$/, M.broadcast, { admin: true }],
+  ["POST", /^\/admin\/users\/([^/]+)\/optout$/, M.optOutUser, { admin: true }],
   ["POST", /^\/admin\/sms\/test$/, M.testSms, { admin: true }],
   ["POST", /^\/admin\/sms\/retry$/, M.retrySms, { admin: true }],
   ["POST", /^\/admin\/photos$/, M.postPhoto, { admin: true, body: BODY_PHOTO }],

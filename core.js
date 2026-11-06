@@ -188,8 +188,9 @@ let smsLogs = [];
 let adminNotifications = [];
 let smsStats = {};
 const DEFAULT_PORTFOLIO_IDS = DEFAULT_PORTFOLIO.map((_, i) => "def:" + i);
-let portfolioIds = [...DEFAULT_PORTFOLIO_IDS];
-let portfolioList = [...DEFAULT_PORTFOLIO];
+// Empty until the server answers, so a site with uploaded photos never requests the default ones.
+let portfolioIds = [];
+let portfolioList = [];
 
 function portfolioEntryUrl(entry) {
   const def = /^def:(\d+)$/.exec(String(entry));

@@ -2,7 +2,9 @@
 //   SMS_PROVIDER = textme | 019 | twilio (default textme), SMS_USERNAME, SMS_API_TOKEN, SMS_SENDER,
 //   TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN / TWILIO_FROM.
 const { pipeline } = require("./_redis");
-const { K, addLog, addNotification } = require("./_data");
+const { K, addLog, addNotification, getUser } = require("./_data");
+const { optOutUrl } = require("./_optout");
+const { cmd } = require("./_redis");
 const { mobilePhone } = require("./_validate");
 const { ipKey, shortHash, RATE_SCRIPT } = require("./_guard");
 const { todayYmd, DAYS_HEB } = require("./_time");
@@ -171,10 +173,22 @@ function hasForeignLink(message, host) {
   });
 }
 
+// A failed broadcast may be retried only while its recipient still wants marketing, and only if its text has the
+// format the law requires (logs from before that format do not).
+async function broadcastRetryRefusal(ctx, log, phone) {
+  if (!String(log.message).startsWith(BROADCAST_PREFIX + "\n")) return "ההודעה הזו נשלחה בפורמט ישן. אפשר לשלוח הודעה חדשה.";
+  const uid = await cmd("HGET", K(ctx, "idx:phone"), phone);
+  const user = uid ? await getUser(ctx, uid) : null;
+  if (!user || user.marketingOptIn !== true || user.phoneVerified !== true) return "הלקוח לא מאשר כרגע קבלת דיוור, ולכן ההודעה לא נשלחה שוב";
+  return null;
+}
+
 async function retryLog(ctx, log) {
   const phone = mobilePhone(log.phone);
   let result;
+  let marketingRefusal = null;
   if (log.noRetry || !phone) result = { ok: false, reason: "אי אפשר לשלוח שוב את ההודעה הזו" };
+  else if (log.category === "broadcast" && (marketingRefusal = await broadcastRetryRefusal(ctx, log, phone))) result = { ok: false, reason: marketingRefusal };
   else if (hasForeignLink(log.message, ctx.host)) result = { ok: false, reason: "קישורים מותרים רק לאתר של המספרה" };
   else {
     const refusal = await dailyCapRefusal(ctx, phone);
@@ -191,6 +205,7 @@ async function retryLog(ctx, log) {
 const smsName = n => String(n || "").replace(/[^\p{L}\p{M}\s'׳"״-]/gu, "").trim().slice(0, 40);
 const siteUrl = ctx => `https://${ctx.host}/#personal-area`;
 const when = a => ({ day: DAYS_HEB[a.dayIdx], date: a.dateStr, time: a.time, name: smsName(a.name) });
+const BROADCAST_PREFIX = "פרסומת: Ilay Barbershop";
 const templates = {
   clientBooked(ctx, a) { const w = when(a); return `היי ${w.name}, התור שלך ל-Ilay Barbershop נקבע ליום ${w.day} (${w.date}) בשעה ${w.time}. לצפייה ואישור הגעה באזור האישי: ${siteUrl(ctx)}`; },
   clientMoved(ctx, a) { const w = when(a); return `היי ${w.name}, מועד התור שלך ב-Ilay Barbershop עודכן ליום ${w.day} (${w.date}) בשעה ${w.time}.`; },
@@ -200,13 +215,12 @@ const templates = {
   reminder(ctx, a) { const w = when(a); return `אהלן ${w.name}, תזכורת מ-Ilay Barbershop: התור שלך ליום ${w.day} (${w.date}) מתקיים בשעה ${w.time}. האם אתה מאשר הגעה? לאישור הגעה מהיר היכנס לאזור האישי: ${siteUrl(ctx)}`; },
   alreadyRegistered() { return `כבר יש לך חשבון ב-Ilay Barbershop עם המספר הזה. אפשר להיכנס באתר, או לאפס סיסמה במסך הכניסה.`; },
   verifyCode(code) { return `קוד האימות שלך ב-Ilay Barbershop: ${code}. הקוד תקף ל-10 דקות.`; },
-  // Replies to the sender are not read, so removal goes through the personal area or a call.
-  optOut(ctx, barberPhone) {
-    const d = String(barberPhone || "");
-    return `להסרה: ${siteUrl(ctx)} או ${d.slice(0, 3)}-${d.slice(3)}`;
+  // Section 30A format. Replies reach the owner's phone, and the owner removes the customer in the admin; the link needs no login.
+  broadcast(ctx, text, phone) {
+    return `${BROADCAST_PREFIX}\n${text}\nלהסרה: ${optOutUrl(ctx, phone)} או השב/י הסר`;
   },
   resetCode(code) { return `קוד איפוס הסיסמה שלך ב-Ilay Barbershop: ${code}. הקוד תקף ל-10 דקות. אם לא ביקשת, אפשר להתעלם.`; },
   test() { return "בדיקת SMS מ-Ilay Barbershop. אם קיבלת את זה, ההודעות עובדות."; }
 };
 
-module.exports = { smsStatus, smsConfigured, sendTracked, sendApptSms, retryLog, hasForeignLink, templates, smsName };
+module.exports = { smsStatus, smsConfigured, sendTracked, sendApptSms, retryLog, hasForeignLink, templates, smsName, MAX_LEN };

@@ -9,9 +9,7 @@
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <meta name="robots" content="noindex, nofollow" />
   <title>ניהול ויומן | Ilay Barbershop</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/fonts/heebo.css" />
   <link rel="stylesheet" href="style.css" />
   <link rel="stylesheet" href="admin.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" integrity="sha384-bs/nf9FbdNouRbMiFcrcZfLXYPKiPaGVGplVbv7dLGECccEXDW+S3zjqSKR5ZEaD" crossorigin="anonymous"></script>
@@ -243,7 +241,7 @@
       <div class="sms-hub-grid">
         <div class="hub-card">
           <h3 class="hub-title"><svg class="ic" aria-hidden="true"><use href="#i-send"/></svg>הודעה לכל הלקוחות</h3>
-          <p class="hub-note">שלב <code>{שם}</code> להכנסת שם הלקוח אוטומטית. נשלח רק ללקוחות שאישרו דיוור ואימתו את הטלפון שלהם. בסוף ההודעה מתווספת שורת הסרה: קישור לאזור האישי ומספר הטלפון שלך. מי שמבקש הסרה בטלפון: למחוק אותו ממועדון הלקוחות.</p>
+          <p class="hub-note">שלב <code>{שם}</code> להכנסת שם הלקוח אוטומטית. נשלח רק ללקוחות שאישרו דיוור ואימתו את הטלפון שלהם. כל הודעה נפתחת ב"פרסומת: Ilay Barbershop" ומסתיימת בקישור הסרה שלא דורש התחברות וב"או השב/י הסר". תשובות "הסר" מגיעות לטלפון שלך: לחץ על "הסרה מדיוור" ליד שם הלקוח במועדון הלקוחות. החשבון שלו נשאר. ההודעה כולה מוגבלת ל-600 תווים.</p>
           <label class="adm-sr" for="broadcastInput">תוכן ההודעה</label>
           <textarea id="broadcastInput" class="input-field" rows="4" placeholder="אהלן {שם}, פתחנו תורים חדשים להשבוע במספרה של עיליי!"></textarea>
           <button type="button" class="adm-btn adm-btn--primary adm-btn--block" onclick="sendBroadcastToAll()">שלח לכלל הלקוחות (<span id="btnBroadcastCount">0</span>)</button>
@@ -857,10 +855,9 @@
       const grid = document.getElementById("adminPortfolioGrid");
       grid.innerHTML = "";
       portfolioList.forEach((src, i) => {
-        const fallback = DEFAULT_PORTFOLIO[i % DEFAULT_PORTFOLIO.length];
         grid.innerHTML += `
           <div class="photo-card">
-            <div class="photo-inner"><img src="${esc(isSafeImgSrc(src) ? src : fallback)}" alt="תמונה ${i + 1}" onerror="this.onerror=null;this.src='${esc(fallback)}'" /></div>
+            <div class="photo-inner"><img src="${esc(isSafeImgSrc(src) ? src : "")}" alt="תמונה ${i + 1}" /></div>
             <div class="photo-tag">
               <button type="button" class="appt-btn-mini photo-btn" onclick="triggerReplacePhoto(${i})" aria-label="החלפת תמונה ${i + 1}"><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg>החלף</button>
               <button type="button" class="appt-btn-mini photo-btn is-danger" onclick="deletePortfolioPhoto(${i})" aria-label="מחיקת תמונה ${i + 1}"><svg class="ic" aria-hidden="true"><use href="#i-trash"/></svg>מחק</button>
@@ -1070,16 +1067,30 @@
         r.className = "user-row";
         r.innerHTML = `
           <div class="user-row__main">
-            <div class="user-row__title">${sanitizeStr(u.username, 30)} <span class="user-row__tag">${visits} תורים</span></div>
+            <div class="user-row__title">${sanitizeStr(u.username, 30)} <span class="user-row__tag">${visits} תורים</span>${u.marketingOptIn === true ? ` <span class="user-row__tag">מאשר דיוור</span>` : ""}</div>
             <div class="user-row__sub user-row__phone" dir="ltr">${esc(u.phone)}</div>
           </div>
-          <button type="button" class="appt-btn-mini adm-mini-btn is-danger" aria-label="הסרת ${sanitizeStr(u.username, 30)} מהמועדון" onclick="removeClubUser(${idx})">הסר</button>
+          <div class="user-row__side">
+            ${u.marketingOptIn === true ? `<button type="button" class="appt-btn-mini adm-mini-btn" aria-label="הסרת ${sanitizeStr(u.username, 30)} מדיוור" onclick="optOutClubUser(${idx})">הסרה מדיוור</button>` : ""}
+            <button type="button" class="appt-btn-mini adm-mini-btn is-danger" aria-label="מחיקת ${sanitizeStr(u.username, 30)} והנתונים שלו" onclick="removeClubUser(${idx})">מחיקה</button>
+          </div>
         `;
         uBox.appendChild(r);
       });
     }
 
+    async function optOutClubUser(idx) {
+      const u = registeredUsers[idx];
+      if (!u || !confirm(`להסיר את ${u.username} מהדיוור? החשבון והתורים נשארים, ורק הלקוח יכול לאשר דיוור מחדש.`)) return;
+      const r = await apiPost(`/admin/users/${safeId(u.id)}/optout`);
+      if (!r.ok) return showToast(r.reason);
+      applyAdminState(r.data.state);
+      showToast("הלקוח הוסר מהדיוור");
+    }
+
     function removeClubUser(idx) {
+      const u = registeredUsers[idx];
+      if (!u || !confirm(`למחוק את ${u.username}? החשבון וההודעות יימחקו, תורים עתידיים יבוטלו בלי הודעה ללקוח, ותורים שעברו יישארו בלי שם וטלפון. אי אפשר לבטל.`)) return;
       registeredUsers.splice(idx, 1);
       renderAllAdmin();
       broadcastCloudState();

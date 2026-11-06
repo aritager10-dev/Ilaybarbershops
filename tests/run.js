@@ -537,7 +537,7 @@ test("every admin endpoint is 401 without an admin session, even with a client s
   const anon = new Client();
   const client = await newClient();
   const gets = ["session", "version", "state", "sms/status"];
-  const posts = ["apply", "reset", "reminders", "sms/broadcast", "sms/test", "sms/retry", "photos", "portfolio"];
+  const posts = ["apply", "reset", "reminders", "sms/broadcast", "sms/test", "sms/retry", "photos", "portfolio", "users/usr_x/optout"];
   for (const c of [anon, client]) {
     for (const p of gets) assert.equal((await c.get("/admin/" + p)).status, 401, p);
     for (const p of posts) assert.equal((await c.post("/admin/" + p, {})).status, 401, p);
@@ -621,7 +621,7 @@ test("full admin state contains no hashes or session data", async () => {
   assert.equal(r.status, 200);
   assert.doesNotMatch(r.text, FORBIDDEN_IN_RESPONSES);
   assert.equal(r.headers["cache-control"], "no-store");
-  r.json.state.registeredUsers.forEach(u => assert.deepEqual(Object.keys(u).sort(), ["consentAt", "createdAt", "id", "lastActiveAt", "marketingOptIn", "phone", "phoneVerified", "username"]));
+  r.json.state.registeredUsers.forEach(u => assert.deepEqual(Object.keys(u).sort(), ["consentAt", "createdAt", "id", "lastActiveAt", "marketingConsentAt", "marketingOptIn", "marketingOptOutAt", "phone", "phoneVerified", "username"]));
 });
 
 test("admin user upsert ignores password and consent fields", async () => {
@@ -1078,8 +1078,7 @@ test("broadcast goes only to opted-in users, with the opt-out line, and blocks f
   assert.ok(!sent.some(s => s.to === no.phone));
   const msg = sent.find(s => s.to === yes.phone).message;
   assert.ok(msg.includes(yes.name));
-  assert.ok(msg.endsWith(`להסרה: https://${new URL(h.base).host}/#personal-area או 054-2858711`), "a working way to opt out");
-  assert.ok(!msg.includes("השב/י"), "no promise of handling replies");
+  assert.ok(msg.endsWith(" או השב/י הסר"), "a working way to opt out");
   const own = await admin.post("/admin/sms/broadcast", { message: `בואו לאתר ${h.base}/` });
   assert.equal(own.status, 200, "links to the site itself stay allowed");
 });
@@ -1662,6 +1661,308 @@ test("13: the SMS total survives log trimming and counts every sent message", as
   const end = await stats();
   assert.equal(end.failed, mid.failed - 1);
   assert.ok(end.partsTotal > mid.partsTotal);
+});
+
+// --- Marketing compliance (Communications Law 30A) ---
+const { tokenFor } = require("../api/_optout");
+const uidOf = phone => h.fake.run(["HGET", "idx:phone", phone]).result;
+const storedUser = phone => JSON.parse(h.fake.run(["HGET", "users", uidOf(phone)]).result);
+const redisDump = () => JSON.stringify([...h.fake.store.entries()].map(([k, e]) => [k, e.value instanceof Map ? [...e.value] : e.value instanceof Set ? [...e.value] : e.value]));
+const freshBroadcastBudget = () => h.fake.run(["DEL", "rl:broadcast:all"]);
+function rawGet(pathname) {
+  return new Promise((resolve, reject) => http.get(h.base + pathname, res => {
+    const chunks = [];
+    res.on("data", c => chunks.push(c));
+    res.on("end", () => resolve({ status: res.statusCode, headers: res.headers, text: Buffer.concat(chunks).toString("utf8") }));
+  }).on("error", reject));
+}
+
+test("broadcast format: advertising prefix first, no-login link and reply option last, no phone in the link", async () => {
+  freshBroadcastBudget();
+  const c = await newClient({ marketingOptIn: true });
+  const admin = await newAdmin();
+  const count = h.outbox.sms.length;
+  assert.equal((await admin.post("/admin/sms/broadcast", { message: "אהלן {שם}, מבצע השבוע!" })).status, 200);
+  const msg = h.outbox.sms.slice(count).find(s => s.to === c.phone).message;
+  const lines = msg.split("\n");
+  assert.equal(lines.length, 3);
+  assert.equal(lines[0], "פרסומת: Ilay Barbershop");
+  assert.ok(lines[1].includes(c.name));
+  const m = /^להסרה: https:\/\/([^/]+)\/optout\.html\?t=([A-Za-z0-9_-]{16}) או השב\/י הסר$/.exec(lines[2]);
+  assert.ok(m, lines[2]);
+  assert.equal(m[1], new URL(h.base).host);
+  assert.equal(m[2], tokenFor("", c.phone));
+  assert.ok(!m[2].includes(c.phone));
+  assert.notEqual(tokenFor("", c.phone), tokenFor("", freshPhone()), "per phone");
+  assert.notEqual(tokenFor("", c.phone), tokenFor("test:", c.phone).slice(1), "per namespace");
+});
+
+test("a broadcast fills the 600 character limit with the opt-out text included, and a longer one is refused before sending", async () => {
+  freshBroadcastBudget();
+  const c = await newClient({ marketingOptIn: true });
+  const admin = await newAdmin();
+  const overhead = ("פרסומת: Ilay Barbershop\n" + "\nלהסרה: https://" + new URL(h.base).host + "/optout.html?t=" + tokenFor("", c.phone) + " או השב/י הסר").length;
+  const count = h.outbox.sms.length;
+  const tooLong = await admin.post("/admin/sms/broadcast", { message: "א".repeat(600 - overhead + 1) });
+  assert.equal(tooLong.status, 400);
+  assert.match(tooLong.json.reason, /ארוכה מדי ב-1 תווים/);
+  assert.equal(h.outbox.sms.length, count, "nothing left");
+  const fits = await admin.post("/admin/sms/broadcast", { message: "א".repeat(600 - overhead) });
+  assert.equal(fits.status, 200, fits.text);
+  const sent = h.outbox.sms.slice(count).find(s => s.to === c.phone);
+  assert.ok(sent, "delivered");
+  assert.equal(sent.message.length, 600);
+  // A long name in {שם} counts too.
+  const longName = await admin.post("/admin/sms/broadcast", { message: "{שם}".repeat(120) });
+  assert.equal(longName.status, 400);
+});
+
+test("opt-out link: opening the page or GET changes nothing, POST removes without login, the account stays", async () => {
+  const c = await newClient({ marketingOptIn: true });
+  const t = tokenFor("", c.phone);
+  const page = await rawGet("/optout.html?t=" + t);
+  assert.equal(page.status, 200);
+  assert.match(page.text, /<meta name="robots" content="noindex, nofollow">/);
+  assert.equal(page.headers["x-robots-tag"], "noindex, nofollow");
+  assert.equal((await new Client().get("/optout")).status, 405);
+  assert.equal((await new Client().get("/optout?t=" + t)).status, 405);
+  assert.equal(storedUser(c.phone).marketingOptIn, true, "GET must not remove");
+  assert.ok(!storedUser(c.phone).marketingOptOutAt);
+
+  const before = Date.now();
+  const r = await new Client().post("/optout", { t });
+  assert.equal(r.status, 200);
+  const u = storedUser(c.phone);
+  assert.equal(u.marketingOptIn, false);
+  assert.ok(u.marketingOptOutAt >= before);
+  assert.equal((await c.get("/me")).status, 200, "the account and its session stay");
+  freshBroadcastBudget();
+  const admin = await newAdmin();
+  const count = h.outbox.sms.length;
+  await admin.post("/admin/sms/broadcast", { message: "מבצע" });
+  assert.ok(!h.outbox.sms.slice(count).some(s => s.to === c.phone), "no more marketing");
+  // Repeating keeps the first removal time.
+  await new Client().post("/optout", { t });
+  assert.equal(storedUser(c.phone).marketingOptOutAt, u.marketingOptOutAt);
+});
+
+test("opt-out link: invalid tokens get the same answer as valid ones and change nothing", async () => {
+  const c = await newClient({ marketingOptIn: true });
+  const other = await newClient({ marketingOptIn: true });
+  const t = tokenFor("", c.phone);
+  const flipped = (t[0] === "A" ? "B" : "A") + t.slice(1);
+  const valid = await new Client().post("/optout", { t });
+  for (const bad of [flipped, "", "short", "T" + t, t + "x", other.phone, 12345, null, { $ne: 1 }]) {
+    const r = await new Client().post("/optout", { t: bad });
+    assert.equal(r.status, valid.status, String(bad));
+    assert.equal(r.text, valid.text, String(bad));
+  }
+  assert.equal(storedUser(other.phone).marketingOptIn, true);
+  assert.equal(storedUser(c.phone).marketingOptIn, false);
+});
+
+test("opt-out link: same-origin only, rate limited, and a test-mode token touches only test accounts", async () => {
+  const c = await newClient({ marketingOptIn: true });
+  const t = tokenFor("", c.phone);
+  assert.equal((await new Client({ origin: "https://evil.example" }).post("/optout", { t })).status, 403);
+  assert.equal((await new Client().post("/optout", { t }, { noOrigin: true })).status, 403);
+  assert.equal((await new Client().post("/optout", { t: tokenFor("test:", c.phone) })).status, 200);
+  assert.equal(storedUser(c.phone).marketingOptIn, true);
+  const flood = new Client();
+  let last;
+  for (let i = 0; i < 31; i++) last = await flood.post("/optout", { t: "nothing-valid-00" });
+  assert.equal(last.status, 429);
+  assert.equal((await flood.post("/optout", { t })).status, 429);
+  assert.equal(storedUser(c.phone).marketingOptIn, true);
+});
+
+test("retrying a failed broadcast rechecks consent and phone proof at retry time", async () => {
+  freshBroadcastBudget();
+  const c = await newClient({ marketingOptIn: true });
+  const admin = await newAdmin();
+  h.outbox.smsFail = true;
+  await admin.post("/admin/sms/broadcast", { message: "מבצע לבדיקת שליחה חוזרת" });
+  h.outbox.smsFail = false;
+  const log = (await admin.get("/admin/state")).json.state.smsLogs.find(l => l.phone === c.phone && l.category === "broadcast" && l.status === "failed");
+  assert.ok(log);
+  await new Client().post("/optout", { t: tokenFor("", c.phone) });
+  const count = h.outbox.sms.length;
+  const refused = await admin.post("/admin/sms/retry", { id: log.id });
+  assert.equal(refused.json.sent, false);
+  assert.match(refused.json.reason, /לא מאשר/);
+  assert.equal(h.outbox.sms.length, count, "nothing sent after opt-out");
+
+  // Opted in again but with the phone no longer proven: still refused.
+  await c.post("/me/marketing", { optIn: true });
+  const u = storedUser(c.phone);
+  h.fake.run(["HSET", "users", u.id, JSON.stringify({ ...u, phoneVerified: false })]);
+  assert.equal((await admin.post("/admin/sms/retry", { id: log.id })).json.sent, false);
+  assert.equal(h.outbox.sms.length, count);
+  h.fake.run(["HSET", "users", u.id, JSON.stringify(u)]);
+
+  // Consent current and phone proven: the retry goes out.
+  assert.equal((await admin.post("/admin/sms/retry", { id: log.id })).json.sent, true);
+  assert.equal(h.outbox.sms[count].to, c.phone);
+  assert.ok(h.outbox.sms[count].message.startsWith("פרסומת: Ilay Barbershop\n"));
+});
+
+test("a broadcast logged in the old format cannot be retried; other messages retry as before", async () => {
+  const c = await newClient({ marketingOptIn: true });
+  const admin = await newAdmin();
+  const id = "sms_legacy_" + c.phone;
+  h.fake.run(["HSET", "smslogs", id, JSON.stringify({ id, phone: c.phone, name: c.name, message: "מבצע ישן\nלהסרה: 054-2858711", category: "broadcast", status: "failed", parts: 1, createdAt: Date.now() })]);
+  const count = h.outbox.sms.length;
+  assert.equal((await admin.post("/admin/sms/retry", { id })).json.sent, false);
+  assert.equal(h.outbox.sms.length, count);
+  h.fake.run(["HDEL", "smslogs", id]);
+});
+
+test("admin opt-out: admin only, keeps the account and login, and the customer can opt in again", async () => {
+  const c = await newClient({ marketingOptIn: true });
+  const stranger = await newClient();
+  const uid = uidOf(c.phone);
+  for (const who of [new Client(), stranger, c]) {
+    assert.equal((await who.post(`/admin/users/${uid}/optout`)).status, 401);
+  }
+  assert.equal(storedUser(c.phone).marketingOptIn, true);
+  const admin = await newAdmin();
+  assert.equal((await admin.post("/admin/users/usr_missing/optout")).status, 404);
+  const r = await admin.post(`/admin/users/${uid}/optout`);
+  assert.equal(r.status, 200);
+  const row = r.json.state.registeredUsers.find(u => u.id === uid);
+  assert.equal(row.marketingOptIn, false);
+  assert.ok(row.marketingOptOutAt > 0);
+  assert.equal(row.phone, c.phone, "the account stays");
+  assert.equal((await c.get("/me")).status, 200);
+  assert.equal((await new Client().post("/auth/login", { ident: c.phone, password: PASSWORD })).status, 200);
+  assert.equal((await c.post("/me/marketing", { optIn: true })).json.user.marketingOptIn, true);
+  // The apply diff cannot grant consent.
+  await admin.post(`/admin/users/${uid}/optout`);
+  await admin.post("/admin/apply", { users: { upsert: [{ id: uid, username: c.name, phone: c.phone, marketingOptIn: true }], remove: [] } });
+  assert.equal(storedUser(c.phone).marketingOptIn, false);
+});
+
+test("marketing consent time is recorded at sign-up, through the code step, and on switching on", async () => {
+  const start = Date.now();
+  const yes = await newClient({ marketingOptIn: true });
+  const atSignup = storedUser(yes.phone).marketingConsentAt;
+  assert.ok(atSignup >= start && atSignup <= Date.now(), "verification flow");
+  const no = await newClient({ marketingOptIn: false });
+  assert.equal(storedUser(no.phone).marketingConsentAt, undefined);
+  const direct = await newUnverifiedClient({ marketingOptIn: true });
+  assert.ok(storedUser(direct.phone).marketingConsentAt >= start, "no-SMS flow");
+
+  const beforeOn = Date.now();
+  await no.post("/me/marketing", { optIn: true });
+  const first = storedUser(no.phone).marketingConsentAt;
+  assert.ok(first >= beforeOn);
+  await new Promise(r => setTimeout(r, 5));
+  await no.post("/me/marketing", { optIn: true });
+  assert.equal(storedUser(no.phone).marketingConsentAt, first, "repeating does not move it");
+  await no.post("/me/marketing", { optIn: false });
+  const off = storedUser(no.phone);
+  assert.equal(off.marketingOptIn, false);
+  assert.ok(off.marketingOptOutAt >= first);
+
+  const admin = await newAdmin();
+  const row = (await admin.get("/admin/state")).json.state.registeredUsers.find(u => u.phone === yes.phone);
+  assert.equal(row.marketingConsentAt, atSignup);
+  // A new number on the account does not inherit the old number's consent.
+  const moved = freshPhone();
+  await admin.post("/admin/apply", { users: { upsert: [{ id: uidOf(yes.phone), username: yes.name, phone: moved }], remove: [] } });
+  const after = storedUser(moved);
+  assert.equal(after.marketingOptIn, false);
+  assert.equal(after.marketingConsentAt, undefined);
+});
+
+// --- Deletion matches the privacy policy ---
+function seedPast(c, id) {
+  const row = { id, dayIdx: 1, date: "2026-01-05", dateStr: "05/01", time: "10:00", startsAtMs: Date.now() - 86400000, uid: uidOf(c.phone), name: c.name, phone: c.phone, price: 90, service: "x", note: "הערת-לקוח-למחיקה", adminNote: "הערת-ספר-למחיקה", status: "confirmed" };
+  h.fake.run(["HSET", "appts", id, JSON.stringify(row)]);
+  h.fake.run(["SADD", `phoneappts:${c.phone}`, id]);
+}
+
+for (const [who, erase] of [
+  ["an admin", async (c, admin) => admin.post("/admin/apply", { users: { upsert: [], remove: [uidOf(c.phone)] } })],
+  ["the customer", async c => c.post("/me/delete")]
+]) {
+  test(`deletion by ${who} scrubs appointments, SMS logs and messages, frees slots and keeps anonymous statistics`, async () => {
+    freshBroadcastBudget();
+    const c = await newClient({ marketingOptIn: true });
+    const admin = await newAdmin();
+    const slot = freshSlot();
+    const future = await book(c, slot);
+    const canceled = await book(c);
+    assert.equal((await c.post(`/appointments/${canceled.id}/cancel`)).status, 200);
+    const manualId = "ap_manual_" + Date.now();
+    await admin.post("/admin/apply", { appointments: { upsert: [{ id: manualId, ...freshSlot(), name: c.name, phone: c.phone, price: 70, service: "x", adminNote: "הערה ידנית" }], remove: [] } });
+    const pastId = "ap_past_" + Date.now();
+    seedPast(c, pastId);
+    await c.post("/me/message", { text: "הודעה פרטית מאוד" });
+    await admin.post("/admin/sms/broadcast", { message: "מבצע" });
+    const uid = uidOf(c.phone);
+    assert.ok(redisDump().includes(c.phone));
+
+    const r = await erase(c, admin);
+    assert.equal(r.status, 200, r.text);
+
+    const dump = redisDump();
+    assert.ok(!dump.includes(c.phone), "phone is gone from Redis");
+    assert.ok(!dump.includes(c.name), "name is gone from Redis");
+    assert.ok(!dump.includes("הודעה פרטית מאוד"));
+    assert.ok(!dump.includes("הערת-לקוח-למחיקה"));
+    assert.ok(!dump.includes("הערת-ספר-למחיקה"));
+    assert.ok(!dump.includes(uid));
+    for (const id of [future.id, canceled.id, manualId]) assert.equal(h.fake.run(["HGET", "appts", id]).result, null, id);
+    const anon = JSON.parse(h.fake.run(["HGET", "appts", pastId]).result);
+    assert.deepEqual([anon.name, anon.phone, anon.note, anon.adminNote, anon.uid], ["לקוח שנמחק", "", "", "", undefined]);
+    assert.equal(anon.price, 90, "statistics keep the revenue");
+    const state = (await admin.get("/admin/state")).json.state;
+    assert.ok(!JSON.stringify(state).includes(c.phone));
+    const b = await newClient();
+    assert.equal((await b.post("/appointments", { ...slot, srvIdx: 0 })).status, 200, "slot freed");
+    h.fake.run(["HDEL", "appts", pastId]);
+  });
+}
+
+test("deleting an account that never proved its phone leaves the real owner's appointment and logs alone", async () => {
+  const fake = await newUnverifiedClient();
+  const admin = await newAdmin();
+  const id = "ap_owner_" + fake.phone;
+  await admin.post("/admin/apply", { appointments: { upsert: [{ id, ...freshSlot(), name: "הבעלים האמיתי", phone: fake.phone, price: 70, service: "x" }], remove: [] } });
+  assert.ok((await admin.get("/admin/state")).json.state.smsLogs.some(l => l.phone === fake.phone && l.apptId === id));
+  assert.equal((await fake.post("/me/delete")).status, 200);
+  const state = (await admin.get("/admin/state")).json.state;
+  assert.equal(JSON.parse(h.fake.run(["HGET", "appts", id]).result).name, "הבעלים האמיתי");
+  assert.ok(state.smsLogs.some(l => l.phone === fake.phone && l.apptId === id));
+  await admin.post("/admin/apply", { appointments: { upsert: [], remove: [id] } });
+});
+
+// --- Third parties and dead code in what gets deployed ---
+test("deployed files load nothing from Google, the dead legal modal is gone, Heebo is self-hosted under the OFL", async () => {
+  const root = path.join(__dirname, "..");
+  const deployed = fs.readdirSync(root).filter(f => /\.(html|css|js|json)$/.test(f));
+  deployed.push(...fs.readdirSync(path.join(root, "api")).map(f => "api/" + f), "fonts/heebo.css");
+  for (const f of deployed) {
+    const text = fs.readFileSync(path.join(root, f), "utf8");
+    assert.doesNotMatch(text, /fonts\.googleapis|fonts\.gstatic/, f);
+    assert.doesNotMatch(text, /legalTermsModal|legalTitle|openLegalModal|s-legal/, f);
+  }
+  const csp = JSON.parse(fs.readFileSync(path.join(root, "vercel.json"), "utf8")).headers[0].headers.find(x => x.key === "Content-Security-Policy").value;
+  assert.match(csp, /font-src 'self';/);
+  assert.match(csp, /style-src 'self' 'unsafe-inline';/);
+  for (const page of ["index", "admin", "privacy", "terms", "accessibility", "optout"]) {
+    assert.match(fs.readFileSync(path.join(root, page + ".html"), "utf8"), /href="\/fonts\/heebo\.css"/, page);
+  }
+  const css = await rawGet("/fonts/heebo.css");
+  assert.equal(css.status, 200);
+  assert.equal((css.text.match(/font-display: swap/g) || []).length, 2);
+  for (const url of css.text.match(/\/fonts\/[\w-]+\.woff2/g)) {
+    const font = await rawGet(url);
+    assert.equal(font.status, 200, url);
+    assert.equal(font.headers["content-type"], "font/woff2");
+  }
+  assert.match(fs.readFileSync(path.join(root, "fonts", "OFL.txt"), "utf8"), /SIL Open Font License, Version 1\.1/);
 });
 
 test("no outbound request ever tried to leave the harness", () => {

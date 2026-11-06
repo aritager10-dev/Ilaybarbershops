@@ -7,7 +7,7 @@ const A = require("./_auth");
 const D = require("./_data");
 const { K } = D;
 const S = require("./_appts");
-const { sendTracked, sendApptSms, retryLog, hasForeignLink, smsStatus, templates, smsName } = require("./_sms");
+const { sendTracked, sendApptSms, retryLog, hasForeignLink, smsStatus, templates, smsName, MAX_LEN } = require("./_sms");
 const { runReminders, maybeRunReminders } = require("./_reminders");
 const { uploadPhoto, savePortfolio } = require("./_photos");
 const { DAYS_HEB, dateForDayIdx, heDate } = require("./_time");
@@ -154,13 +154,7 @@ async function applyAppointments(ctx, diff, out) {
 async function removeUser(ctx, uid) {
   const user = await D.getUser(ctx, uid);
   if (!user) return;
-  const ids = await cmd("SMEMBERS", K(ctx, `phoneappts:${user.phone}`));
-  const cmds = [
-    ["HDEL", K(ctx, "users"), uid], ["DEL", K(ctx, `ucred:${uid}`)], ["DEL", K(ctx, `umsgs:${uid}`)], ["DEL", K(ctx, `reset:${user.phone}`)],
-    ["HDEL", K(ctx, "idx:phone"), user.phone],
-    ...await D.scrubNotifCmds(ctx, user, ids || [])
-  ];
-  await pipeline(cmds);
+  await S.eraseCustomer(ctx, user, { byPhone: true });
   await A.revokeAllClientSessions(ctx, uid);
 }
 
@@ -187,6 +181,7 @@ async function applyUsers(ctx, diff, out) {
       updated.phone = phone;
       updated.phoneVerified = false;
       updated.marketingOptIn = false;
+      delete updated.marketingConsentAt;
     }
     await cmd("HSET", K(ctx, "users"), raw.id, JSON.stringify(updated));
   }
@@ -284,24 +279,35 @@ async function manualReminders(ctx) {
 
 // --- SMS ---
 async function broadcast(ctx) {
-  await enforceLimit(ctx.ns, "broadcast", "all", 10, 86400, "נשלחו יותר מדי הודעות תפוצה היום");
-  const raw = V.text(ctx.body.message, 500);
+  const raw = V.text(ctx.body.message, MAX_LEN);
   if (!raw) throw V.bad("נא להקליד הודעה");
   if (hasForeignLink(raw, ctx.host)) throw V.bad("קישורים מותרים רק לאתר של המספרה");
   const state = await D.adminState(ctx);
   // Marketing needs consent from the phone's real owner: opted in and proven by SMS code.
   const list = state.registeredUsers.filter(u => u.marketingOptIn === true && u.phoneVerified === true);
-  const optOut = templates.optOut(ctx, state.siteConfig.barberPhone);
+  const messages = list.map(u => templates.broadcast(ctx, raw.replace(/\{שם\}/g, smsName(u.username)), u.phone));
+  // Checked before anything leaves, so a long text never reaches only the customers with short names.
+  const over = Math.max(0, ...messages.map(m => m.length)) - MAX_LEN;
+  if (over > 0) throw V.bad(`ההודעה ארוכה מדי ב-${over} תווים, כולל שורת הפרסומת ושורת ההסרה. נא לקצר ולנסות שוב.`);
+  await enforceLimit(ctx.ns, "broadcast", "all", 10, 86400, "נשלחו יותר מדי הודעות תפוצה היום");
   const started = Date.now();
   let sent = 0;
   let attempted = 0;
-  for (const u of list) {
+  for (const [i, u] of list.entries()) {
     if (Date.now() - started > 25000) break;
     attempted++;
-    const message = raw.replace(/\{שם\}/g, smsName(u.username)) + "\n" + optOut;
-    if ((await sendTracked(ctx, { phone: u.phone, name: u.username, message, category: "broadcast" })).ok) sent++;
+    if ((await sendTracked(ctx, { phone: u.phone, name: u.username, message: messages[i], category: "broadcast", uid: u.id })).ok) sent++;
   }
   ok(ctx, { sent, attempted, total: list.length, state: await D.adminState(ctx) });
+}
+
+// For customers who reply "הסר": the reply reaches the owner's phone, and the account stays.
+async function optOutUser(ctx) {
+  const uid = ctx.params[0];
+  const user = V.isId(uid) ? await D.getUser(ctx, uid) : null;
+  if (!user) throw new HttpError(404, "הלקוח לא נמצא");
+  await D.optOutMarketing(ctx, user);
+  ok(ctx, { state: await D.adminState(ctx) });
 }
 
 async function testSms(ctx) {
@@ -334,5 +340,5 @@ async function postPortfolio(ctx) {
 
 module.exports = {
   adminLogin, adminLogout, adminSession, adminWhoami, adminVersion, getState, getSmsStatus, applyChanges, resetNamespace,
-  manualReminders, broadcast, testSms, retrySms, postPhoto, postPortfolio
+  manualReminders, broadcast, optOutUser, testSms, retrySms, postPhoto, postPortfolio
 };

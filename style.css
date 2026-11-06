@@ -381,7 +381,7 @@ html.s-lock { overflow: hidden; }
 }
 
 /* portfolio: equal tiles */
-.site .portfolio-grid.s-gallery { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; }
+.site .portfolio-grid.s-gallery { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; list-style: none; margin: 0; padding: 0; }
 .site .photo-card {
   display: block; width: 100%; aspect-ratio: 4 / 5; padding: 0; border: 0; border-radius: 18px; overflow: hidden;
   background: var(--fill); cursor: zoom-in;
@@ -467,7 +467,6 @@ html.s-lock { overflow: hidden; }
   border-radius: 22px 22px 0 0; box-shadow: var(--shadow-sheet);
   will-change: transform;
 }
-.s-sheet--wide { max-width: 640px; }
 .s-grabber { flex: none; height: 1.375rem; display: grid; place-items: center; cursor: grab; touch-action: none; }
 .s-grabber::before { content: ""; width: 2.25rem; height: 0.3125rem; border-radius: 999px; background: var(--fill); }
 .s-sheet.is-dragging .s-grabber, .s-sheet.is-dragging .modal-head { cursor: grabbing; }
@@ -503,10 +502,11 @@ html.s-lock { overflow: hidden; }
 }
 .site .day-chip.active, .site .hour-chip.active { background: var(--accent); color: var(--on-accent); }
 .site .hour-chip.taken { background: transparent; color: var(--label-3); text-decoration: line-through; cursor: not-allowed; opacity: 0.7; }
+/* The selection shows without relying on colour. */
+.site .hour-chip.active::before { content: "✓ "; content: "✓ " / ""; }
+.site .day-chip.active { text-decoration: underline; text-underline-offset: 0.2em; }
 .hours-empty { grid-column: 1 / -1; padding: 1rem; border-radius: 14px; background: var(--fill-2); text-align: center; color: var(--label-2); font-size: 0.9375rem; }
 
-.s-legal { font-size: 0.9375rem; color: var(--label-2); line-height: 1.65; display: grid; gap: 0.75rem; }
-.s-legal strong { color: var(--label); }
 
 /* ---------- photo viewer ---------- */
 .s-lightbox { position: fixed; inset: 0; z-index: 4000; visibility: hidden; pointer-events: none; touch-action: none; --chrome: 1; }

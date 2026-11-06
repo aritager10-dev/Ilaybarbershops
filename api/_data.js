@@ -50,7 +50,15 @@ async function getUser(ctx, uid) { return parseJson(await cmd("HGET", K(ctx, "us
 
 // Accounts never carry credentials, so a user object is always safe to send to the admin UI.
 function publicUser(u) {
-  return { id: u.id, username: u.username, phone: u.phone, phoneVerified: u.phoneVerified === true, marketingOptIn: u.marketingOptIn === true, consentAt: u.consentAt || null, createdAt: u.createdAt || "", lastActiveAt: u.lastActiveAt || null };
+  return { id: u.id, username: u.username, phone: u.phone, phoneVerified: u.phoneVerified === true, marketingOptIn: u.marketingOptIn === true, marketingConsentAt: u.marketingConsentAt || null, marketingOptOutAt: u.marketingOptOutAt || null, consentAt: u.consentAt || null, createdAt: u.createdAt || "", lastActiveAt: u.lastActiveAt || null };
+}
+
+// Works on any account, whoever asked: the customer through the link or the owner after a reply. Never deletes the account.
+async function optOutMarketing(ctx, user) {
+  if (user.marketingOptIn !== true && user.marketingOptOutAt) return user;
+  const updated = { ...user, marketingOptIn: false, marketingOptOutAt: Date.now() };
+  await pipeline([["HSET", K(ctx, "users"), user.id, JSON.stringify(updated)], ["INCR", K(ctx, "ver")]]);
+  return updated;
 }
 
 // The push payload never carries phone numbers or names: an ntfy topic is readable by anyone who knows it.
@@ -105,15 +113,16 @@ function flatToCounters(flat) {
 
 // Commands that remove a deleted person's traces from the admin history. Notifications are matched by
 // account, appointment, phone or name, since those written for barber actions name the customer too.
-async function scrubLogCmds(ctx, user) {
+// byPhone is false only for an account that never proved its phone: what else carries that number may be someone else's.
+async function scrubLogCmds(ctx, user, { byPhone = true } = {}) {
   const logs = hashValues(await cmd("HGETALL", K(ctx, "smslogs")));
-  return logs.filter(l => l.phone === user.phone || l.uid === user.id).map(l => ["HDEL", K(ctx, "smslogs"), l.id]);
+  return logs.filter(l => (byPhone && l.phone === user.phone) || l.uid === user.id).map(l => ["HDEL", K(ctx, "smslogs"), l.id]);
 }
-async function scrubNotifCmds(ctx, user, apptIds = []) {
+async function scrubNotifCmds(ctx, user, apptIds = [], { byPhone = true } = {}) {
   const ids = new Set(apptIds);
   const has = (n, needle) => needle && (String(n.title).includes(needle) || String(n.message).includes(needle));
   const notifs = hashValues(await cmd("HGETALL", K(ctx, "notifs")));
-  return notifs.filter(n => n.uid === user.id || ids.has(n.apptId) || has(n, user.phone) || has(n, user.username)).map(n => ["HDEL", K(ctx, "notifs"), n.id]);
+  return notifs.filter(n => n.uid === user.id || ids.has(n.apptId) || (byPhone && has(n, user.phone)) || has(n, user.username)).map(n => ["HDEL", K(ctx, "notifs"), n.id]);
 }
 
 // Full admin view. Credentials are stored under separate keys and so cannot appear here.
@@ -136,4 +145,4 @@ async function adminState(ctx) {
   };
 }
 
-module.exports = { K, newId, bump, getConfig, getAppt, allAppts, saveApptCmds, getUser, publicUser, addNotification, addLog, adminState, byNewest, scrubLogCmds, scrubNotifCmds };
+module.exports = { K, newId, bump, getConfig, getAppt, allAppts, saveApptCmds, getUser, publicUser, optOutMarketing, addNotification, addLog, adminState, byNewest, scrubLogCmds, scrubNotifCmds };

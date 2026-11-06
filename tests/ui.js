@@ -11,7 +11,9 @@ const { start } = require("./harness");
 const CHROME = process.env.CHROME_PATH || "C:/Program Files/Google/Chrome/Application/chrome.exe";
 const SHOTS = process.argv[2] || null;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-const ALLOWED_HOSTS = new Set(["fonts.googleapis.com", "fonts.gstatic.com", "images.unsplash.com", "cdnjs.cloudflare.com"]);
+const ALLOWED_HOSTS = new Set(["images.unsplash.com", "cdnjs.cloudflare.com"]);
+// Optional: path to a local axe.min.js (AXE_PATH=...). Nothing from axe is deployed or committed.
+const AXE_SOURCE = process.env.AXE_PATH ? fs.readFileSync(process.env.AXE_PATH, "utf8") : null;
 
 class Browser {
   async launch() {
@@ -119,7 +121,9 @@ class Page {
     fs.writeFileSync(path.join(dir, name + ".png"), Buffer.from(data, "base64"));
   }
   async toast(expected) {
-    await this.waitFor(`document.getElementById("toastPopup").textContent.includes(${JSON.stringify(expected)})`, "toast: " + expected);
+    await this.waitFor(`document.getElementById("toastPopup").textContent.includes(${JSON.stringify(expected)})`, "toast: " + expected).catch(async err => {
+      throw new Error(err.message + " (showing: " + await this.text("#toastPopup") + ")");
+    });
   }
 }
 
@@ -142,6 +146,19 @@ async function assertLight(page, name, results) {
   assert.ok(r.bodyBg.every(v => v >= 235), `${name} background is light: ${r.bodyBg}`);
   for (const [sel, ratio] of Object.entries(r.ratios)) assert.ok(ratio >= 4.5, `${name} ${sel} contrast ${ratio}`);
   results.push(`${name}: background rgb(${r.bodyBg.join(",")}), lowest contrast ${Math.min(...Object.values(r.ratios))}`);
+}
+
+async function assertAxeClean(page, name, context = "document") {
+  if (!AXE_SOURCE) return;
+  // Axe blends text with any opacity still fading in, so a sheet is checked once it has fully appeared.
+  if (context !== "document") {
+    await page.waitFor(`(() => { const root = document.querySelector(${context}); for (let n = root.querySelector(".s-sheet") || root; n; n = n.parentElement) { if (getComputedStyle(n).opacity !== "1") return false; } return !root.getAnimations({ subtree: true }).length; })()`, name + " settles");
+    await sleep(400);
+  }
+  await page.eval(AXE_SOURCE + ";void 0");
+  const res = await page.eval(`axe.run(${context}, { runOnly: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"] }).then(r => r.violations.map(v => ({ id: v.id, impact: v.impact, nodes: v.nodes.slice(0, 4).map(n => n.target.join(" ") + " :: " + (n.any[0] ? n.any[0].message : "")) })))`);
+  console.log(`  axe  ${name}: ${res.length} violations` + (res.length ? " " + JSON.stringify(res, null, 1) : ""));
+  assert.deepEqual(res, [], name + " axe");
 }
 
 async function noHorizontalScroll(page, name) {
@@ -178,7 +195,15 @@ async function runAtWidth(browser, width, shots, steps) {
       await client.goto(h.base + "/");
       await client.waitFor(`typeof lastPublicVersion !== "undefined" && lastPublicVersion !== null`);
       await client.waitFor(`!document.getElementById("welcomeSplash") || document.getElementById("welcomeSplash").classList.contains("hide")`, "splash closes");
-      assert.equal(await client.eval(`document.querySelectorAll("#portfolioGrid .photo-card").length`), 5);
+      await client.waitFor(`document.querySelectorAll("#portfolioGrid .photo-card").length === 5`, "default photos after the server says so");
+      assert.equal(await client.eval(`document.querySelectorAll("#portfolioGrid > li > button.photo-card").length`), 5, "real list markup");
+      assert.equal(await client.eval(`document.querySelectorAll('button[role="listitem"]').length`), 0);
+      assert.equal(await client.eval(`document.getElementById("portfolioGrid").tagName`), "UL");
+      assert.equal(await client.eval(`!!document.getElementById("legalTermsModal") || typeof openLegalModal !== "undefined"`), false, "dead modal is gone");
+      // The site prefers the system font and uses Heebo as a fallback, so the face is loaded on demand here.
+      assert.deepEqual(await client.eval(`document.fonts.load("16px Heebo", "אa").then(faces => faces.map(f => f.status))`), ["loaded", "loaded"], "self-hosted Heebo loads under the CSP");
+      assert.equal(await client.eval(`[...document.styleSheets].some(s => /googleapis/.test(s.href || ""))`), false);
+      await assertAxeClean(client, "index");
       assert.equal(await client.text("#sidePortfolioCount"), "5");
       assert.equal(await client.eval(`document.querySelectorAll('meta[name="theme-color"]').length`), 1);
       assert.equal(await client.eval(`document.querySelector('meta[name="theme-color"]').content`), "#ffffff");
@@ -191,7 +216,7 @@ async function runAtWidth(browser, width, shots, steps) {
       await client.eval(`localStorage.setItem("ilay_portfolio_list_v5", JSON.stringify(["https://images.unsplash.com/photo-1622287162716-f311baa1a2b8?w=600","a","b","c","d","e"])); localStorage.setItem("ilay_logged_client_v1", '{"username":"x","phone":"0500000000"}'); localStorage.setItem("ilay_registered_users_v1", "[]")`);
       await client.goto(h.base + "/");
       await client.waitFor(`lastPublicVersion !== null`);
-      assert.equal(await client.eval(`document.querySelectorAll("#portfolioGrid .photo-card").length`), 5);
+      await client.waitFor(`document.querySelectorAll("#portfolioGrid .photo-card").length === 5`);
       assert.equal(await client.eval(`document.querySelector("#portfolioGrid").innerHTML.includes("f311baa1a2b8")`), false);
       assert.deepEqual(await client.eval(`Object.keys(localStorage).filter(k => k !== "ilay_cookie_ok")`), []);
       assert.equal(await client.eval(`currentClientUser`), null);
@@ -200,6 +225,13 @@ async function runAtWidth(browser, width, shots, steps) {
     await step("register through the sheet, with a too-short password refused first", async () => {
       await client.click("#heroPersonalBtn");
       await client.waitFor(`document.getElementById("authModal").classList.contains("open")`);
+      assert.equal(await client.eval(`document.querySelectorAll('[role="tablist"], [role="tab"]').length`), 0);
+      assert.equal(await client.eval(`document.getElementById("tabBtnReg").getAttribute("aria-pressed")`), "true");
+      await client.eval(`switchAuthTab("log")`);
+      assert.deepEqual(await client.eval(`["tabBtnReg", "tabBtnLog"].map(id => document.getElementById(id).getAttribute("aria-pressed"))`), ["false", "true"]);
+      await client.eval(`switchAuthTab("reg")`);
+      assert.match(await client.text("#regBox .s-consent span"), /^אני מסכים\/ה לתנאי השימוש ולמדיניות הפרטיות/);
+      await assertAxeClean(client, "auth sheet", '"#authModal"');
       await client.fill("#regFullName", clientName);
       await client.fill("#regPhone", clientPhone);
       await client.fill("#regPass", "short");
@@ -242,6 +274,33 @@ async function runAtWidth(browser, width, shots, steps) {
       assert.equal(await client.eval(`document.querySelectorAll("#personalWelcomeTitle img, .appt-service img").length`), 0);
       assert.ok(h.outbox.sms.some(s => s.to === clientPhone && /נקבע/.test(s.message)));
       await client.shot(shots, `${width}-personal`);
+    });
+
+    await step("booking sheet exposes taken and selected slots to screen readers and keeps keyboard focus", async () => {
+      await client.eval(`openBookingModal(0)`);
+      await client.waitFor(`document.getElementById("bookingModal").classList.contains("open")`);
+      const day = await client.eval(nextActiveDay);
+      await client.eval(`document.querySelectorAll("#bookingDaysRow .day-chip")[${day}].click()`);
+      const dayState = await client.eval(`[...document.querySelectorAll("#bookingDaysRow .day-chip")].map(b => b.getAttribute("aria-pressed"))`);
+      assert.equal(dayState[day], "true");
+      assert.equal(dayState.filter(v => v === "true").length, 1);
+      assert.equal(await client.eval(`document.activeElement === document.querySelector("#bookingDaysRow .day-chip.active")`), true, "focus stays on the chosen day");
+      const taken = await client.eval(`(() => { const b = document.querySelector("#bookingHoursGrid .hour-chip.taken"); return b && { disabled: b.disabled, label: b.getAttribute("aria-label"), text: b.textContent, pressed: b.getAttribute("aria-pressed") }; })()`);
+      assert.ok(taken, "own booking shows as a taken slot");
+      assert.equal(taken.disabled, true);
+      assert.equal(taken.label, taken.text + ", לא זמין");
+      assert.equal(taken.pressed, null);
+      assert.equal(await client.eval(`[...document.querySelectorAll("#bookingHoursGrid .hour-chip.taken")].every(b => b.disabled)`), true);
+      assert.equal(await client.eval(`[...document.querySelectorAll("#bookingHoursGrid .hour-chip:not(.taken)")].every(b => !b.disabled && b.getAttribute("aria-pressed") === "false")`), true);
+      await client.eval(`document.querySelector("#bookingHoursGrid .hour-chip.taken").click()`);
+      assert.equal(await client.eval(`selectedBookHour`), null, "a taken slot cannot be chosen");
+      await client.eval(`document.querySelector("#bookingHoursGrid .hour-chip:not(.taken)").click()`);
+      assert.equal(await client.eval(`document.querySelector("#bookingHoursGrid .hour-chip.active").getAttribute("aria-pressed")`), "true");
+      assert.equal(await client.eval(`document.activeElement === document.querySelector("#bookingHoursGrid .hour-chip.active")`), true, "focus stays on the chosen hour");
+      assert.match(await client.eval(`getComputedStyle(document.querySelector("#bookingHoursGrid .hour-chip.active"), "::before").content`), /✓/, "selection has a non-colour cue");
+      await assertAxeClean(client, "booking sheet", '"#bookingModal"');
+      await client.shot(shots, `${width}-booking-a11y`);
+      await client.eval(`closeBookingModal(); selectedBookHour = null`);
     });
 
     await step("a visitor sees the slot as taken, with no personal data in the page state", async () => {
@@ -415,6 +474,53 @@ async function runAtWidth(browser, width, shots, steps) {
       await client.waitFor(`document.querySelectorAll("#portfolioGrid .photo-card").length === 5 && !portfolioIds.includes("def:0")`);
     });
 
+    await step("with only uploaded photos, a fresh visitor's browser never contacts Unsplash", async () => {
+      const uploaded = await adminPage.eval(`portfolioIds.filter(id => !id.startsWith("def:"))`);
+      assert.equal(uploaded.length, 1);
+      const r = await adminPage.eval(`savePortfolioEntries(${JSON.stringify(uploaded)}).then(r => r.ok)`);
+      assert.equal(r, true);
+      const fresh = await browser.newPage(width, height);
+      await fresh.goto(h.base + "/");
+      await fresh.waitFor(`lastPublicVersion !== null && document.querySelectorAll("#portfolioGrid .photo-card").length === 1`, "uploaded photo renders");
+      await fresh.waitFor(`(() => { const i = document.querySelector("#portfolioGrid img"); return i.complete && i.naturalWidth === 40; })()`);
+      await sleep(300);
+      assert.ok(!fresh.hosts.has("images.unsplash.com"), "no Unsplash request: " + [...fresh.hosts]);
+      assert.equal(await fresh.eval(`document.getElementById("portfolioStockNote").hidden`), true);
+      assert.equal(await fresh.eval(`document.querySelector("#portfolioGrid img").hasAttribute("onerror")`), false, "a broken upload does not fall back to Unsplash");
+      await adminPage.eval(`savePortfolioEntries(${JSON.stringify(["def:1", "def:2", "def:3", "def:4", ...[]])}.concat(${JSON.stringify(uploaded)})).then(r => r.ok)`);
+      await client.eval(`pollPublicSite()`);
+      await client.waitFor(`document.querySelectorAll("#portfolioGrid .photo-card").length === 5`);
+    });
+
+    await step("the opt-out page removes only on the button press, without login, and is noindex", async () => {
+      const { tokenFor } = require("../api/_optout");
+      const phone = "0527770000";
+      const uid = "usr_uioptout";
+      h.fake.run(["HSET", "users", uid, JSON.stringify({ id: uid, username: "לקוח דיוור", phone, phoneVerified: true, marketingOptIn: true })]);
+      const stored = () => JSON.parse(h.fake.run(["HGET", "users", uid]).result);
+      const page = await browser.newPage(width, height);
+      await page.goto(`${h.base}/optout.html?t=${tokenFor("", phone)}`);
+      assert.equal(await page.eval(`document.querySelector('meta[name="robots"]').content`), "noindex, nofollow");
+      await page.waitFor(`[...document.fonts].some(f => f.status === "loaded")`, "font on the page");
+      await noHorizontalScroll(page, "optout");
+      await assertLight(page, "optout.html", light);
+      await assertAxeClean(page, "optout");
+      await sleep(200);
+      assert.equal(stored().marketingOptIn, true, "opening the link changes nothing");
+      await page.shot(shots, `${width}-optout`);
+      await page.click("#optOutBtn");
+      await page.waitFor(`document.getElementById("result").textContent.includes("הבקשה התקבלה")`);
+      assert.equal(await page.eval(`document.getElementById("optOutBtn").hidden`), true);
+      assert.equal(stored().marketingOptIn, false);
+      assert.ok(stored().marketingOptOutAt > 0);
+      await page.shot(shots, `${width}-optout-done`);
+      h.fake.run(["HDEL", "users", uid]);
+      const invalid = await browser.newPage(width, height);
+      await invalid.goto(`${h.base}/optout.html?t=not-a-real-token`);
+      await invalid.click("#optOutBtn");
+      await invalid.waitFor(`document.getElementById("result").textContent.includes("הבקשה התקבלה")`, "the same generic answer");
+    });
+
     await step("marketing checkbox works, password reset works through the sheet", async () => {
       await client.eval(`switchCategory("personal")`);
       await client.click("#personalMarketing");
@@ -441,6 +547,21 @@ async function runAtWidth(browser, width, shots, steps) {
       await client.fill("#logPass", "new-client-pass-456");
       await client.click("#logBox .s-btn--primary");
       await client.waitFor(`currentClientUser && currentClientUser.marketingOptIn === true`);
+    });
+
+    await step("admin removes a customer from marketing without deleting the account", async () => {
+      await adminPage.eval(`refreshAdminState()`);
+      await adminPage.waitFor(`registeredUsers.some(u => u.phone === ${JSON.stringify(clientPhone)} && u.marketingOptIn === true)`);
+      await adminPage.eval(`renderAllAdmin()`);
+      const label = await adminPage.eval(`document.querySelector('#clubUsersContainer [onclick^="optOutClubUser"]').textContent`);
+      assert.equal(label, "הסרה מדיוור");
+      await adminPage.eval(`document.querySelector('#clubUsersContainer [onclick^="optOutClubUser"]').click()`);
+      await adminPage.toast("הוסר מהדיוור");
+      assert.equal(await adminPage.eval(`registeredUsers.find(u => u.phone === ${JSON.stringify(clientPhone)}).marketingOptIn`), false);
+      assert.equal(await adminPage.eval(`document.querySelector('#clubUsersContainer [onclick^="optOutClubUser"]')`), null);
+      await adminPage.eval(`switchTab("sms")`);
+      await adminPage.shot(shots, `${width}-admin-sms`);
+      await adminPage.eval(`switchTab("cal")`);
     });
 
     await step("a revoked client session returns to the login sheet with a message", async () => {
@@ -475,7 +596,8 @@ async function runAtWidth(browser, width, shots, steps) {
       await adminPage.fill("#regPass", "test-client-pass-1");
       await adminPage.click("#regConsent");
       await submitRegistration(adminPage, h, "0529990000");
-      await adminPage.waitFor(`currentClientUser`);
+      // The sign-in action must end first: the page ignores a second action while one is running.
+      await adminPage.waitFor(`currentClientUser && !actionInFlight`);
       await adminPage.eval(`openBookingModal(0)`);
       await adminPage.eval(`document.querySelectorAll("#bookingDaysRow .day-chip")[${await adminPage.eval(nextActiveDay)}].click()`);
       await adminPage.eval(`document.querySelectorAll("#bookingHoursGrid .hour-chip:not(.taken)")[0].click()`);

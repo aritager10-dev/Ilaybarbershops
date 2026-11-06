@@ -8,12 +8,14 @@ const { createFake } = require("./fake-upstash");
 
 const ROOT = path.join(__dirname, "..");
 const TOKEN = "fake-upstash-token";
-const MIME = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".json": "application/json", ".png": "image/png", ".jpg": "image/jpeg", ".svg": "image/svg+xml", ".ico": "image/x-icon" };
+const MIME = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".json": "application/json", ".png": "image/png", ".jpg": "image/jpeg", ".svg": "image/svg+xml", ".ico": "image/x-icon", ".woff2": "font/woff2" };
 const SERVED_EXT = new Set(Object.keys(MIME));
 
 // vercel.json "source" patterns used by this project.
 function sourceRegex(src) {
   if (src === "/admin.html") return /^\/admin\.html$/;
+  if (src === "/optout.html") return /^\/optout\.html$/;
+  if (src === "/fonts/(.*).woff2") return /^\/fonts\/.*\.woff2$/;
   if (src === "/(.*)") return /^\/.*$/;
   if (src === "/api/:path*") return /^\/api(\/.*)?$/;
   throw new Error("harness does not know vercel source " + src);
