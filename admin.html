@@ -3,9 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="color-scheme" content="light dark" />
-  <meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)" />
-  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#f2f2f7" />
+  <meta name="color-scheme" content="light" />
   <title>ניהול ויומן | Ilay Barbershop</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1374,11 +1373,6 @@
             else if (!sheet.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
           }
         });
-
-        // מעבר מצב בהיר/כהה: צביעה מחדש של הגרפים
-        const mqDark = window.matchMedia("(prefers-color-scheme: dark)");
-        const onScheme = () => { if ($("tab-analytics").style.display === "block") renderAnalyticsDashboard(); };
-        mqDark.addEventListener ? mqDark.addEventListener("change", onScheme) : mqDark.addListener(onScheme);
       });
     })();
   </script>

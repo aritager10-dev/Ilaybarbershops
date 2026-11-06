@@ -45,8 +45,7 @@ const DEFAULT_PORTFOLIO = [
   "https://images.unsplash.com/photo-1599351431202-1e0f0137899a?auto=format&fit=crop&w=600&q=80",
   "https://images.unsplash.com/photo-1621607512214-68297480165e?auto=format&fit=crop&w=600&q=80",
   "https://images.unsplash.com/photo-1585747860715-2ba37e788b70?auto=format&fit=crop&w=600&q=80",
-  "https://images.unsplash.com/photo-1622286342621-4bd786c2447c?auto=format&fit=crop&w=600&q=80",
-  "https://images.unsplash.com/photo-1622287162716-f311baa1a2b8?auto=format&fit=crop&w=600&q=80"
+  "https://images.unsplash.com/photo-1622286342621-4bd786c2447c?auto=format&fit=crop&w=600&q=80"
 ];
 
 function sanitizeStr(str, maxLen = 120) {
@@ -213,6 +212,9 @@ let registeredUsers = JSON.parse(localStorage.getItem(SK("ilay_registered_users_
 let smsLogs = JSON.parse(localStorage.getItem(SK("ilay_sms_logs_v1")) || "[]");
 let adminNotifications = JSON.parse(localStorage.getItem(SK("ilay_admin_notifs_v1")) || "[]");
 let portfolioList = [...DEFAULT_PORTFOLIO];
+// תמונות ברירת מחדל שהוסרו לא חוזרות ממטמון שנשמר במכשיר
+const REMOVED_DEFAULT_PHOTOS = ["photo-1622287162716-f311baa1a2b8", "photo-1517832607067-4db24a2ae47c"];
+function withoutRemovedPhotos(list) { return (list || []).filter(src => !REMOVED_DEFAULT_PHOTOS.some(id => String(src).includes(id))); }
 
 function saveAllStateLocally() {
   localStorage.setItem(SK("ilay_site_cfg"), JSON.stringify(siteConfig));
@@ -664,7 +666,7 @@ function applyIncomingState(rawData) {
 }
 
 async function initCloudSyncEngine() {
-  const dbPhotos = await loadPortfolioFromDB();
+  const dbPhotos = withoutRemovedPhotos(await loadPortfolioFromDB());
   if (dbPhotos && Array.isArray(dbPhotos) && dbPhotos.length > 0) {
     portfolioList = dbPhotos;
     if (typeof window.onCoreDataUpdated === "function") window.onCoreDataUpdated();
@@ -690,7 +692,7 @@ async function initCloudSyncEngine() {
     smsLogs = JSON.parse(localStorage.getItem(SK("ilay_sms_logs_v1")) || "[]");
     adminNotifications = JSON.parse(localStorage.getItem(SK("ilay_admin_notifs_v1")) || "[]");
     dataEpoch = Number(localStorage.getItem(SK("ilay_data_epoch")) || 0);
-    const savedP = await loadPortfolioFromDB();
+    const savedP = withoutRemovedPhotos(await loadPortfolioFromDB());
     if (savedP && savedP.length) portfolioList = savedP;
     if (typeof window.onCoreDataUpdated === "function") window.onCoreDataUpdated();
   });
