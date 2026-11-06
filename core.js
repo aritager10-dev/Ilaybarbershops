@@ -227,6 +227,19 @@ function saveAllStateLocally() {
 }
 
 // --- התראות בזמן אמת ---
+// צליל והתראה רק בדף הניהול, רק לאירוע חדש, ופעם אחת גם אם הוא מגיע מכמה שרתים
+const seenLiveNotifIds = new Set();
+function handleLiveNotification(notif) {
+  if (typeof window.onLiveNotificationReceived !== "function" || !notif) return false;
+  const id = String(notif.id || "");
+  const createdAt = Number(notif.createdAt) || 0;
+  if (!id || seenLiveNotifIds.has(id) || Date.now() - createdAt > 60000) return false;
+  seenLiveNotifIds.add(id);
+  playAlertTone();
+  window.onLiveNotificationReceived(notif);
+  return true;
+}
+
 function playAlertTone() {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -547,7 +560,7 @@ function broadcastCloudState(extraTopic = null, extraPayload = null) {
       if (c.connected) {
         c.publish(`${CLOUD_TOPIC_BASE}/state`, payload, { qos: 1, retain: true });
         if (extraTopic && extraPayload) {
-          c.publish(`${CLOUD_TOPIC_BASE}/${extraTopic}`, JSON.stringify({ updatedAt: now, ...extraPayload }), { qos: 1, retain: true });
+          c.publish(`${CLOUD_TOPIC_BASE}/${extraTopic}`, JSON.stringify({ updatedAt: now, ...extraPayload }), { qos: 1, retain: false }); // אירוע חד-פעמי: לא נשמר בשרת ולא חוזר בחיבור מחדש
         }
       }
     } catch (_) {}
@@ -710,8 +723,7 @@ async function initCloudSyncEngine() {
           if (topic === `${CLOUD_TOPIC_BASE}/state`) {
             applyIncomingState(data);
           } else if (topic === `${CLOUD_TOPIC_BASE}/live_notif` && data.notif) {
-            playAlertTone();
-            if (typeof window.onLiveNotificationReceived === "function") window.onLiveNotificationReceived(data.notif);
+            handleLiveNotification(data.notif);
           } else if (topic === `${CLOUD_TOPIC_BASE}/portfolio_meta`) {
             if (data.batchId && data.updatedAt > lastPortfolioTs) {
               batchMetaMap[data.batchId] = { count: Number(data.count) || 0, updatedAt: data.updatedAt };
