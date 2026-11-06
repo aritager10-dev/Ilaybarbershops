@@ -240,7 +240,7 @@
       <div class="sms-hub-grid">
         <div class="hub-card">
           <h3 class="hub-title"><svg class="ic" aria-hidden="true"><use href="#i-send"/></svg>הודעה לכל הלקוחות</h3>
-          <p class="hub-note">שלב <code>{שם}</code> להכנסת שם הלקוח אוטומטית. נשלח רק ללקוחות שאישרו דיוור בהרשמה, ובסוף ההודעה מתווסף "להסרה השב/י הסר". מי שמבקש הסרה: למחוק אותו ממועדון הלקוחות.</p>
+          <p class="hub-note">שלב <code>{שם}</code> להכנסת שם הלקוח אוטומטית. נשלח רק ללקוחות שאישרו דיוור ואימתו את הטלפון שלהם. בסוף ההודעה מתווספת שורת הסרה: קישור לאזור האישי ומספר הטלפון שלך. מי שמבקש הסרה בטלפון: למחוק אותו ממועדון הלקוחות.</p>
           <label class="adm-sr" for="broadcastInput">תוכן ההודעה</label>
           <textarea id="broadcastInput" class="input-field" rows="4" placeholder="אהלן {שם}, פתחנו תורים חדשים להשבוע במספרה של עיליי!"></textarea>
           <button type="button" class="adm-btn adm-btn--primary adm-btn--block" onclick="sendBroadcastToAll()">שלח לכלל הלקוחות (<span id="btnBroadcastCount">0</span>)</button>
@@ -253,7 +253,7 @@
           <h3 class="hub-title"><svg class="ic" aria-hidden="true"><use href="#i-person"/></svg>מועדון לקוחות (<span id="clubListCount">0</span>)</h3>
           <div class="club-add">
             <label class="adm-sr" for="manualClubName">שם מלא</label>
-            <input type="text" id="manualClubName" class="input-field" placeholder="שם מלא ייחודי" />
+            <input type="text" id="manualClubName" class="input-field" placeholder="שם מלא" />
             <label class="adm-sr" for="manualClubPhone">טלפון נייד</label>
             <input type="tel" id="manualClubPhone" class="input-field" placeholder="טלפון נייד" />
             <button type="button" class="adm-btn adm-btn--tinted" onclick="addManualClubUser()"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>הוסף</button>
@@ -1095,8 +1095,8 @@
       const name = plainStr(document.getElementById("manualClubName").value, 35);
       const phone = toIsraeliLocalPhone(document.getElementById("manualClubPhone").value);
       if (name.length < 2 || phone.length < 9) return showToast("נא להזין שם מלא וטלפון תקין");
-      if (registeredUsers.some(u => u.phone === phone || (u.username || "").toLowerCase() === name.toLowerCase())) {
-        return showToast("לקוח עם שם מלא או מספר טלפון זה כבר קיים!");
+      if (registeredUsers.some(u => u.phone === phone)) {
+        return showToast("לקוח עם מספר טלפון זה כבר קיים!");
       }
       registeredUsers.push({ id: "usr_" + Date.now(), username: name, phone, createdAt: new Date().toLocaleDateString("he-IL"), lastActiveAt: Date.now() });
       broadcastCloudState();
@@ -1106,7 +1106,7 @@
     }
 
     // חוק התקשורת סעיף 30א: הודעה שיווקית רק למי שאישר דיוור בהרשמה, עם אפשרות הסרה
-    function marketingRecipients() { return registeredUsers.filter(u => u && u.marketingOptIn === true); }
+    function marketingRecipients() { return registeredUsers.filter(u => u && u.marketingOptIn === true && u.phoneVerified === true); }
 
     async function sendBroadcastToAll() {
       const raw = document.getElementById("broadcastInput").value.trim();
@@ -1207,7 +1207,7 @@
       appointments.push({
         id, dayIdx, time, startsAtMs: getTargetTimestamp(dayIdx, time), dateStr: getFormattedDateForDayIdx(dayIdx),
         name, phone, srvIdx, price: srv.price, service: `${srv.name} • ${srv.price} ₪`,
-        note: plainStr(document.getElementById("manualNoteInput").value, 100),
+        adminNote: plainStr(document.getElementById("manualNoteInput").value, 100),
         status: "pending"
       });
       document.getElementById("manualAddModal").classList.remove("open");

@@ -5,7 +5,7 @@
 //   Public    GET  /api/public                    config and busy slots, no personal data, CDN cached
 //             GET  /api/photo/:id                 portfolio image
 //             GET  /api/test/check                200 only with an admin session and ?test=1
-//             POST /api/auth/register | login | logout | reset/request | reset/confirm
+//             POST /api/auth/register | register/verify | login | logout | reset/request | reset/confirm
 //   Client    GET  /api/me                        account, own appointments, own messages
 //             POST /api/appointments              create
 //             POST /api/appointments/:id/move | confirm | cancel
@@ -21,6 +21,7 @@ const { loadAdminSession } = require("./_auth");
 const C = require("./_routes_client");
 const M = require("./_routes_admin");
 
+const GET_LIMIT_PER_MIN = 120;
 const BODY_DEFAULT = 64 * 1024;
 const BODY_ADMIN = 1024 * 1024;
 const BODY_PHOTO = 1400 * 1024;
@@ -30,6 +31,7 @@ const routes = [
   ["GET", /^\/photo\/([^/]+)$/, C.getPhoto],
   ["GET", /^\/test\/check$/, C.testCheck],
   ["POST", /^\/auth\/register$/, C.register],
+  ["POST", /^\/auth\/register\/verify$/, C.registerVerify],
   ["POST", /^\/auth\/login$/, C.login],
   ["POST", /^\/auth\/logout$/, C.logout],
   ["POST", /^\/auth\/reset\/request$/, C.resetRequest],
@@ -59,6 +61,18 @@ const routes = [
   ["POST", /^\/admin\/portfolio$/, M.postPortfolio, { admin: true }]
 ];
 
+// A GET accepts only the query values it uses. Each extra value would be a separate CDN cache key, so a
+// random one could otherwise bypass the cache and reach Redis on every request. Runs before any Redis call.
+function assertKnownQuery(req, path) {
+  const params = new URL(req.url, "http://internal").searchParams;
+  for (const [key, value] of params) {
+    const known = (key === "test" && value === "1")
+      || (key === "soft" && value === "1" && path === "/me")
+      || (key === "path" && "/" + params.getAll("path").join("/").replace(/^\/+/, "") === path);
+    if (!known) throw new HttpError(400, "בקשה לא תקינה");
+  }
+}
+
 // Vercel may hand the function the original path or the rewrite target with the captured
 // path in the query, so both are understood.
 function resolvePath(req) {
@@ -82,6 +96,12 @@ async function handle(req, res) {
   if (!route) { res.setHeader("Allow", matches.map(r => r[0]).join(", ")); throw new HttpError(405, "Method not allowed"); }
   const opts = route[3] || {};
 
+  if (method === "GET") {
+    assertKnownQuery(req, path);
+    // Only requests that reach this function count: CDN hits never do.
+    await enforceLimit("", "g", ipKey(req), GET_LIMIT_PER_MIN, 60);
+  }
+
   // Every state-changing request must come from this site.
   if (method === "POST" && !originAllowed(req)) throw new HttpError(403, "מקור לא מורשה");
   if (method === "POST") await enforceLimit("", "w", ipKey(req), 300, 600);
@@ -89,13 +109,14 @@ async function handle(req, res) {
   const ctx = { req, res, host: requestHost(req), ns: "", test: false, params: route[1].exec(path).slice(1), body: {} };
   if (opts.admin || opts.needsAdminLookup || testFlag) ctx.admin = await loadAdminSession(req);
 
+  // Checked first, so an expired admin session in test mode also returns the UI to the login screen.
+  if (opts.admin && !ctx.admin) throw new HttpError(401, "נדרשת כניסה לניהול");
   // Test mode is enforced here, for every route, before the namespace is chosen.
   if (testFlag && !opts.public) {
     if (!ctx.admin) throw new HttpError(403, "מצב בדיקות זמין רק אחרי כניסה לניהול.", { code: "test_denied" });
     ctx.test = true;
     ctx.ns = "test:";
   }
-  if (opts.admin && !ctx.admin) throw new HttpError(401, "נדרשת כניסה לניהול");
 
   if (method === "POST") ctx.body = await readJsonBody(req, opts.body || BODY_DEFAULT);
   await route[2](ctx);

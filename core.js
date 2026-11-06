@@ -186,6 +186,7 @@ let appointments = [];
 let registeredUsers = [];
 let smsLogs = [];
 let adminNotifications = [];
+let smsStats = {};
 const DEFAULT_PORTFOLIO_IDS = DEFAULT_PORTFOLIO.map((_, i) => "def:" + i);
 let portfolioIds = [...DEFAULT_PORTFOLIO_IDS];
 let portfolioList = [...DEFAULT_PORTFOLIO];
@@ -303,6 +304,7 @@ function applyAdminState(state, { fromPoll = false } = {}) {
   registeredUsers = state.registeredUsers;
   smsLogs = state.smsLogs;
   adminNotifications = state.adminNotifications;
+  smsStats = state.smsStats || {};
   setPortfolioFromServer(state.portfolio);
   pollUpdateInProgress = fromPoll;
   notifyDataUpdated();
@@ -479,20 +481,14 @@ function computeComprehensiveAnalytics(selectedDayFilter = null) {
   });
 
   // הודעות SMS
-  let smsDelivered = 0, smsFailed = 0, totalPartsUsed = 0;
-  const byCategory = { booking: 0, move: 0, cancel: 0, reminder: 0, broadcast: 0 };
-
-  smsLogs.forEach(l => {
-    if (l.status === "received" || l.channel === "whatsapp") return;
-    if (l.status === "sent") {
-      smsDelivered++;
-      const p = Number(l.parts) || 1;
-      totalPartsUsed += p;
-      if (byCategory[l.category] !== undefined) byCategory[l.category] += p;
-    } else {
-      smsFailed++;
-    }
-  });
+  // Lifetime counters from the server; the log list in the browser is only the recent history.
+  const smsDelivered = smsStats.delivered || 0;
+  const smsFailed = Math.max(0, smsStats.failed || 0);
+  const totalPartsUsed = smsStats.partsTotal || 0;
+  const byCategory = {
+    booking: smsStats.parts_booking || 0, move: smsStats.parts_move || 0, cancel: smsStats.parts_cancel || 0,
+    reminder: smsStats.parts_reminder || 0, broadcast: smsStats.parts_broadcast || 0
+  };
 
   const quota = Number(siteConfig.smsPackageQuota) || 1000;
   const remaining = Math.max(0, quota - totalPartsUsed);

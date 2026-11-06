@@ -4,7 +4,7 @@
 const { pipeline } = require("./_redis");
 const { K, addLog, addNotification } = require("./_data");
 const { mobilePhone } = require("./_validate");
-const { ipKey, shortHash } = require("./_guard");
+const { ipKey, shortHash, RATE_SCRIPT } = require("./_guard");
 const { todayYmd, DAYS_HEB } = require("./_time");
 
 const PROVIDERS = {
@@ -18,6 +18,12 @@ const TEXTME_ERRORS = {
 const MAX_LEN = 600;
 const CAP_PHONE_DAY = 15;
 const CAP_IP_DAY = 40;
+const CAP_GLOBAL_DAY = 500;
+// Reset and verification codes draw on a budget of their own, so requesting codes for someone's
+// number cannot use up the daily allowance that their booking texts and reminders depend on.
+const CODE_CAP_PHONE_DAY = 6;
+const CODE_CAP_IP_DAY = 20;
+const CODE_CAP_GLOBAL_DAY = 150;
 const SEND_TIMEOUT_MS = 6000;
 
 function smsConfig() {
@@ -28,6 +34,8 @@ function smsConfig() {
   else if (provider === "twilio") configured = !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_FROM);
   return { provider, sender, configured };
 }
+
+const smsConfigured = () => smsConfig().configured;
 
 function smsStatus() {
   const { provider, sender, configured } = smsConfig();
@@ -78,16 +86,37 @@ async function rawSend(phone, message) {
 
 const calcParts = t => { const n = String(t || "").length; return !n ? 0 : n <= 70 ? 1 : Math.ceil(n / 67); };
 
-async function overDailyCaps(ctx, phone, withIpCap) {
+const rateCmd = (key, sec) => ["EVAL", RATE_SCRIPT, 1, key, sec];
+
+// Returns the refusal reason, or null when the message may go out. Crossing the site-wide cap tells
+// the admin once: the atomic counter passes the limit+1 value exactly one time.
+async function dailyCapRefusal(ctx, phone, { ipCap = false, codeBudget = false } = {}) {
   const day = todayYmd();
-  const pKey = K(ctx, `cap:p:${shortHash(phone)}:${day}`);
-  const cmds = [["SET", pKey, "0", "NX", "EX", 172800], ["INCR", pKey]];
-  if (withIpCap) {
-    const iKey = K(ctx, `cap:i:${ipKey(ctx.req)}:${day}`);
-    cmds.push(["SET", iKey, "0", "NX", "EX", 172800], ["INCR", iKey]);
+  const prefix = codeBudget ? "codecap" : "cap";
+  const limits = codeBudget ? { p: CODE_CAP_PHONE_DAY, i: CODE_CAP_IP_DAY, g: CODE_CAP_GLOBAL_DAY } : { p: CAP_PHONE_DAY, i: CAP_IP_DAY, g: CAP_GLOBAL_DAY };
+  const cmds = [rateCmd(K(ctx, `${prefix}:g:${day}`), 172800), rateCmd(K(ctx, `${prefix}:p:${shortHash(phone)}:${day}`), 172800)];
+  if (ipCap) cmds.push(rateCmd(K(ctx, `${prefix}:i:${ipKey(ctx.req)}:${day}`), 172800));
+  const [g, p, i] = (await pipeline(cmds)).map(Number);
+  if (g === limits.g + 1) {
+    await addNotification(ctx, {
+      type: "sms_cap", title: "הגעת למכסת ה-SMS היומית", message: codeBudget ? "שליחת קודי האימות נעצרה עד מחר." : "שליחת הודעות SMS נעצרה עד מחר. התורים ממשיכים להיקבע כרגיל.",
+      pushMessage: "הגעת למכסת ה-SMS היומית"
+    });
   }
-  const res = await pipeline(cmds);
-  return Number(res[1]) > CAP_PHONE_DAY || (withIpCap && Number(res[3]) > CAP_IP_DAY);
+  if (g > limits.g) return { reason: "הגעת למכסת ההודעות היומית של האתר", siteCap: true };
+  if (p > limits.p || (ipCap && i > limits.i)) return { reason: "הגעת למכסת ההודעות היומית" };
+  return null;
+}
+
+// Lifetime counters behind the "remaining in package" figure; the log history alone is trimmed.
+async function countResult(ctx, category, parts, result, { retried = false } = {}) {
+  const key = K(ctx, "smsstats");
+  const cmds = [];
+  if (result.ok) {
+    cmds.push(["HINCRBY", key, "partsTotal", parts], ["HINCRBY", key, "delivered", 1], ["HINCRBY", key, "parts_" + category, parts]);
+    if (retried) cmds.push(["HINCRBY", key, "failed", -1]);
+  } else if (!retried) cmds.push(["HINCRBY", key, "failed", 1]);
+  await pipeline(cmds);
 }
 
 // Sends one message, logs it and reports a failure to the admin. Never throws: a failed
@@ -98,9 +127,10 @@ async function sendTracked(ctx, opts) {
     const phone = mobilePhone(opts.phone);
     const message = String(opts.message || "");
     let result;
+    let refusal = null;
     if (!phone) result = { ok: false, reason: "מספר נייד לא תקין" };
     else if (!message || message.length > MAX_LEN) result = { ok: false, reason: "הודעה ריקה או ארוכה מדי" };
-    else if (await overDailyCaps(ctx, phone, opts.ipCap === true)) result = { ok: false, reason: "הגעת למכסת ההודעות היומית" };
+    else if ((refusal = smsConfigured() ? await dailyCapRefusal(ctx, phone, opts) : null)) result = { ok: false, reason: refusal.reason };
     else result = await rawSend(phone, message);
     if (!result.ok) console.error("[sms] failed", { category: opts.category, reason: result.reason });
 
@@ -108,7 +138,9 @@ async function sendTracked(ctx, opts) {
       phone: phone || String(opts.phone || ""), name: opts.name, message: opts.logMessage || message, category: opts.category,
       parts: calcParts(message), status: result.ok ? "sent" : "failed", reason: result.reason, apptId: opts.apptId, uid: opts.uid, noRetry: !!opts.logMessage
     });
-    if (!result.ok) {
+    await countResult(ctx, opts.category, calcParts(message), result);
+    // Without a provider there is nothing to alert about: the status box says so, and every booking would ring otherwise.
+    if (!result.ok && smsConfigured() && !(refusal && refusal.siteCap)) {
       await addNotification(ctx, {
         type: "sms_failed", title: "כישלון בשליחת SMS", message: `הודעה אל ${opts.name || ""} (${phone || opts.phone}) נכשלה: ${result.reason}`,
         apptId: opts.apptId, uid: opts.uid, pushMessage: "הודעת SMS נכשלה, פרטים בממשק הניהול"
@@ -119,6 +151,13 @@ async function sendTracked(ctx, opts) {
     console.error("[sms] tracking error");
     return { ok: false, reason: "שגיאה בשליחת ההודעה" };
   }
+}
+
+// Appointment texts. An appointment booked by an account whose phone was never proven gets none,
+// so nobody can use the site to send texts to a number that is not theirs.
+async function sendApptSms(ctx, appt, message, category, extra = {}) {
+  if (appt.noSms) return { ok: false, reason: "הטלפון לא אומת" };
+  return sendTracked(ctx, { phone: appt.phone, name: appt.name, message, category, apptId: appt.id, ...extra });
 }
 
 // Blocks phishing through admin free text: links may point only to this site.
@@ -137,8 +176,11 @@ async function retryLog(ctx, log) {
   let result;
   if (log.noRetry || !phone) result = { ok: false, reason: "אי אפשר לשלוח שוב את ההודעה הזו" };
   else if (hasForeignLink(log.message, ctx.host)) result = { ok: false, reason: "קישורים מותרים רק לאתר של המספרה" };
-  else if (await overDailyCaps(ctx, phone, false)) result = { ok: false, reason: "הגעת למכסת ההודעות היומית" };
-  else result = await rawSend(phone, log.message);
+  else {
+    const refusal = await dailyCapRefusal(ctx, phone);
+    result = refusal ? { ok: false, reason: refusal.reason } : await rawSend(phone, log.message);
+  }
+  await countResult(ctx, log.category, calcParts(log.message), result, { retried: true });
   log.status = result.ok ? "sent" : "failed";
   log.reason = result.reason;
   await pipeline([["HSET", K(ctx, "smslogs"), log.id, JSON.stringify(log)], ["INCR", K(ctx, "ver")]]);
@@ -156,8 +198,14 @@ const templates = {
   adminMoved(ctx, a) { const w = when(a); return `אהלן ${w.name}, עדכון מ-Ilay Barbershop: התור שלך הוזז ליום ${w.day} (${w.date}) בשעה ${w.time}. לאישור הגעה: ${siteUrl(ctx)}`; },
   adminCanceled(ctx, a) { const w = when(a); return `אהלן ${w.name}, הודעה מ-Ilay Barbershop: התור שלך ליום ${w.day} (${w.date}) בשעה ${w.time} בוטל. לקביעת מועד חדש היכנס לאתר.`; },
   reminder(ctx, a) { const w = when(a); return `אהלן ${w.name}, תזכורת מ-Ilay Barbershop: התור שלך ליום ${w.day} (${w.date}) מתקיים בשעה ${w.time}. האם אתה מאשר הגעה? לאישור הגעה מהיר היכנס לאזור האישי: ${siteUrl(ctx)}`; },
+  verifyCode(code) { return `קוד האימות שלך ב-Ilay Barbershop: ${code}. הקוד תקף ל-10 דקות.`; },
+  // Replies to the sender are not read, so removal goes through the personal area or a call.
+  optOut(ctx, barberPhone) {
+    const d = String(barberPhone || "");
+    return `להסרה: ${siteUrl(ctx)} או ${d.slice(0, 3)}-${d.slice(3)}`;
+  },
   resetCode(code) { return `קוד איפוס הסיסמה שלך ב-Ilay Barbershop: ${code}. הקוד תקף ל-10 דקות. אם לא ביקשת, אפשר להתעלם.`; },
   test() { return "בדיקת SMS מ-Ilay Barbershop. אם קיבלת את זה, ההודעות עובדות."; }
 };
 
-module.exports = { smsStatus, sendTracked, retryLog, hasForeignLink, templates, smsName };
+module.exports = { smsStatus, smsConfigured, sendTracked, sendApptSms, retryLog, hasForeignLink, templates, smsName };

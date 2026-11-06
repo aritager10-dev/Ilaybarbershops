@@ -1,7 +1,7 @@
 // Slot locks and appointment rules shared by the client and admin endpoints.
 // Slot semantics are the ones the booking UI always had: a slot is one start time on one date.
 // Service duration does not block neighbouring slots.
-const { cmd, parseJson } = require("./_redis");
+const { cmd, pipeline, parseJson } = require("./_redis");
 const { K } = require("./_data");
 const { HttpError } = require("./_http");
 const { DAYS_HEB, dateForDayIdx, epochFor, dateStrOf } = require("./_time");
@@ -9,6 +9,8 @@ const { DAYS_HEB, dateForDayIdx, epochFor, dateStrOf } = require("./_time");
 // A lock's value is "<apptId>|<ms>". Compare-and-delete must be atomic, so these two run as Lua.
 const RELEASE_SCRIPT = "local v=redis.call('GET',KEYS[1]) if v and string.sub(v,1,#ARGV[1]+1)==ARGV[1]..'|' then return redis.call('DEL',KEYS[1]) end return 0";
 const SWAP_SCRIPT = "if redis.call('GET',KEYS[1])==ARGV[1] then redis.call('SET',KEYS[1],ARGV[2],'EX',ARGV[3]) return 1 end return 0";
+// Appointment rows are written only if they still hold exactly what was read.
+const CAS_SCRIPT = "if redis.call('HGET',KEYS[1],ARGV[1])==ARGV[2] then redis.call('HSET',KEYS[1],ARGV[1],ARGV[3]) return 1 end return 0";
 const STALE_LOCK_MS = 60 * 1000;
 const slotKey = (ctx, date, time) => K(ctx, `slot:${date}:${time}`);
 
@@ -36,6 +38,29 @@ async function acquireSlot(ctx, date, time, apptId) {
 async function releaseSlot(ctx, date, time, apptId) {
   if (!date || !time) return;
   await cmd("EVAL", RELEASE_SCRIPT, 1, slotKey(ctx, date, time), apptId);
+}
+
+// Read-modify-write that cannot lose an update: a canceled appointment cannot be brought back by a
+// slower request that read it earlier. fn receives a copy to change and the stored row; it may throw to
+// abort or return false to leave the row alone, and it may run again if the row changed meanwhile.
+// Resolves to null when the row does not exist.
+async function mutateAppt(ctx, id, fn) {
+  for (let i = 0; i < 6; i++) {
+    const raw = await cmd("HGET", K(ctx, "appts"), id);
+    if (!raw) return null;
+    const prev = parseJson(raw);
+    if (!prev) return null;
+    const next = { ...prev };
+    if ((await fn(next, prev)) === false) return { appt: prev, prev, changed: false };
+    if (Number(await cmd("EVAL", CAS_SCRIPT, 1, K(ctx, "appts"), id, raw, JSON.stringify(next))) === 1) {
+      const after = [["INCR", K(ctx, "ver")]];
+      if (next.phone) after.push(["SADD", K(ctx, `phoneappts:${next.phone}`), id]);
+      if (prev.phone && prev.phone !== next.phone) after.push(["SREM", K(ctx, `phoneappts:${prev.phone}`), id]);
+      await pipeline(after);
+      return { appt: next, prev, changed: true };
+    }
+  }
+  throw new HttpError(409, "התור התעדכן ממש עכשיו, נסו שוב");
 }
 
 // Same grid the booking UI renders.
@@ -66,4 +91,4 @@ function placeAt(appt, dayIdx, date, time) {
 
 function describeSlot(a) { return `יום ${DAYS_HEB[a.dayIdx]} (${a.dateStr}) בשעה ${a.time}`; }
 
-module.exports = { acquireSlot, releaseSlot, assertClientSlot, placeAt, describeSlot, RELEASE_SCRIPT, SWAP_SCRIPT };
+module.exports = { acquireSlot, releaseSlot, mutateAppt, assertClientSlot, placeAt, describeSlot, RELEASE_SCRIPT, SWAP_SCRIPT, CAS_SCRIPT };

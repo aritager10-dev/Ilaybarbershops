@@ -7,7 +7,7 @@ const A = require("./_auth");
 const D = require("./_data");
 const { K } = D;
 const S = require("./_appts");
-const { sendTracked, retryLog, hasForeignLink, smsStatus, templates, smsName } = require("./_sms");
+const { sendTracked, sendApptSms, retryLog, hasForeignLink, smsStatus, templates, smsName } = require("./_sms");
 const { runReminders, maybeRunReminders } = require("./_reminders");
 const { uploadPhoto, savePortfolio } = require("./_photos");
 const { DAYS_HEB, dateForDayIdx, heDate } = require("./_time");
@@ -21,13 +21,11 @@ async function adminLogin(ctx) {
   const username = typeof ctx.body.username === "string" ? ctx.body.username.slice(0, 100) : "";
   const password = typeof ctx.body.password === "string" ? ctx.body.password.slice(0, 200) : "";
   const throttleId = "admin:" + username.trim().toLowerCase();
-  await A.assertNotLocked(ctx, "admin", throttleId);
+  // Reserved before the password check, so parallel guesses cannot pass the limit.
+  await A.reserveAttempt(ctx, "admin", throttleId);
   const found = A.matchAdmin(username, password);
-  if (!found) {
-    await A.recordFailure(ctx, "admin", throttleId);
-    throw new HttpError(401, "שם המשתמש או הסיסמה שגויים.", { code: "bad_credentials" });
-  }
-  await A.clearFailures(ctx, "admin", throttleId);
+  if (!found) throw new HttpError(401, "שם המשתמש או הסיסמה שגויים.", { code: "bad_credentials" });
+  await A.attemptSucceeded(ctx, "admin", throttleId);
   await A.startAdminSession(ctx, found.label, ctx.body.remember === true);
   ok(ctx, { label: found.label });
 }
@@ -55,9 +53,8 @@ const getSmsStatus = ctx => ok(ctx, smsStatus());
 async function ensureUserForPhone(ctx, name, phone) {
   const uid = D.newId("usr");
   if (Number(await cmd("HSETNX", K(ctx, "idx:phone"), phone, uid)) !== 1) return;
-  await cmd("HSETNX", K(ctx, "idx:name"), name.toLowerCase(), uid);
   const now = Date.now();
-  await cmd("HSET", K(ctx, "users"), uid, JSON.stringify({ id: uid, username: name, phone, marketingOptIn: false, consentAt: null, createdAt: heDate(now), lastActiveAt: now }));
+  await cmd("HSET", K(ctx, "users"), uid, JSON.stringify({ id: uid, username: name, phone, phoneVerified: false, marketingOptIn: false, consentAt: null, createdAt: heDate(now), lastActiveAt: now }));
 }
 
 async function createFromAdmin(ctx, raw, out) {
@@ -69,7 +66,7 @@ async function createFromAdmin(ctx, raw, out) {
   const date = dateForDayIdx(dayIdx);
   const appt = {
     id: raw.id, createdAt: Date.now(), name, phone, price: V.price(raw.price) ?? 0, service: V.text(raw.service, 80),
-    srvIdx: V.intIn(raw.srvIdx, 0, 30) ?? 0, note: V.text(raw.note, 120), status: "pending", movedCount: 0, reminderSent: false, source: "admin"
+    srvIdx: V.intIn(raw.srvIdx, 0, 30) ?? 0, adminNote: V.text(raw.adminNote ?? raw.note, 120), status: "pending", movedCount: 0, reminderSent: false, source: "admin"
   };
   S.placeAt(appt, dayIdx, date, raw.time);
   if (!(await S.acquireSlot(ctx, date, raw.time, appt.id))) { out.conflicts.push({ id: raw.id, reason: "השעה הזו כבר תפוסה ביומן!" }); return; }
@@ -78,54 +75,60 @@ async function createFromAdmin(ctx, raw, out) {
   out.sms[appt.id] = await sendTracked(ctx, { phone, name, message: templates.adminBooked(ctx, appt), category: "booking", apptId: appt.id });
 }
 
-async function updateFromAdmin(ctx, raw, stored, out) {
-  const appt = { ...stored };
-  const prevPhone = stored.phone;
-  const dayIdx = raw.dayIdx === undefined ? stored.dayIdx : V.intIn(raw.dayIdx, 0, 6);
-  const time = raw.time === undefined ? stored.time : raw.time;
-  if (dayIdx === null || !V.isTime(time)) { out.conflicts.push({ id: raw.id, reason: "יום או שעה לא תקינים" }); return; }
-  const status = ["pending", "confirmed", "canceled"].includes(raw.status) ? raw.status : stored.status;
-  const moved = dayIdx !== stored.dayIdx || time !== stored.time;
-  const wasCanceled = stored.status === "canceled";
-  const nowCanceled = status === "canceled";
+// The client's own note stays as written; the barber edits only adminNote, which clients never receive.
+async function updateFromAdmin(ctx, raw, out) {
+  let action = null;
+  let conflict = null;
+  const result = await S.mutateAppt(ctx, raw.id, async (next, stored) => {
+    action = null;
+    conflict = null;
+    const dayIdx = raw.dayIdx === undefined ? stored.dayIdx : V.intIn(raw.dayIdx, 0, 6);
+    const time = raw.time === undefined ? stored.time : raw.time;
+    if (dayIdx === null || !V.isTime(time)) { conflict = "יום או שעה לא תקינים"; return false; }
+    const status = ["pending", "confirmed", "canceled"].includes(raw.status) ? raw.status : stored.status;
+    const moved = dayIdx !== stored.dayIdx || time !== stored.time;
+    const wasCanceled = stored.status === "canceled";
+    const nowCanceled = status === "canceled";
 
-  if ("name" in raw) { const n = V.text(raw.name, 40); if (n.length >= 2) appt.name = n; }
-  if ("phone" in raw) { const p = V.anyPhone(raw.phone); if (p) appt.phone = p; }
-  if ("note" in raw) appt.note = V.text(raw.note, 120);
-  if ("service" in raw) appt.service = V.text(raw.service, 80);
-  if ("price" in raw) { const p = V.price(raw.price); if (p !== null) appt.price = p; }
+    if ("name" in raw) { const n = V.text(raw.name, 40); if (n.length >= 2) next.name = n; }
+    if ("phone" in raw) { const p = V.anyPhone(raw.phone); if (p) next.phone = p; }
+    if ("adminNote" in raw) next.adminNote = V.text(raw.adminNote, 120);
+    if ("service" in raw) next.service = V.text(raw.service, 80);
+    if ("price" in raw) { const p = V.price(raw.price); if (p !== null) next.price = p; }
 
-  if (moved && !nowCanceled) {
-    const date = dateForDayIdx(dayIdx);
-    if (!(await S.acquireSlot(ctx, date, time, appt.id))) { out.conflicts.push({ id: raw.id, reason: "המשבצת תפוסה" }); return; }
-    S.placeAt(appt, dayIdx, date, time);
-    Object.assign(appt, { status: "pending", movedCount: (Number(appt.movedCount) || 0) + 1, reminderSent: false });
-    delete appt.confirmedAt;
-    delete appt.canceledAt;
-    await pipeline(D.saveApptCmds(ctx, appt, prevPhone));
-    if (!wasCanceled) await S.releaseSlot(ctx, stored.date, stored.time, appt.id);
-    await D.addNotification(ctx, { type: "moved", title: "תור הוזז ביומן", message: `התור של ${appt.name} הועבר ל${S.describeSlot(appt)}.`, apptId: appt.id, dayIdx, pushMessage: `תור הוזז: ${S.describeSlot(appt)}` });
-    out.sms[appt.id] = await sendTracked(ctx, { phone: appt.phone, name: appt.name, message: templates.adminMoved(ctx, appt), category: "move", apptId: appt.id });
-    return;
-  }
-
-  if (nowCanceled && !wasCanceled) {
-    appt.status = "canceled";
-    appt.canceledAt = Date.now();
-    await pipeline(D.saveApptCmds(ctx, appt, prevPhone));
+    if (moved && !nowCanceled) {
+      const date = dateForDayIdx(dayIdx);
+      if (!(await S.acquireSlot(ctx, date, time, raw.id))) { conflict = "המשבצת תפוסה"; return false; }
+      S.placeAt(next, dayIdx, date, time);
+      Object.assign(next, { status: "pending", movedCount: (Number(stored.movedCount) || 0) + 1, reminderSent: false });
+      delete next.confirmedAt;
+      delete next.canceledAt;
+      action = "move";
+      return undefined;
+    }
+    if (nowCanceled && !wasCanceled) {
+      next.status = "canceled";
+      next.canceledAt = Date.now();
+      action = "cancel";
+      return undefined;
+    }
+    // A canceled appointment returning to the calendar must win its slot back first.
+    if (!nowCanceled && wasCanceled && !(await S.acquireSlot(ctx, stored.date, stored.time, raw.id))) { conflict = "המשבצת כבר נתפסה"; return false; }
+    next.status = status;
+    return undefined;
+  });
+  if (conflict) { out.conflicts.push({ id: raw.id, reason: conflict }); return; }
+  if (!result || !result.changed) return;
+  const { appt, prev } = result;
+  if (action === "move") {
+    if (prev.status !== "canceled") await S.releaseSlot(ctx, prev.date, prev.time, appt.id);
+    await D.addNotification(ctx, { type: "moved", title: "תור הוזז ביומן", message: `התור של ${appt.name} הועבר ל${S.describeSlot(appt)}.`, apptId: appt.id, dayIdx: appt.dayIdx, pushMessage: `תור הוזז: ${S.describeSlot(appt)}` });
+    out.sms[appt.id] = await sendApptSms(ctx, appt, templates.adminMoved(ctx, appt), "move");
+  } else if (action === "cancel") {
     await S.releaseSlot(ctx, appt.date, appt.time, appt.id);
     await D.addNotification(ctx, { type: "canceled", title: "תור בוטל ביומן", message: `התור של ${appt.name} ליום ${DAYS_HEB[appt.dayIdx]} בשעה ${appt.time} בוטל.`, apptId: appt.id, dayIdx: appt.dayIdx, pushMessage: `תור בוטל: יום ${DAYS_HEB[appt.dayIdx]} בשעה ${appt.time}` });
-    out.sms[appt.id] = await sendTracked(ctx, { phone: appt.phone, name: appt.name, message: templates.adminCanceled(ctx, appt), category: "cancel", apptId: appt.id });
-    return;
+    out.sms[appt.id] = await sendApptSms(ctx, appt, templates.adminCanceled(ctx, appt), "cancel");
   }
-
-  // A canceled appointment returning to the calendar must win its slot back first.
-  if (!nowCanceled && wasCanceled && !(await S.acquireSlot(ctx, appt.date, appt.time, appt.id))) {
-    out.conflicts.push({ id: raw.id, reason: "המשבצת כבר נתפסה" });
-    return;
-  }
-  appt.status = status;
-  await pipeline(D.saveApptCmds(ctx, appt, prevPhone));
 }
 
 async function applyAppointments(ctx, diff, out) {
@@ -134,7 +137,7 @@ async function applyAppointments(ctx, diff, out) {
   for (const raw of upsert) {
     if (!raw || !V.isId(raw.id)) { out.conflicts.push({ id: "", reason: "תור לא תקין" }); continue; }
     const stored = await D.getAppt(ctx, raw.id);
-    if (stored) await updateFromAdmin(ctx, raw, stored, out);
+    if (stored) await updateFromAdmin(ctx, raw, out);
     else await createFromAdmin(ctx, raw, out);
   }
   const remove = Array.isArray(diff.remove) ? diff.remove.filter(V.isId).slice(0, MAX_UPSERTS) : [];
@@ -151,12 +154,12 @@ async function applyAppointments(ctx, diff, out) {
 async function removeUser(ctx, uid) {
   const user = await D.getUser(ctx, uid);
   if (!user) return;
+  const ids = await cmd("SMEMBERS", K(ctx, `phoneappts:${user.phone}`));
   const cmds = [
     ["HDEL", K(ctx, "users"), uid], ["DEL", K(ctx, `ucred:${uid}`)], ["DEL", K(ctx, `umsgs:${uid}`)], ["DEL", K(ctx, `reset:${user.phone}`)],
-    ["HDEL", K(ctx, "idx:phone"), user.phone]
+    ["HDEL", K(ctx, "idx:phone"), user.phone],
+    ...await D.scrubNotifCmds(ctx, user, ids || [])
   ];
-  // The name index may belong to another account when this one was auto-created from a manual booking.
-  if ((await cmd("HGET", K(ctx, "idx:name"), user.username.toLowerCase())) === uid) cmds.push(["HDEL", K(ctx, "idx:name"), user.username.toLowerCase()]);
   await pipeline(cmds);
   await A.revokeAllClientSessions(ctx, uid);
 }
@@ -170,29 +173,21 @@ async function applyUsers(ctx, diff, out) {
     const phone = V.anyPhone(raw.phone);
     if (username.length < 2 || !phone) { out.conflicts.push({ id: raw.id, reason: "נא להזין שם מלא וטלפון תקין" }); continue; }
     const stored = await D.getUser(ctx, raw.id);
-    const nameKey = username.toLowerCase();
     if (!stored) {
       if (Number(await cmd("HSETNX", K(ctx, "idx:phone"), phone, raw.id)) !== 1) { out.conflicts.push({ id: raw.id, reason: "לקוח עם מספר טלפון זה כבר קיים!" }); continue; }
-      if (Number(await cmd("HSETNX", K(ctx, "idx:name"), nameKey, raw.id)) !== 1) {
-        await cmd("HDEL", K(ctx, "idx:phone"), phone);
-        out.conflicts.push({ id: raw.id, reason: "לקוח עם שם זה כבר קיים!" });
-        continue;
-      }
       const now = Date.now();
-      // Marketing consent can only come from the customer, so a manual entry starts with none.
-      await cmd("HSET", K(ctx, "users"), raw.id, JSON.stringify({ id: raw.id, username, phone, marketingOptIn: false, consentAt: null, createdAt: heDate(now), lastActiveAt: now }));
+      // Consent and phone proof can only come from the customer, so a manual entry starts with neither.
+      await cmd("HSET", K(ctx, "users"), raw.id, JSON.stringify({ id: raw.id, username, phone, phoneVerified: false, marketingOptIn: false, consentAt: null, createdAt: heDate(now), lastActiveAt: now }));
       continue;
     }
-    const updated = { ...stored };
+    const updated = { ...stored, username };
     if (phone !== stored.phone) {
       if (Number(await cmd("HSETNX", K(ctx, "idx:phone"), phone, raw.id)) !== 1) { out.conflicts.push({ id: raw.id, reason: "לקוח עם מספר טלפון זה כבר קיים!" }); continue; }
       await cmd("HDEL", K(ctx, "idx:phone"), stored.phone);
       updated.phone = phone;
+      updated.phoneVerified = false;
+      updated.marketingOptIn = false;
     }
-    if (nameKey !== stored.username.toLowerCase()) {
-      if (Number(await cmd("HSETNX", K(ctx, "idx:name"), nameKey, raw.id)) !== 1) { out.conflicts.push({ id: raw.id, reason: "לקוח עם שם זה כבר קיים!" }); }
-      else { await cmd("HDEL", K(ctx, "idx:name"), stored.username.toLowerCase()); updated.username = username; }
-    } else updated.username = username;
     await cmd("HSET", K(ctx, "users"), raw.id, JSON.stringify(updated));
   }
   const remove = Array.isArray(diff.remove) ? diff.remove.filter(V.isId).slice(0, MAX_UPSERTS) : [];
@@ -269,13 +264,13 @@ async function scanDelete(ctx, pattern) {
 async function resetNamespace(ctx) {
   const b = ctx.body;
   if (!ctx.test && b.confirm !== "איפוס") throw V.bad("נדרש אישור לאיפוס");
-  await cmd("DEL", K(ctx, "appts"), K(ctx, "smslogs"), K(ctx, "notifs"), K(ctx, "pub"));
+  await cmd("DEL", K(ctx, "appts"), K(ctx, "smslogs"), K(ctx, "notifs"), K(ctx, "pub"), K(ctx, "smsstats"));
   await scanDelete(ctx, K(ctx, "slot:*"));
   await scanDelete(ctx, K(ctx, "phoneappts:*"));
   await scanDelete(ctx, K(ctx, "remlock:*"));
   if (b.clearClients === true) {
-    await cmd("DEL", K(ctx, "users"), K(ctx, "idx:phone"), K(ctx, "idx:name"));
-    for (const p of ["ucred:*", "usess:*", "sess:*", "umsgs:*", "reset:*", "resetatt:*"]) await scanDelete(ctx, K(ctx, p));
+    await cmd("DEL", K(ctx, "users"), K(ctx, "idx:phone"));
+    for (const p of ["ucred:*", "usess:*", "sess:*", "umsgs:*", "reset:*", "resetatt:*", "regpending:*", "regatt:*"]) await scanDelete(ctx, K(ctx, p));
   }
   await D.bump(ctx);
   ok(ctx, { state: await D.adminState(ctx) });
@@ -294,14 +289,16 @@ async function broadcast(ctx) {
   if (!raw) throw V.bad("נא להקליד הודעה");
   if (hasForeignLink(raw, ctx.host)) throw V.bad("קישורים מותרים רק לאתר של המספרה");
   const state = await D.adminState(ctx);
-  const list = state.registeredUsers.filter(u => u.marketingOptIn === true);
+  // Marketing needs consent from the phone's real owner: opted in and proven by SMS code.
+  const list = state.registeredUsers.filter(u => u.marketingOptIn === true && u.phoneVerified === true);
+  const optOut = templates.optOut(ctx, state.siteConfig.barberPhone);
   const started = Date.now();
   let sent = 0;
   let attempted = 0;
   for (const u of list) {
     if (Date.now() - started > 25000) break;
     attempted++;
-    const message = raw.replace(/\{שם\}/g, smsName(u.username)) + "\nלהסרה השב/י \"הסר\"";
+    const message = raw.replace(/\{שם\}/g, smsName(u.username)) + "\n" + optOut;
     if ((await sendTracked(ctx, { phone: u.phone, name: u.username, message, category: "broadcast" })).ok) sent++;
   }
   ok(ctx, { sent, attempted, total: list.length, state: await D.adminState(ctx) });

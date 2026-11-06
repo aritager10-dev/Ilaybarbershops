@@ -151,6 +151,15 @@ async function noHorizontalScroll(page, name) {
 
 const nextActiveDay = `(() => { const d = israelDayIdx(); let n = (d + 1) % 7; if (!weeklySchedule[n].active) n = (n + 1) % 7; return n; })()`;
 
+// Submits the register sheet and completes the SMS code step that appears.
+async function submitRegistration(page, h, phone) {
+  await page.click("#regBox .s-btn--primary");
+  await page.waitFor(`document.getElementById("regVerifyBox").style.display === "block"`, "code step");
+  const sms = [...h.outbox.sms].reverse().find(s => s.to === phone && /קוד/.test(s.message));
+  await page.fill("#regCode", /\b(\d{6})\b/.exec(sms.message)[1]);
+  await page.click("#regVerifyBox .s-btn--primary");
+}
+
 async function runAtWidth(browser, width, shots, steps) {
   const step = async (name, fn) => { await fn(); steps.push(`${width}px: ${name}`); console.log(`  ok   ${width}px: ${name}`); };
   const h = await start();
@@ -201,6 +210,16 @@ async function runAtWidth(browser, width, shots, steps) {
       await client.shot(shots, `${width}-auth`);
       await client.fill("#regPass", "client-pass-123");
       await client.click("#regBox .s-btn--primary");
+      await client.waitFor(`document.getElementById("regVerifyBox").style.display === "block"`, "code step");
+      assert.equal(await client.eval(`currentClientUser`), null, "no account before the code");
+      await client.shot(shots, `${width}-register-code`);
+      await noHorizontalScroll(client, "code step");
+      const code = /\b(\d{6})\b/.exec([...h.outbox.sms].reverse().find(s => s.to === clientPhone && /קוד/.test(s.message)).message)[1];
+      await client.fill("#regCode", "000000" === code ? "000001" : "000000");
+      await client.click("#regVerifyBox .s-btn--primary");
+      await client.toast("הקוד שגוי");
+      await client.fill("#regCode", code);
+      await client.click("#regVerifyBox .s-btn--primary");
       await client.waitFor(`currentClientUser && document.getElementById("sec-personal").style.display === "block"`, "personal area opens");
       const cookieVisible = await client.eval(`document.cookie`);
       assert.equal(cookieVisible, "", "session cookie is HttpOnly");
@@ -316,7 +335,7 @@ async function runAtWidth(browser, width, shots, steps) {
       await other.fill("#regPhone", "0526667788");
       await other.fill("#regPass", "other-pass-123");
       await other.click("#regConsent");
-      await other.click("#regBox .s-btn--primary");
+      await submitRegistration(other, h, "0526667788");
       await other.waitFor(`document.getElementById("bookingModal").classList.contains("open")`, "booking opens after login");
       await other.eval(`busySlots = []; rebuildClientAppointments(); selectedBookDay = ${a.dayIdx}; selectedBookHour = ${JSON.stringify(a.time)}; 0`);
       await other.click("#confirmBookingBtn");
@@ -455,7 +474,7 @@ async function runAtWidth(browser, width, shots, steps) {
       await adminPage.fill("#regPhone", "0529990000");
       await adminPage.fill("#regPass", "test-client-pass-1");
       await adminPage.click("#regConsent");
-      await adminPage.click("#regBox .s-btn--primary");
+      await submitRegistration(adminPage, h, "0529990000");
       await adminPage.waitFor(`currentClientUser`);
       await adminPage.eval(`openBookingModal(0)`);
       await adminPage.eval(`document.querySelectorAll("#bookingDaysRow .day-chip")[${await adminPage.eval(nextActiveDay)}].click()`);

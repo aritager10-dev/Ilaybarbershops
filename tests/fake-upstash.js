@@ -4,6 +4,8 @@ const http = require("http");
 
 const RELEASE_MARK = "string.sub(v,1,#ARGV[1]+1)";
 const SWAP_MARK = "redis.call('GET',KEYS[1])==ARGV[1]";
+const RATE_MARK = "local c=redis.call('INCR',KEYS[1])";
+const CAS_MARK = "redis.call('HGET',KEYS[1],ARGV[1])==ARGV[2]";
 
 function createFake(token) {
   const store = new Map(); // key -> { type, value, expires }
@@ -47,6 +49,18 @@ function createFake(token) {
       e.value = String(n);
       return n;
     },
+    DECR: ([k]) => {
+      const e = ofType(k, "s", () => "0");
+      const n = Number(e.value) - 1;
+      e.value = String(n);
+      return n;
+    },
+    HINCRBY: ([k, f, by]) => {
+      const e = ofType(k, "h", () => new Map());
+      const n = Number(e.value.get(f) || 0) + Number(by);
+      e.value.set(f, String(n));
+      return n;
+    },
     EXPIRE: ([k, s]) => { const e = live(k); if (!e) return 0; e.expires = Date.now() + Number(s) * 1000; return 1; },
     PERSIST: ([k]) => { const e = live(k); if (!e || !e.expires) return 0; e.expires = null; return 1; },
     EXISTS: keys => keys.filter(k => live(k)).length,
@@ -74,9 +88,19 @@ function createFake(token) {
       const next = offset + 100 >= keys.length ? "0" : String(offset + 100);
       return [next, page];
     },
-    // Only the two scripts the app uses, emulated atomically by this single-threaded server.
+    // Only the scripts the app uses, emulated atomically by this single-threaded server.
     EVAL: ([script, numKeys, key, ...argv]) => {
       if (Number(numKeys) !== 1) throw new Error("unexpected EVAL numkeys");
+      if (script.includes(RATE_MARK)) {
+        const n = commands.INCR([key]);
+        if (n === 1) commands.EXPIRE([key, argv[0]]);
+        return n;
+      }
+      if (script.includes(CAS_MARK)) {
+        const h = ofType(key, "h");
+        if (h && h.value.get(argv[0]) === argv[1]) { h.value.set(argv[0], argv[2]); return 1; }
+        return 0;
+      }
       const e = live(key);
       if (script.includes(RELEASE_MARK)) {
         if (e && String(e.value).startsWith(argv[0] + "|")) { store.delete(key); return 1; }

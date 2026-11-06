@@ -7,7 +7,9 @@
 //   slot:<date>:<HH:MM>         double-booking lock, value "<apptId>|<ms>"
 //   users (hash id->JSON)       accounts WITHOUT credentials
 //   ucred:<uid>                 scrypt hash, read only by login and never serialized to a response
-//   idx:phone, idx:name (hash)  uniqueness indexes -> uid
+//   idx:phone (hash)            phone uniqueness -> uid
+//   regpending:<phone>          registration waiting for its SMS code (hashed password and code, 10 minutes)
+//   smsstats (hash)             lifetime SMS counters; the history hash is trimmed, these are not
 //   sess:<sha256>, usess:<uid>  client sessions
 //   umsgs:<uid> (list)          the client's own messages to the barber
 //   smslogs, notifs (hash)      admin history
@@ -48,7 +50,7 @@ async function getUser(ctx, uid) { return parseJson(await cmd("HGET", K(ctx, "us
 
 // Accounts never carry credentials, so a user object is always safe to send to the admin UI.
 function publicUser(u) {
-  return { id: u.id, username: u.username, phone: u.phone, marketingOptIn: u.marketingOptIn === true, consentAt: u.consentAt || null, createdAt: u.createdAt || "", lastActiveAt: u.lastActiveAt || null };
+  return { id: u.id, username: u.username, phone: u.phone, phoneVerified: u.phoneVerified === true, marketingOptIn: u.marketingOptIn === true, consentAt: u.consentAt || null, createdAt: u.createdAt || "", lastActiveAt: u.lastActiveAt || null };
 }
 
 // The push payload never carries phone numbers or names: an ntfy topic is readable by anyone who knows it.
@@ -95,10 +97,29 @@ async function addLog(ctx, entry) {
 const byNewest = (a, b) => (b.createdAt || 0) - (a.createdAt || 0);
 const withoutUid = o => { const { uid, ...rest } = o; return rest; };
 
+function flatToCounters(flat) {
+  const out = {};
+  if (Array.isArray(flat)) for (let i = 0; i + 1 < flat.length; i += 2) out[flat[i]] = Number(flat[i + 1]) || 0;
+  return out;
+}
+
+// Commands that remove a deleted person's traces from the admin history. Notifications are matched by
+// account, appointment, phone or name, since those written for barber actions name the customer too.
+async function scrubLogCmds(ctx, user) {
+  const logs = hashValues(await cmd("HGETALL", K(ctx, "smslogs")));
+  return logs.filter(l => l.phone === user.phone || l.uid === user.id).map(l => ["HDEL", K(ctx, "smslogs"), l.id]);
+}
+async function scrubNotifCmds(ctx, user, apptIds = []) {
+  const ids = new Set(apptIds);
+  const has = (n, needle) => needle && (String(n.title).includes(needle) || String(n.message).includes(needle));
+  const notifs = hashValues(await cmd("HGETALL", K(ctx, "notifs")));
+  return notifs.filter(n => n.uid === user.id || ids.has(n.apptId) || has(n, user.phone) || has(n, user.username)).map(n => ["HDEL", K(ctx, "notifs"), n.id]);
+}
+
 // Full admin view. Credentials are stored under separate keys and so cannot appear here.
 async function adminState(ctx) {
-  const [appts, users, logs, notifs, cfg] = await pipeline([
-    ["HGETALL", K(ctx, "appts")], ["HGETALL", K(ctx, "users")], ["HGETALL", K(ctx, "smslogs")], ["HGETALL", K(ctx, "notifs")],
+  const [appts, users, logs, notifs, stats, cfg] = await pipeline([
+    ["HGETALL", K(ctx, "appts")], ["HGETALL", K(ctx, "users")], ["HGETALL", K(ctx, "smslogs")], ["HGETALL", K(ctx, "notifs")], ["HGETALL", K(ctx, "smsstats")],
     ["MGET", K(ctx, "cfg:site"), K(ctx, "cfg:services"), K(ctx, "cfg:schedule"), K(ctx, "cfg:portfolio"), K(ctx, "ver")]
   ]);
   return {
@@ -110,8 +131,9 @@ async function adminState(ctx) {
     appointments: hashValues(appts),
     registeredUsers: hashValues(users).map(publicUser),
     smsLogs: hashValues(logs).sort(byNewest).slice(0, 300).map(withoutUid),
-    adminNotifications: hashValues(notifs).sort(byNewest).slice(0, 120).map(withoutUid)
+    adminNotifications: hashValues(notifs).sort(byNewest).slice(0, 120).map(withoutUid),
+    smsStats: flatToCounters(stats)
   };
 }
 
-module.exports = { K, newId, bump, getConfig, getAppt, allAppts, saveApptCmds, getUser, publicUser, addNotification, addLog, adminState, byNewest };
+module.exports = { K, newId, bump, getConfig, getAppt, allAppts, saveApptCmds, getUser, publicUser, addNotification, addLog, adminState, byNewest, scrubLogCmds, scrubNotifCmds };

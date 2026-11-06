@@ -316,7 +316,7 @@
           <input type="tel" id="regPhone" class="input-field" inputmode="numeric" autocomplete="tel" oninput="this.value=this.value.replace(/[^0-9]/g,'')" maxlength="12" placeholder="050-0000000" dir="ltr" />
           <label class="s-label" for="regPass">סיסמה</label>
           <input type="password" id="regPass" class="input-field" maxlength="128" autocomplete="new-password" placeholder="לפחות 8 תווים" />
-          <p class="s-hint">כל שם וכל מספר טלפון יכולים להירשם פעם אחת בלבד.</p>
+          <p class="s-hint">כל מספר טלפון יכול להירשם פעם אחת בלבד.</p>
 
           <label class="s-consent">
             <input type="checkbox" id="regConsent" />
@@ -329,9 +329,17 @@
           <button type="button" class="s-btn s-btn--primary s-btn--block s-btn--lg" onclick="registerClient()">הרשמה וכניסה</button>
         </div>
 
+        <div id="regVerifyBox" style="display:none;">
+          <p class="s-sheet__note">שלחנו קוד ב-SMS למספר שהזנת. הקוד תקף ל-10 דקות.</p>
+          <label class="s-label" for="regCode">קוד האימות</label>
+          <input type="text" id="regCode" class="input-field" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6 ספרות" dir="ltr" onkeydown="if(event.key==='Enter') confirmRegistrationCode()" />
+          <button type="button" class="s-btn s-btn--primary s-btn--block s-btn--lg" onclick="confirmRegistrationCode()">אישור והרשמה</button>
+          <p style="text-align:center;margin:0.875rem 0 0;"><button type="button" class="s-link" onclick="switchAuthTab('reg')">חזרה להרשמה</button></p>
+        </div>
+
         <div id="logBox" style="display:none;">
-          <label class="s-label" for="logIdent">טלפון נייד או שם מלא</label>
-          <input type="text" id="logIdent" class="input-field" autocomplete="username" placeholder="טלפון או שם מלא" />
+          <label class="s-label" for="logIdent">טלפון נייד</label>
+          <input type="tel" id="logIdent" class="input-field" inputmode="numeric" autocomplete="username" placeholder="050-0000000" dir="ltr" />
           <label class="s-label" for="logPass">סיסמה</label>
           <input type="password" id="logPass" class="input-field" autocomplete="current-password" placeholder="הסיסמה שלך" onkeydown="if(event.key==='Enter') loginClient()" />
           <button type="button" class="s-btn s-btn--primary s-btn--block s-btn--lg" onclick="loginClient()">התחברות</button>
@@ -415,7 +423,7 @@
       </div>
       <div class="s-sheet__body s-legal">
         <p><strong>1. כללי:</strong> השימוש באתר <strong>Ilay Barbershop (עילי בן הרוש, דרך הים 11 גני תקווה)</strong> כפוף לתנאים שלהלן.</p>
-        <p><strong>2. אזור אישי, מניעת כפילויות וניתוק אוטומטי:</strong> קביעת תור וכניסה לאזור האישי מותנות ברישום חד-פעמי עם שם מלא ומספר טלפון ייחודי. המערכת אוכפת איסור פתיחת חשבון כפול על אותו שם מלא או מספר טלפון. מטעמי אבטחת מידע, חשבון שלא בוצעה בו פעילות במשך <strong>60 ימים (חודשיים)</strong> מתנתק אוטומטית.</p>
+        <p><strong>2. אזור אישי, מניעת כפילויות וניתוק אוטומטי:</strong> קביעת תור וכניסה לאזור האישי מותנות ברישום חד-פעמי עם שם מלא ומספר טלפון ייחודי. המערכת אוכפת איסור פתיחת חשבון כפול על אותו מספר טלפון, ואפשר להחזיק עד 2 תורים קרובים בו-זמנית. מטעמי אבטחת מידע, חשבון שלא בוצעה בו פעילות במשך <strong>60 ימים (חודשיים)</strong> מתנתק אוטומטית.</p>
         <p><strong>3. תזכורות SMS ואישור הגעה (סעיף 30א לחוק התקשורת):</strong> הלקוח מאשר קבלת הודעות SMS בגין קביעת תור, שינוי/ביטול ותזכורת מספר שעות לפני התור הכוללת קישור לאישור הגעה באזור האישי.</p>
         <p><strong>4. פרטיות ועוגיות (תיקון 13):</strong> המידע נשמר לצורך ניהול יומן המספרה בלבד, ומועבר רק לספקי השירות שמפעילים את האתר, כמפורט ב<a class="s-link" href="/privacy.html" target="_blank" rel="noopener">מדיניות הפרטיות</a>.</p>
         <p><strong>5. נגישות:</strong> האתר כולל תפריט נגישות, ניווט במקלדת וטקסט חלופי לתמונות. פרטים מלאים ב<a class="s-link" href="/accessibility.html" target="_blank" rel="noopener">הצהרת הנגישות</a>.</p>
@@ -830,6 +838,7 @@
     let editingApptId = null; // עבור שינוי תור קיים ע"י הלקוח
     let pendingActionAfterLogin = null;
     let actionInFlight = false;
+    let pendingRegistrationPhone = "";
 
     // מסך טעינה: בכניסה ראשונה לפחות ~1.2 שניות, אחר כך קצר; מחכה לנתונים מהשרת; תמיד נסגר עד 3.5 שניות
     let markSiteDataReady = () => {};
@@ -895,9 +904,10 @@
     };
 
     function switchAuthTab(mode) {
-      document.getElementById("tabBtnReg").classList.toggle("active", mode === "reg");
+      document.getElementById("tabBtnReg").classList.toggle("active", mode === "reg" || mode === "regVerify");
       document.getElementById("tabBtnLog").classList.toggle("active", mode === "log" || mode === "reset");
       document.getElementById("regBox").style.display = mode === "reg" ? "block" : "none";
+      document.getElementById("regVerifyBox").style.display = mode === "regVerify" ? "block" : "none";
       document.getElementById("logBox").style.display = mode === "log" ? "block" : "none";
       document.getElementById("resetBox").style.display = mode === "reset" ? "block" : "none";
     }
@@ -934,6 +944,25 @@
           }
           return showToast(r.reason);
         }
+        // המספר צריך אימות: החשבון ייפתח רק אחרי הקוד
+        if (r.data.verify) {
+          pendingRegistrationPhone = phone;
+          document.getElementById("regPass").value = "";
+          document.getElementById("regCode").value = "";
+          switchAuthTab("regVerify");
+          return showToast("שלחנו אליך קוד אימות ב-SMS.");
+        }
+        await afterSignedIn(r.data.user, `ברוך הבא ${r.data.user.username}! נכנסת לאזור האישי.`);
+      });
+    }
+
+    function confirmRegistrationCode() {
+      return once(async () => {
+        const code = document.getElementById("regCode").value.trim();
+        if (!/^\d{6}$/.test(code)) return showToast("נא להזין את הקוד בן 6 הספרות");
+        const r = await apiPost("/auth/register/verify", { phone: pendingRegistrationPhone, code });
+        if (!r.ok) return showToast(r.reason);
+        switchAuthTab("reg");
         await afterSignedIn(r.data.user, `ברוך הבא ${r.data.user.username}! נכנסת לאזור האישי.`);
       });
     }
@@ -942,7 +971,7 @@
       return once(async () => {
         const ident = document.getElementById("logIdent").value.trim();
         const pass = document.getElementById("logPass").value;
-        if (!ident || !pass) return showToast("נא למלא טלפון או שם מלא וסיסמה");
+        if (!ident || !pass) return showToast("נא למלא טלפון וסיסמה");
         const r = await apiPost("/auth/login", { ident, password: pass });
         if (!r.ok) return showToast(r.reason);
         await afterSignedIn(r.data.user, `שלום ${r.data.user.username}, התחברת לאזור האישי!`);

@@ -3,7 +3,7 @@ const crypto = require("crypto");
 const { promisify } = require("util");
 const { cmd, pipeline, parseJson } = require("./_redis");
 const { parseCookies, setCookie, clearCookie, HttpError } = require("./_http");
-const { shortHash, ipKey } = require("./_guard");
+const { shortHash, ipKey, bumpCounter } = require("./_guard");
 
 const scrypt = promisify(crypto.scrypt);
 // OWASP-listed scrypt profile that fits serverless memory (32 MiB per hash).
@@ -12,8 +12,9 @@ const MAXMEM = 128 * 1024 * 1024;
 const CLIENT_TTL = 60 * 24 * 3600;
 const ADMIN_TTL = 12 * 3600;
 const FAIL_LOCK_SEC = 15 * 60;
-const FAIL_MAX_ID = 5;
-const FAIL_MAX_IP = 20; // Many customers can share one mobile-carrier IP.
+const FAIL_MAX_PAIR = 5;  // Per identifier from one IP.
+const FAIL_MAX_IP = 20;   // Per IP. Many customers can share one mobile-carrier IP.
+const FAIL_MAX_ID = 100;  // Per identifier from all IPs together.
 
 const sha256 = v => crypto.createHash("sha256").update(v).digest("hex");
 
@@ -122,35 +123,35 @@ async function endAdminSession(ctx) {
   clearCookie(ctx.req, ctx.res, ADMIN_COOKIE);
 }
 
-// --- Failed-login counters. ---
-const failKeys = (ctx, scope, identifier) => [
-  `${ctx.ns}fail:${scope}:id:${shortHash(identifier)}`,
-  `${ctx.ns}fail:${scope}:ip:${ipKey(ctx.req)}`
-];
+// --- Login attempts. ---
+// The strict lock is per identifier+IP, so a stranger failing from their own IP locks only themselves.
+// The per-identifier total is much higher and needs many IPs to reach. An attempt is counted before the
+// password is checked, so parallel guesses cannot pass the limit; a successful login gives it back.
+const attemptKeys = (ctx, scope, identifier) => {
+  const id = shortHash(identifier);
+  const ip = ipKey(ctx.req);
+  return { pair: `${ctx.ns}fail:${scope}:pair:${id}:${ip}`, global: `${ctx.ns}fail:${scope}:id:${id}`, ip: `${ctx.ns}fail:${scope}:ip:${ip}` };
+};
+const lockedError = () => new HttpError(429, "יותר מדי ניסיונות כושלים. נסו שוב בעוד כ-15 דקות.");
 
-async function assertNotLocked(ctx, scope, identifier) {
-  const [idKey, ipK] = failKeys(ctx, scope, identifier);
-  const [idCount, ipCount] = await cmd("MGET", idKey, ipK);
-  if (Number(idCount) >= FAIL_MAX_ID || Number(ipCount) >= FAIL_MAX_IP) {
-    throw new HttpError(429, "יותר מדי ניסיונות כושלים. נסו שוב בעוד כ-15 דקות.");
-  }
+async function reserveAttempt(ctx, scope, identifier) {
+  const keys = attemptKeys(ctx, scope, identifier);
+  // Checked in this order so attempts already refused here never feed the per-identifier total.
+  const pair = await bumpCounter(keys.pair, FAIL_LOCK_SEC);
+  if (pair === FAIL_MAX_PAIR) await cmd("EXPIRE", keys.pair, FAIL_LOCK_SEC);
+  if (pair > FAIL_MAX_PAIR) throw lockedError();
+  if ((await bumpCounter(keys.ip, FAIL_LOCK_SEC)) > FAIL_MAX_IP) throw lockedError();
+  if ((await bumpCounter(keys.global, FAIL_LOCK_SEC)) > FAIL_MAX_ID) throw lockedError();
 }
 
-async function recordFailure(ctx, scope, identifier) {
-  const [idKey, ipK] = failKeys(ctx, scope, identifier);
-  const res = await pipeline([
-    ["SET", idKey, "0", "NX", "EX", FAIL_LOCK_SEC], ["INCR", idKey],
-    ["SET", ipK, "0", "NX", "EX", FAIL_LOCK_SEC], ["INCR", ipK]
-  ]);
-  // Reaching the limit starts a full 15-minute lock from this attempt.
-  const extra = [];
-  if (Number(res[1]) >= FAIL_MAX_ID) extra.push(["EXPIRE", idKey, FAIL_LOCK_SEC]);
-  if (Number(res[3]) >= FAIL_MAX_IP) extra.push(["EXPIRE", ipK, FAIL_LOCK_SEC]);
-  await pipeline(extra);
+async function attemptSucceeded(ctx, scope, identifier) {
+  const keys = attemptKeys(ctx, scope, identifier);
+  await pipeline([["DEL", keys.pair], ["DECR", keys.ip], ["DECR", keys.global]]);
 }
 
 async function clearFailures(ctx, scope, identifier) {
-  await cmd("DEL", failKeys(ctx, scope, identifier)[0]);
+  const keys = attemptKeys(ctx, scope, identifier);
+  await pipeline([["DEL", keys.pair], ["DEL", keys.global]]);
 }
 
 // --- Admin credentials come only from environment variables. ---
@@ -175,5 +176,5 @@ function matchAdmin(username, pw) {
 
 module.exports = {
   sha256, hashPassword, verifyPassword, burnVerify, startClientSession, loadClientSession, endClientSession, revokeAllClientSessions,
-  startAdminSession, loadAdminSession, endAdminSession, assertNotLocked, recordFailure, clearFailures, adminAccounts, matchAdmin
+  startAdminSession, loadAdminSession, endAdminSession, reserveAttempt, attemptSucceeded, clearFailures, adminAccounts, matchAdmin
 };

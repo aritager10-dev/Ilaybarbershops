@@ -1,9 +1,10 @@
 // SMS reminders and housekeeping. Hobby plans have no sub-daily cron, so this runs opportunistically:
 // at most once every few minutes (remgate) from admin polling and uncached public requests,
 // plus the admin's manual button. Each appointment is claimed with a lock, so a reminder goes out once.
-const { cmd, pipeline, parseJson, hashValues } = require("./_redis");
+const { cmd, pipeline, hashValues } = require("./_redis");
 const { K, getConfig, allAppts, byNewest } = require("./_data");
-const { sendTracked, templates } = require("./_sms");
+const { sendApptSms, templates } = require("./_sms");
+const { mutateAppt } = require("./_appts");
 
 const GATE_SEC = 300;
 const RETENTION_MS = 180 * 24 * 3600 * 1000;
@@ -17,18 +18,19 @@ async function runReminders(ctx, { force = false, budgetMs = 6000 } = {}) {
   const now = Date.now();
   let sent = 0;
   for (const appt of appts) {
-    if (appt.status === "canceled" || appt.reminderSent) continue;
+    if (appt.status === "canceled" || appt.reminderSent || appt.noSms) continue;
     const diff = Number(appt.startsAtMs) - now;
     if (!(diff > 0 && (force || diff <= windowMs))) continue;
     if (Date.now() - started > budgetMs) break; // The next run picks up the rest.
     const claimed = await cmd("SET", K(ctx, `remlock:${appt.id}:${appt.startsAtMs}`), "1", "NX", "EX", 8 * 86400);
     if (claimed !== "OK") continue;
-    // Re-read so a cancel or move that happened since the scan is respected.
-    const fresh = parseJson(await cmd("HGET", K(ctx, "appts"), appt.id));
-    if (!fresh || fresh.status === "canceled" || fresh.reminderSent || fresh.startsAtMs !== appt.startsAtMs) continue;
-    fresh.reminderSent = true;
-    await pipeline([["HSET", K(ctx, "appts"), fresh.id, JSON.stringify(fresh)], ["INCR", K(ctx, "ver")]]);
-    await sendTracked(ctx, { phone: fresh.phone, name: fresh.name, message: templates.reminder(ctx, fresh), category: "reminder", apptId: fresh.id });
+    // The write only lands if the row is unchanged, so a cancel or move in the meantime is respected.
+    const result = await mutateAppt(ctx, appt.id, (next, prev) => {
+      if (prev.status === "canceled" || prev.reminderSent || prev.startsAtMs !== appt.startsAtMs) return false;
+      next.reminderSent = true;
+    });
+    if (!result || !result.changed) continue;
+    await sendApptSms(ctx, result.appt, templates.reminder(ctx, result.appt), "reminder");
     sent++;
   }
   return { sent, appts };
