@@ -1,0 +1,12 @@
+name: Appointment reminders
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+permissions: {}
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - run: curl -fsS --max-time 60 -o /dev/null https://ilaybarbershops.vercel.app/api/public
