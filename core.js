@@ -175,7 +175,7 @@ let siteConfig = JSON.parse(localStorage.getItem(SK("ilay_site_cfg")) || "null")
   reminderHoursBefore: 3,
   smsPackageQuota: 1000,
   ntfyTopic: "ilay_barbershop_alerts",
-  barberPhone: "0542223765",
+  barberPhone: "0542858711",
 };
 // ניקוי מפתחות ישנים שנשמרו בעבר בדפדפן / בסנכרון
 delete siteConfig.smsApiKey;
@@ -185,6 +185,7 @@ delete siteConfig.smsSenderId;
 delete siteConfig.greenApiToken;
 delete siteConfig.greenIdInstance;
 delete siteConfig.ntfyTopic;
+siteConfig.barberPhone = "0542858711"; // גובר על ערך ישן שנשמר בדפדפן
 if (!siteConfig.smsPackageQuota) siteConfig.smsPackageQuota = 1000;
 if (!siteConfig.reminderHoursBefore) siteConfig.reminderHoursBefore = 3;
 if (!siteConfig.slotInterval) siteConfig.slotInterval = 30;
@@ -633,7 +634,7 @@ function sanitizeIncomingState(raw) {
     // מפתחות ונתיבי התראה לעולם לא מתקבלים מהסנכרון
     ["smsApiKey", "smsApiUser", "smsProvider", "smsSenderId", "greenApiToken", "greenIdInstance", "ntfyTopic"].forEach(k => delete d.siteConfig[k]);
     ["slotInterval", "slotBuffer", "reminderHoursBefore", "smsPackageQuota"].forEach(k => { if (k in d.siteConfig) d.siteConfig[k] = Math.max(0, Number(d.siteConfig[k]) || 0); });
-    if ("barberPhone" in d.siteConfig) d.siteConfig.barberPhone = String(d.siteConfig.barberPhone ?? "").replace(/\D/g, "").slice(0, 13);
+    delete d.siteConfig.barberPhone; // מספר הספר נקבע בקוד ולא מתקבל מהסנכרון
   }
   d.updatedAt = Number(raw && raw.updatedAt) || 0;
   d.dataEpoch = Number(raw && raw.dataEpoch) || 0;
