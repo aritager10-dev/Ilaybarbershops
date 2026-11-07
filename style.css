@@ -499,11 +499,11 @@ body.site .hours-empty { grid-column: 1 / -1; padding: 1.125rem 1.25rem; border-
 body.site .hours-empty a { display: inline-block; min-height: 1.5rem; color: var(--navy-2); font-weight: 700; white-space: nowrap; }
 body.site .hours-empty[hidden] { display: none; }
 
-/* portfolio: a varied mosaic, built to crop heads well */
+/* portfolio: even portrait tiles, so faces stay in the frame */
 body.site .portfolio-grid.s-gallery { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-flow: dense; gap: 0.5rem; list-style: none; margin: 0; padding: 0; }
 body.site .s-gallery > li { min-width: 0; display: grid; }
 body.site .photo-card {
-  position: relative; display: block; width: 100%; min-height: 100%; aspect-ratio: 1 / 1; padding: 0; border: 0; border-radius: 1.25rem; overflow: hidden;
+  position: relative; display: block; width: 100%; aspect-ratio: 3 / 4; padding: 0; border: 0; border-radius: 1.25rem; overflow: hidden;
   background: var(--paper-2); cursor: zoom-in;
 }
 body.site .photo-card::after {
@@ -513,20 +513,8 @@ body.site .photo-card::after {
   opacity: 0.7; transition: opacity 0.3s ease;
 }
 body.site .photo-inner { position: absolute; inset: 0; width: auto; height: auto; border-radius: 0; background: transparent; overflow: hidden; }
-body.site .photo-inner img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 28%; display: block; transition: transform 0.7s var(--ease-out); }
+body.site .photo-inner img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 50%; display: block; transition: transform 0.7s var(--ease-out); }
 body.site .photo-card:active { transform: scale(0.97); transition-duration: 0.06s; }
-/* period of 12: wide · tall + two · two · two + tall · wide · two; a short list still closes cleanly */
-body.site .s-gallery > li:nth-child(12n+5) .photo-card, body.site .s-gallery > li:nth-child(12n+6) .photo-card, body.site .s-gallery > li:nth-child(12n+11) .photo-card, body.site .s-gallery > li:nth-child(12n) .photo-card { aspect-ratio: 4 / 5; }
-body.site .s-gallery > li:nth-child(12n+1), body.site .s-gallery > li:nth-child(12n+10) { grid-column: span 2; }
-body.site .s-gallery > li:nth-child(12n+1) .photo-card, body.site .s-gallery > li:nth-child(12n+10) .photo-card { aspect-ratio: 5 / 4; }
-body.site .s-gallery > li:nth-child(12n+2), body.site .s-gallery > li:nth-child(12n+7) { grid-row: span 2; }
-body.site .s-gallery > li:nth-child(12n+2) .photo-card, body.site .s-gallery > li:nth-child(12n+7) .photo-card { aspect-ratio: auto; height: 100%; }
-body.site .s-gallery > li:nth-child(12n+7) { grid-column: 2; }
-body.site .s-gallery > li:is(:nth-child(12n+2), :nth-child(12n+5), :nth-child(12n+7), :nth-child(12n+11)):last-child { grid-column: span 2; grid-row: auto; }
-body.site .s-gallery > li:is(:nth-child(12n+2), :nth-child(12n+5), :nth-child(12n+7), :nth-child(12n+11)):last-child .photo-card { aspect-ratio: 5 / 4; height: auto; }
-body.site .s-gallery > li:is(:nth-child(12n+2), :nth-child(12n+7)):nth-last-child(2) { grid-column: auto; grid-row: auto; }
-body.site .s-gallery > li:is(:nth-child(12n+2), :nth-child(12n+7)):nth-last-child(2) .photo-card,
-body.site .s-gallery > li:is(:nth-child(12n+3), :nth-child(12n+8)):last-child .photo-card { aspect-ratio: 4 / 5; height: auto; }
 
 /* ---------- footer ---------- */
 body.site .s-footer { position: relative; padding: 3.5rem 0 calc(var(--dock-space) + 1.75rem); font-size: 0.9375rem; color: rgba(255, 255, 255, 0.82); background: var(--navy); }
@@ -802,11 +790,6 @@ body.site.acc-no-anim .s-em > span, body.site.acc-no-anim .s-barber__helix { ani
   body.site .s-fact + .s-fact { padding-inline-start: 1.5rem; border-inline-start: 1px solid var(--line); }
   body.site .s-facts { border-bottom: 1px solid var(--line); }
   body.site .portfolio-grid.s-gallery { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.625rem; }
-  body.site .s-gallery > li:nth-child(n) { grid-column: auto; grid-row: auto; }
-  body.site .s-gallery > li:nth-child(n) .photo-card { aspect-ratio: 4 / 5; height: auto; }
-  body.site .s-gallery > li:nth-child(6n+1) { grid-column: span 2; grid-row: span 2; }
-  body.site .s-gallery > li:nth-child(12n+7) { grid-column: 2 / span 2; grid-row: span 2; }
-  body.site .s-gallery > li:is(:nth-child(6n+1), :nth-child(12n+7)) .photo-card { aspect-ratio: auto; height: 100%; }
   body.site .btn-confirm-arrival { flex: 1 1 auto; }
   body.site .appt-ok { flex: 1 1 auto; align-self: center; }
   body.site .btn-glass { flex: 0 0 auto; }
@@ -873,13 +856,6 @@ body.site.acc-no-anim .s-em > span, body.site.acc-no-anim .s-barber__helix { ani
   body.site .service-card:hover .srv-book svg { transform: translateX(-3px); }
 
   body.site .portfolio-grid.s-gallery { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.75rem; }
-  body.site .s-gallery > li:nth-child(n) { grid-column: auto; grid-row: auto; }
-  body.site .s-gallery > li:nth-child(n) .photo-card { aspect-ratio: 4 / 5; height: auto; }
-  body.site .s-gallery > li:nth-child(12n+1) { grid-column: 1 / span 2; grid-row: span 2; }
-  body.site .s-gallery > li:nth-child(12n+10) { grid-column: 3 / span 2; grid-row: span 2; }
-  body.site .s-gallery > li:is(:nth-child(12n+1), :nth-child(12n+10)) .photo-card { aspect-ratio: auto; height: 100%; }
-  body.site .s-gallery > li:is(:nth-child(12n+11), :nth-child(12n)) { grid-column: span 2; }
-  body.site .s-gallery > li:is(:nth-child(12n+11), :nth-child(12n)) .photo-card { aspect-ratio: 8 / 5; }
   body.site .personal-area-grid { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 3rem; }
 
   body.site .s-footer { padding: 5rem 0 3rem; }

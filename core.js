@@ -154,15 +154,31 @@ function compressImageFile(file) {
     const objUrl = URL.createObjectURL(file);
     const img = new Image();
     img.onload = () => {
+      // איכות גבוהה לגלריה: עד 2000 פיקסלים, בלי לעבור את מגבלת השרת (700KB)
+      const MAX_DATA_URL = Math.floor((680 * 1024 * 4) / 3);
+      const origW = img.naturalWidth || img.width || 480, origH = img.naturalHeight || img.height || 640;
       const canvas = document.createElement("canvas");
-      const maxDim = 540;
-      let w = img.width || 480, h = img.height || 640;
-      if (w > h && w > maxDim) { h = Math.round((h * maxDim) / w); w = maxDim; }
-      else if (h > maxDim) { w = Math.round((w * maxDim) / h); h = maxDim; }
-      canvas.width = w; canvas.height = h;
-      canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+      const ctx = canvas.getContext("2d");
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      let result = "";
+      for (const maxDim of [2000, 1600, 1280, 1024]) {
+        const scale = Math.min(1, maxDim / Math.max(origW, origH));
+        canvas.width = Math.round(origW * scale);
+        canvas.height = Math.round(origH * scale);
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        for (const q of [0.9, 0.84, 0.78]) {
+          result = canvas.toDataURL("image/jpeg", q);
+          if (result.length <= MAX_DATA_URL) break;
+        }
+        if (result.length <= MAX_DATA_URL) break;
+      }
       URL.revokeObjectURL(objUrl);
-      resolve(canvas.toDataURL("image/jpeg", 0.68));
+      resolve(result);
     };
     img.onerror = () => {
       URL.revokeObjectURL(objUrl);
