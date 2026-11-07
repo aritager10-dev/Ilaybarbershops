@@ -233,7 +233,9 @@ const SMS_TEMPLATES = {
   test: { title: "הודעת בדיקה", hint: "נשלחת לטלפון שלך מהכפתור \"שליחת SMS בדיקה\".", fields: ["קישור"], text: "בדיקת SMS מ-Ilay Barbershop. אם קיבלת את זה, ההודעות עובדות." }
 };
 
-const isTemplateKey = key => typeof key === "string" && Object.prototype.hasOwnProperty.call(SMS_TEMPLATES, key);
+// System messages keep their fixed wording: they are not offered for editing, and an older saved edit is ignored.
+const LOCKED_TEMPLATES = new Set(["verifyCode", "resetCode", "alreadyRegistered", "test"]);
+const isTemplateKey = key => typeof key === "string" && Object.prototype.hasOwnProperty.call(SMS_TEMPLATES, key) && !LOCKED_TEMPLATES.has(key);
 const defaultTemplateText = key => SMS_TEMPLATES[key].text;
 
 // One pass over the template only, so a value is never read again: a customer named "{קוד}" stays "{קוד}".
@@ -283,6 +285,7 @@ function templateProblem(key, text, host) {
 
 // Never throws and never returns a broken text: a stored wording that cannot be used, or a read that fails, sends the default.
 async function currentTemplateText(ctx, key) {
+  if (LOCKED_TEMPLATES.has(key)) return SMS_TEMPLATES[key].text;
   try {
     const stored = await cmd("HGET", K(ctx, TEMPLATES_KEY), key);
     if (typeof stored === "string" && !templateProblem(key, stored, ctx.host)) return stored;
@@ -325,7 +328,7 @@ async function templateCatalog(ctx) {
   return {
     maxLength: TEMPLATE_MAX_LEN,
     sample: { "שם": "דני כהן", "יום": "שלישי", "תאריך": "12/05", "שעה": "10:30", "שירות": "תספורת גבר", "קישור": siteUrl(ctx), "קוד": "123456" },
-    templates: Object.keys(SMS_TEMPLATES).map(key => {
+    templates: Object.keys(SMS_TEMPLATES).filter(isTemplateKey).map(key => {
       const t = SMS_TEMPLATES[key];
       const edited = Object.prototype.hasOwnProperty.call(stored, key);
       return { key, title: t.title, hint: t.hint, defaultText: t.text, text: edited ? stored[key] : t.text, edited, required: t.required || [], fields: t.fields.map(token => ({ token, label: FIELD_LABELS[token] })) };

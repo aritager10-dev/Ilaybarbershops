@@ -945,7 +945,7 @@ async function runAtWidth(browser, width, shots, steps) {
       const key = (k, code, mods = 0) => adminPage.send("Input.dispatchKeyEvent", { type: "keyDown", key: k, code: code || k, windowsVirtualKeyCode: k === "Escape" ? 27 : 9, modifiers: mods });
       const row = `[data-fk="smstpl-reminder"]`;
       await adminPage.eval(`switchTab("sms")`);
-      await adminPage.waitFor(`document.querySelectorAll(".sms-tpl-row").length === 10`, "the ten messages are listed");
+      await adminPage.waitFor(`document.querySelectorAll(".sms-tpl-row").length === 6`, "the six editable messages are listed");
       assert.equal(await adminPage.text("#ttl-smstpl"), "עריכת הודעות SMS");
       assert.match(await adminPage.text(row), /תזכורת לפני תור/);
       assert.match(await adminPage.text(row), /תזכורת מ-Ilay Barbershop/);
@@ -1052,17 +1052,10 @@ async function runAtWidth(browser, width, shots, steps) {
       await adminPage.waitFor(`!document.querySelector(${J(row)}).textContent.includes("נערך")`);
       assert.match(await adminPage.text(row), /תזכורת מ-Ilay Barbershop/);
 
-      // Security texts show only the code field and keep it required.
-      await adminPage.click(`[data-fk="smstpl-resetCode"]`);
-      await adminPage.waitFor(`document.getElementById("smsTplSheet").classList.contains("open")`);
-      assert.deepEqual(await adminPage.eval(`[...document.querySelectorAll("#smsTplChips button")].map(b => b.textContent)`), ["קוד"]);
-      await adminPage.fill("#smsTplText", "אין כאן מקום לקוד");
-      await adminPage.click("#smsTplSave");
-      await adminPage.waitFor(`!document.getElementById("smsTplError").hidden`);
-      assert.match(await adminPage.text("#smsTplError"), /חובה להשאיר את \{קוד\}/);
-      await adminPage.fill("#smsTplText", await adminPage.eval(`smsTplCatalog.templates.find(t => t.key === "resetCode").defaultText`));
-      await adminPage.click("#smsTplClose");
-      await adminPage.waitFor(`!document.getElementById("smsTplSheet").classList.contains("open")`);
+      // System messages (codes, already-registered, test) aren't offered for editing.
+      for (const key of ["verifyCode", "resetCode", "alreadyRegistered", "test"]) {
+        assert.equal(await adminPage.eval(`!!document.querySelector('[data-fk="smstpl-${key}"]')`), false, key + " stays out of the editor");
+      }
 
       // The narrowest phone: neither the list nor the sheet scrolls sideways.
       if (width === 375) {
