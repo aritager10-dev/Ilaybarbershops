@@ -939,6 +939,164 @@ async function runAtWidth(browser, width, shots, steps) {
       await adminPage.eval(`adminNotifications.shift(); selectDay(ilToday())`);
     });
 
+    await step("SMS texts: edit, live preview, unsaved-changes guard, foreign link error, save, reset", async () => {
+      const J = JSON.stringify;
+      const isOpen = id => adminPage.eval(`document.getElementById(${J(id)}).classList.contains("open")`);
+      const key = (k, code, mods = 0) => adminPage.send("Input.dispatchKeyEvent", { type: "keyDown", key: k, code: code || k, windowsVirtualKeyCode: k === "Escape" ? 27 : 9, modifiers: mods });
+      const row = `[data-fk="smstpl-reminder"]`;
+      await adminPage.eval(`switchTab("sms")`);
+      await adminPage.waitFor(`document.querySelectorAll(".sms-tpl-row").length === 10`, "the ten messages are listed");
+      assert.equal(await adminPage.text("#ttl-smstpl"), "עריכת הודעות SMS");
+      assert.match(await adminPage.text(row), /תזכורת לפני תור/);
+      assert.match(await adminPage.text(row), /תזכורת מ-Ilay Barbershop/);
+      assert.ok(!(await adminPage.text(row)).includes("נערך"));
+      assert.match(await adminPage.text("#tab-sms"), /שורת ההסרה קבועות לפי החוק/);
+      assert.equal(await adminPage.eval(`[...document.querySelectorAll(".sms-tpl-row")].every(el => el.offsetHeight >= 44)`), true, "44px rows");
+      await noHorizontalScroll(adminPage, "sms list");
+      await adminPage.eval(`document.getElementById("toastPopup").classList.remove("show"); window.scrollTo({ top: document.getElementById("ttl-smstpl").getBoundingClientRect().top + window.scrollY - 70, behavior: "instant" })`);
+      await sleep(150);
+      await adminPage.shot(shots, `${width}-sms-list`);
+
+      await adminPage.eval(`document.querySelector(${J(row)}).focus(); document.querySelector(${J(row)}).click()`);
+      await adminPage.waitFor(`document.getElementById("smsTplSheet").classList.contains("open")`);
+      await adminPage.waitFor(`document.activeElement.id === "smsTplClose"`, "focus moves into the sheet");
+      assert.equal(await adminPage.text("#smsTplTitle"), "תזכורת לפני תור");
+      assert.deepEqual(await adminPage.eval(`[...document.querySelectorAll("#smsTplChips button")].map(b => b.textContent)`), ["שם הלקוח", "יום", "תאריך", "שעה", "שירות", "קישור לאתר"]);
+      assert.match(await adminPage.text("#smsTplPreview"), /אהלן דני כהן, תזכורת/);
+      assert.ok(!(await adminPage.text("#smsTplPreview")).includes("{"), "the preview fills every field");
+      await sleep(700);
+      assert.equal(await adminPage.eval(`[...document.querySelectorAll("#smsTplSheet button")].filter(b => b.offsetParent).every(b => b.offsetHeight >= 44)`), true, "44px targets in the sheet");
+      await noHorizontalScroll(adminPage, "sms sheet");
+      await adminPage.shot(shots, `${width}-sms-edit`);
+      await assertAxeClean(adminPage, "sms sheet", '"#smsTplSheet"');
+
+      // Tab stays inside the sheet.
+      await adminPage.eval(`[...document.querySelectorAll("#smsTplSheet button, #smsTplSheet textarea")].filter(el => el.offsetParent).pop().focus()`);
+      await key("Tab");
+      assert.equal(await adminPage.eval(`document.getElementById("smsTplSheet").contains(document.activeElement)`), true, "focus trap");
+
+      // Chips insert at the cursor; the count follows Hebrew SMS parts.
+      await adminPage.fill("#smsTplText", "שלום ומה");
+      await adminPage.eval(`document.getElementById("smsTplText").setSelectionRange(5, 5)`);
+      await adminPage.click(`#smsTplChips [data-token="שם"]`);
+      assert.equal(await adminPage.eval(`document.getElementById("smsTplText").value`), "שלום {שם}ומה");
+      assert.equal(await adminPage.eval(`document.getElementById("smsTplText").selectionStart`), 9, "the cursor lands after the field");
+      assert.equal(await adminPage.text("#smsTplPreview"), "שלום דני כהןומה");
+      await adminPage.fill("#smsTplText", "א".repeat(70));
+      assert.match(await adminPage.text("#smsTplCount"), /^70 מתוך 500 תווים\. בדוגמה: 70 תווים, חלק SMS אחד\.$/);
+      await adminPage.fill("#smsTplText", "א".repeat(71));
+      assert.match(await adminPage.text("#smsTplCount"), /2 חלקי SMS/);
+      await adminPage.fill("#smsTplText", "א".repeat(135));
+      assert.match(await adminPage.text("#smsTplCount"), /3 חלקי SMS/);
+      assert.equal(await adminPage.eval(`document.getElementById("smsTplLinkNote").hidden`), false, "warns when the link is gone");
+
+      // Closing with changes asks first, by every way out.
+      await key("Escape");
+      await adminPage.waitFor(`document.getElementById("confirmSheet").classList.contains("open")`, "Escape asks");
+      assert.equal(await isOpen("smsTplSheet"), true);
+      await key("Escape");
+      await adminPage.waitFor(`!document.getElementById("confirmSheet").classList.contains("open")`);
+      assert.equal(await isOpen("smsTplSheet"), true, "Escape on the question keeps the edit");
+      assert.equal((await adminPage.eval(`document.getElementById("smsTplText").value`)).length, 135);
+      await adminPage.click("#smsTplClose");
+      await adminPage.waitFor(`document.getElementById("confirmSheet").classList.contains("open")`, "the X asks");
+      await adminPage.click("#confirmNo");
+      await adminPage.waitFor(`!document.getElementById("confirmSheet").classList.contains("open")`);
+      await adminPage.eval(`document.getElementById("smsTplSheet").click()`);
+      await adminPage.waitFor(`document.getElementById("confirmSheet").classList.contains("open")`, "the backdrop asks");
+      await adminPage.click("#confirmYes");
+      await adminPage.waitFor(`!document.getElementById("smsTplSheet").classList.contains("open")`);
+      assert.ok(!(await adminPage.text(row)).includes("נערך"), "nothing was saved");
+
+      // A refused text shows the server's reason inside the sheet and stays open.
+      await adminPage.click(row);
+      await adminPage.waitFor(`document.getElementById("smsTplSheet").classList.contains("open")`);
+      await adminPage.fill("#smsTplText", "היכנסו אל https://evil.example {שם}");
+      await adminPage.click("#smsTplSave");
+      await adminPage.waitFor(`!document.getElementById("smsTplError").hidden`, "inline error");
+      assert.match(await adminPage.text("#smsTplError"), /קישורים מותרים רק לאתר של המספרה/);
+      assert.equal(await isOpen("smsTplSheet"), true);
+      await noHorizontalScroll(adminPage, "sms sheet with error");
+
+      // Saving: a toast, the "edited" label, and the next reminder uses it.
+      await adminPage.fill("#smsTplText", "תזכורת חדשה {שם}, מחכים לך בשעה {שעה}. {קישור}");
+      assert.equal(await adminPage.eval(`document.getElementById("smsTplError").hidden`), false, "the error stays until the next try");
+      await adminPage.click("#smsTplSave");
+      await adminPage.toast("ההודעה נשמרה");
+      await adminPage.waitFor(`!document.getElementById("smsTplSheet").classList.contains("open")`);
+      await adminPage.waitFor(`document.querySelector(${J(row)}).textContent.includes("נערך")`, "edited label");
+      assert.match(await adminPage.text(row), /תזכורת חדשה \{שם\}/);
+      assert.equal(await adminPage.eval(`document.activeElement.dataset.fk || ""`), "smstpl-reminder", "focus returns to the row");
+
+      // The saved wording survives a reload and opens with no changes pending.
+      await adminPage.goto(adminUrl);
+      await adminPage.waitFor(`document.getElementById("adminApp").classList.contains("authenticated")`);
+      await adminPage.eval(`switchTab("sms")`);
+      await adminPage.waitFor(`document.querySelector(${J(row)}) && document.querySelector(${J(row)}).textContent.includes("נערך")`);
+      await adminPage.click(row);
+      await adminPage.waitFor(`document.getElementById("smsTplSheet").classList.contains("open")`);
+      assert.equal(await adminPage.eval(`document.getElementById("smsTplText").value`), "תזכורת חדשה {שם}, מחכים לך בשעה {שעה}. {קישור}");
+      assert.match(await adminPage.text("#smsTplPreview"), /^תזכורת חדשה דני כהן, מחכים לך בשעה 10:30\. https?:\/\//);
+
+      // Reset asks first, can be declined, and brings back the default.
+      await adminPage.click("#smsTplReset");
+      await adminPage.waitFor(`document.getElementById("confirmSheet").classList.contains("open")`);
+      await adminPage.click("#confirmNo");
+      await adminPage.waitFor(`!document.getElementById("confirmSheet").classList.contains("open")`);
+      assert.equal(await isOpen("smsTplSheet"), true);
+      await adminPage.click("#smsTplReset");
+      await adminPage.waitFor(`document.getElementById("confirmSheet").classList.contains("open")`);
+      await adminPage.click("#confirmYes");
+      await adminPage.toast("ההודעה חזרה לנוסח המקורי");
+      await adminPage.waitFor(`!document.getElementById("smsTplSheet").classList.contains("open")`);
+      await adminPage.waitFor(`!document.querySelector(${J(row)}).textContent.includes("נערך")`);
+      assert.match(await adminPage.text(row), /תזכורת מ-Ilay Barbershop/);
+
+      // Security texts show only the code field and keep it required.
+      await adminPage.click(`[data-fk="smstpl-resetCode"]`);
+      await adminPage.waitFor(`document.getElementById("smsTplSheet").classList.contains("open")`);
+      assert.deepEqual(await adminPage.eval(`[...document.querySelectorAll("#smsTplChips button")].map(b => b.textContent)`), ["קוד"]);
+      await adminPage.fill("#smsTplText", "אין כאן מקום לקוד");
+      await adminPage.click("#smsTplSave");
+      await adminPage.waitFor(`!document.getElementById("smsTplError").hidden`);
+      assert.match(await adminPage.text("#smsTplError"), /חובה להשאיר את \{קוד\}/);
+      await adminPage.fill("#smsTplText", await adminPage.eval(`smsTplCatalog.templates.find(t => t.key === "resetCode").defaultText`));
+      await adminPage.click("#smsTplClose");
+      await adminPage.waitFor(`!document.getElementById("smsTplSheet").classList.contains("open")`);
+
+      // The narrowest phone: neither the list nor the sheet scrolls sideways.
+      if (width === 375) {
+        await adminPage.send("Emulation.setDeviceMetricsOverride", { width: 320, height: 640, deviceScaleFactor: 1, mobile: true });
+        await sleep(150);
+        await noHorizontalScroll(adminPage, "sms list at 320");
+        await adminPage.click(row);
+        await adminPage.waitFor(`document.getElementById("smsTplSheet").classList.contains("open")`);
+        await noHorizontalScroll(adminPage, "sms sheet at 320");
+        assert.ok(await adminPage.eval(`(() => { const m = document.querySelector("#smsTplSheet .square-modal"); return m.scrollWidth <= m.clientWidth; })()`), "the sheet itself fits at 320");
+        await adminPage.click("#smsTplClose");
+        await adminPage.waitFor(`!document.getElementById("smsTplSheet").classList.contains("open")`);
+        await adminPage.send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: true });
+      }
+
+      // Test mode works through the same screen, with its own wording.
+      await adminPage.goto(adminUrl + "?test=1");
+      await adminPage.waitFor(`document.getElementById("adminApp").classList.contains("authenticated")`);
+      await adminPage.eval(`switchTab("sms")`);
+      await adminPage.waitFor(`document.querySelector(${J(row)})`);
+      await adminPage.click(row);
+      await adminPage.waitFor(`document.getElementById("smsTplSheet").classList.contains("open")`);
+      await adminPage.fill("#smsTplText", "נוסח של מצב בדיקות {שם}");
+      await adminPage.click("#smsTplSave");
+      await adminPage.toast("ההודעה נשמרה");
+      await adminPage.waitFor(`document.querySelector(${J(row)}).textContent.includes("נערך")`);
+      await adminPage.goto(adminUrl + "?test=0");
+      await adminPage.waitFor(`document.getElementById("adminApp").classList.contains("authenticated")`);
+      await adminPage.eval(`switchTab("sms")`);
+      await adminPage.waitFor(`document.querySelector(${J(row)})`);
+      assert.ok(!(await adminPage.text(row)).includes("נערך"), "the real wording is untouched");
+      await adminPage.eval(`switchTab("day")`);
+    });
+
     await step("the admin's other tabs render: statistics, messages, portfolio, hours", async () => {
       for (const tab of ["analytics", "sms", "portfolio", "edit", "day"]) {
         await adminPage.eval(`switchTab(${JSON.stringify(tab)})`);

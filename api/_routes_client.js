@@ -104,7 +104,7 @@ async function register(ctx) {
     // Same answer as a new number, so the form can't be used to find out who is a customer.
     // The owner of the phone gets a text telling them to log in instead.
     await enforceLimit(ctx.ns, "regcode", shortHash(phone), 3, 3600, "נשלחו יותר מדי קודים למספר הזה. נסו שוב מאוחר יותר.");
-    const notice = await sendTracked(ctx, { phone, name: username, message: templates.alreadyRegistered(), logMessage: "הודעה על חשבון קיים" });
+    const notice = await sendTracked(ctx, { phone, name: username, message: await templates.alreadyRegistered(ctx), logMessage: "הודעה על חשבון קיים", category: "verify" });
     if (!notice.ok) throw new HttpError(502, "לא הצלחנו לשלוח קוד אימות. נסו שוב בעוד כמה דקות.");
     return ok(ctx, { verify: true });
   }
@@ -121,7 +121,7 @@ async function register(ctx) {
     ["SET", pendingKey, JSON.stringify({ username, credHash, marketingOptIn, marketingConsentAt: marketingOptIn ? Date.now() : null, salt, hash: codeHash(phone, salt, code) }), "EX", CODE_TTL],
     ["DEL", K(ctx, `regatt:${phone}`)]
   ]);
-  const sms = await sendTracked(ctx, { phone, name: username, message: templates.verifyCode(code), logMessage: "קוד לאימות טלפון (התוכן לא נשמר)", category: "verify", codeBudget: true, ipCap: true });
+  const sms = await sendTracked(ctx, { phone, name: username, message: await templates.verifyCode(ctx, code), logMessage: "קוד לאימות טלפון (התוכן לא נשמר)", category: "verify", codeBudget: true, ipCap: true });
   if (!sms.ok) {
     await cmd("DEL", pendingKey);
     throw new HttpError(502, "לא הצלחנו לשלוח קוד אימות. נסו שוב בעוד כמה דקות.");
@@ -196,7 +196,7 @@ async function resetRequest(ctx) {
           ["SET", K(ctx, `reset:${phone}`), JSON.stringify({ salt, hash: codeHash(phone, salt, code) }), "EX", CODE_TTL],
           ["DEL", K(ctx, `resetatt:${phone}`)]
         ]);
-        await sendTracked(ctx, { phone, name: user ? user.username : "", message: templates.resetCode(code), logMessage: "קוד לאיפוס סיסמה (התוכן לא נשמר)", category: "reset", uid, codeBudget: true, ipCap: true });
+        await sendTracked(ctx, { phone, name: user ? user.username : "", message: await templates.resetCode(ctx, code), logMessage: "קוד לאיפוס סיסמה (התוכן לא נשמר)", category: "reset", uid, codeBudget: true, ipCap: true });
       }
     }
   }
@@ -351,7 +351,7 @@ async function createAppointment(ctx) {
     type: "new_booking", title: "תור חדש נקבע באתר!", message: `${appt.name} (${appt.phone}) קבע תור ל${srv.name} ${S.describeSlot(appt)}.`,
     apptId: appt.id, dayIdx: appt.dayIdx, date, uid: user.id, pushMessage: `תור חדש: ${S.describeSlot(appt)}`
   });
-  const sms = await sendApptSms(ctx, appt, templates.clientBooked(ctx, appt), "booking", { uid: user.id, ipCap: true });
+  const sms = await sendApptSms(ctx, appt, await templates.clientBooked(ctx, appt), "booking", { uid: user.id, ipCap: true });
   ok(ctx, { appointment: ownView(appt), smsSent: sms.ok });
 }
 
@@ -389,7 +389,7 @@ async function moveAppointment(ctx) {
     type: "moved", title: "לקוח שינה מועד תור", message: `${appt.name} הזיז את התור ל${S.describeSlot(appt)}.`,
     apptId: id, dayIdx: appt.dayIdx, date, uid: user.id, pushMessage: `תור הוזז: ${S.describeSlot(appt)}`
   });
-  const sms = await sendApptSms(ctx, appt, templates.clientMoved(ctx, appt), "move", { uid: user.id, ipCap: true });
+  const sms = await sendApptSms(ctx, appt, await templates.clientMoved(ctx, appt), "move", { uid: user.id, ipCap: true });
   ok(ctx, { appointment: ownView(appt), smsSent: sms.ok });
 }
 

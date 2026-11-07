@@ -533,8 +533,8 @@ test("deleting an account removes personal data, frees slots, and keeps only ano
 test("every admin endpoint is 401 without an admin session, even with a client session", async () => {
   const anon = new Client();
   const client = await newClient();
-  const gets = ["session", "version", "state", "sms/status"];
-  const posts = ["apply", "reset", "reminders", "sms/broadcast", "sms/test", "sms/retry", "photos", "portfolio", "users/usr_x/optout"];
+  const gets = ["session", "version", "state", "sms/status", "sms/templates"];
+  const posts = ["apply", "reset", "reminders", "sms/broadcast", "sms/test", "sms/retry", "sms/templates", "sms/templates/reset", "photos", "portfolio", "users/usr_x/optout"];
   for (const c of [anon, client]) {
     for (const p of gets) assert.equal((await c.get("/admin/" + p)).status, 401, p);
     for (const p of posts) assert.equal((await c.post("/admin/" + p, {})).status, 401, p);
@@ -2444,6 +2444,394 @@ test("ntfy: in-app notifications still appear for the events that do not push", 
   await c.post("/appointments/" + ap.id + "/confirm");
   const types = (await admin.get("/admin/state")).json.state.adminNotifications.map(n => n.type);
   for (const t of ["new_user", "new_booking", "confirmed"]) assert.ok(types.includes(t), t);
+});
+
+// --- Editable SMS texts ---
+const SMS_API = require("../api/_sms");
+const ALL_TEMPLATE_KEYS = ["clientBooked", "clientMoved", "adminBooked", "adminMoved", "adminCanceled", "reminder", "verifyCode", "resetCode", "alreadyRegistered", "test"];
+// The hourly save limit is for people; the many tests here clear it as they go.
+const freshTemplateBudget = () => { h.fake.run(["DEL", "rl:smstpl:all"]); h.fake.run(["DEL", "test:rl:smstpl:all"]); };
+const saveTemplate = (admin, key, text, suffix = "") => admin.post("/admin/sms/templates" + suffix, { key, text });
+const resetTemplates = async (admin, suffix = "") => { freshTemplateBudget(); for (const key of ALL_TEMPLATE_KEYS) assert.equal((await admin.post("/admin/sms/templates/reset" + suffix, { key })).status, 200); };
+const smsSince = count => h.outbox.sms.slice(count);
+const ddmm = ymd => { const [, m, d] = ymd.split("-"); return `${d}/${m}`; };
+const adminAppt = (slot, name, phone, extra = {}) => ({ id: "ap_tpl" + (++phoneCounter), name, phone, service: "תספורת • 80 ₪", srvIdx: 0, price: 80, ...slot, ...extra });
+
+// Walks every text the site sends and returns what left, by key.
+async function sendEveryTemplate(admin, { codeWords = true } = {}) {
+  freshCodeBudget();
+  const out = {};
+  const take = (key, to, count, pattern) => {
+    const sms = smsSince(count).filter(s => s.to === to);
+    assert.ok(sms.length >= 1, key + " was sent");
+    out[key] = pattern ? sms.find(s => pattern.test(s.message)) || sms[0] : sms[sms.length - 1];
+  };
+  const phone = freshPhone();
+  const name = freshName();
+  let count = h.outbox.sms.length;
+  const c = new Client();
+  const first = await c.post("/auth/register", { fullName: name, phone, password: PASSWORD, consent: true });
+  assert.equal(first.json.verify, true, first.text);
+  take("verifyCode", phone, count);
+  const regCode = /\b(\d{6})\b/.exec(out.verifyCode.message)[1];
+  assert.equal((await c.post("/auth/register/verify", { phone, code: regCode })).status, 200);
+
+  count = h.outbox.sms.length;
+  await new Client().post("/auth/register", { fullName: "מישהו אחר", phone, password: PASSWORD, consent: true });
+  take("alreadyRegistered", phone, count);
+
+  count = h.outbox.sms.length;
+  await new Client().post("/auth/reset/request", { phone });
+  take("resetCode", phone, count);
+
+  const s1 = freshSlot(), s2 = freshSlot();
+  count = h.outbox.sms.length;
+  const ap = (await c.post("/appointments", { ...s1, srvIdx: 0 })).json.appointment;
+  take("clientBooked", phone, count);
+  count = h.outbox.sms.length;
+  assert.equal((await c.post(`/appointments/${ap.id}/move`, { ...s2, srvIdx: 0 })).status, 200);
+  take("clientMoved", phone, count);
+
+  const slots = { s1, s2 };
+  const p2 = freshPhone();
+  const a1 = freshSlot(), a2 = freshSlot();
+  const raw = adminAppt(a1, name, p2);
+  count = h.outbox.sms.length;
+  await admin.post("/admin/apply", { appointments: { upsert: [raw], remove: [] } });
+  take("adminBooked", p2, count);
+  count = h.outbox.sms.length;
+  await admin.post("/admin/apply", { appointments: { upsert: [{ id: raw.id, ...a2 }], remove: [] } });
+  take("adminMoved", p2, count);
+  count = h.outbox.sms.length;
+  await admin.post("/admin/reminders");
+  take("reminder", phone, count);
+  count = h.outbox.sms.length;
+  await admin.post("/admin/apply", { appointments: { upsert: [{ id: raw.id, status: "canceled" }], remove: [] } });
+  take("adminCanceled", p2, count);
+
+  count = h.outbox.sms.length;
+  assert.equal((await admin.post("/admin/sms/test")).json.sent, true);
+  out.test = smsSince(count)[0];
+  return { out, name, slots, a1, a2 };
+}
+
+test("sms texts: with nothing edited, every message is byte-for-byte the wording it always was", async () => {
+  const admin = await newAdmin();
+  const link = `https://${new URL(h.base).host}/#personal-area`;
+  const { out, name, slots: { s1, s2 }, a1, a2 } = await sendEveryTemplate(admin);
+  const day = s => TIME.dowOfYmd(s.date);
+  const he = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "מוצ״ש"];
+  const w = s => `${he[day(s)]} (${ddmm(s.date)}) בשעה ${s.time}`;
+  assert.equal(out.clientBooked.message, `היי ${name}, התור שלך ל-Ilay Barbershop נקבע ליום ${w(s1)}. לצפייה ואישור הגעה באזור האישי: ${link}`);
+  assert.equal(out.clientMoved.message, `היי ${name}, מועד התור שלך ב-Ilay Barbershop עודכן ליום ${w(s2)}.`);
+  assert.equal(out.adminBooked.message, `היי ${name}, נקבע לך תור ב-Ilay Barbershop ליום ${w(a1)}. לאישור הגעה: ${link}`);
+  assert.equal(out.adminMoved.message, `אהלן ${name}, עדכון מ-Ilay Barbershop: התור שלך הוזז ליום ${w(a2)}. לאישור הגעה: ${link}`);
+  assert.equal(out.adminCanceled.message, `אהלן ${name}, הודעה מ-Ilay Barbershop: התור שלך ליום ${he[day(a2)]} (${ddmm(a2.date)}) בשעה ${a2.time} בוטל. לקביעת מועד חדש היכנס לאתר.`);
+  assert.equal(out.reminder.message, `אהלן ${name}, תזכורת מ-Ilay Barbershop: התור שלך ליום ${he[day(s2)]} (${ddmm(s2.date)}) מתקיים בשעה ${s2.time}. האם אתה מאשר הגעה? לאישור הגעה מהיר היכנס לאזור האישי: ${link}`);
+  assert.match(out.verifyCode.message, /^קוד האימות שלך ב-Ilay Barbershop: \d{6}\. הקוד תקף ל-10 דקות\.$/);
+  assert.match(out.resetCode.message, /^קוד איפוס הסיסמה שלך ב-Ilay Barbershop: \d{6}\. הקוד תקף ל-10 דקות\. אם לא ביקשת, אפשר להתעלם\.$/);
+  assert.equal(out.alreadyRegistered.message, "כבר יש לך חשבון ב-Ilay Barbershop עם המספר הזה. אפשר להיכנס באתר, או לאפס סיסמה במסך הכניסה.");
+  assert.equal(out.test.message, "בדיקת SMS מ-Ilay Barbershop. אם קיבלת את זה, ההודעות עובדות.");
+});
+
+test("sms texts: every default passes its own validation, and the catalog lists all ten messages", async () => {
+  const admin = await newAdmin();
+  const r = await admin.get("/admin/sms/templates");
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.json.templates.map(t => t.key), ALL_TEMPLATE_KEYS);
+  const host = new URL(h.base).host;
+  for (const t of r.json.templates) {
+    assert.equal(SMS_API.templateProblem(t.key, t.defaultText, host), null, t.key);
+    assert.equal(t.edited, false);
+    assert.equal(t.text, t.defaultText);
+    assert.ok(t.title && t.hint);
+  }
+  assert.ok(!r.json.templates.some(t => /פרסומת|broadcast/.test(t.key + t.title)), "marketing is not in the list");
+});
+
+test("sms texts: an edited wording is what goes out, for every message", async () => {
+  const admin = await newAdmin();
+  const texts = {
+    clientBooked: "נוסח-א {שם} {יום} {תאריך} {שעה} {שירות} {קישור}", clientMoved: "נוסח-ב {שם} {שעה}", adminBooked: "נוסח-ג {שם} {שירות}",
+    adminMoved: "נוסח-ד {שם} {קישור}", adminCanceled: "נוסח-ה {שם}", reminder: "נוסח-ו {שם} {קישור}",
+    verifyCode: "נוסח-ז {קוד}", resetCode: "נוסח-ח {קוד} {קוד}", alreadyRegistered: "נוסח-ט {קישור}", test: "נוסח-י"
+  };
+  try {
+    for (const [key, text] of Object.entries(texts)) {
+      const r = await saveTemplate(admin, key, text);
+      assert.equal(r.status, 200, key + ": " + r.text);
+      assert.equal(r.json.templates.find(t => t.key === key).edited, true);
+      assert.equal(r.json.state.smsTemplates[key], text);
+    }
+    const { out, name, slots: { s1 } } = await sendEveryTemplate(admin);
+    const link = `https://${new URL(h.base).host}/#personal-area`;
+    const he = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "מוצ״ש"];
+    assert.equal(out.clientBooked.message, `נוסח-א ${name} ${he[TIME.dowOfYmd(s1.date)]} ${ddmm(s1.date)} ${s1.time} ${(await admin.get("/admin/state")).json.state.services[0].name} ${link}`);
+    assert.match(out.clientMoved.message, /^נוסח-ב /);
+    assert.equal(out.adminBooked.message, `נוסח-ג ${name} תספורת`, "the service name, without the price");
+    assert.equal(out.adminMoved.message, `נוסח-ד ${name} ${link}`);
+    assert.equal(out.adminCanceled.message, `נוסח-ה ${name}`);
+    assert.equal(out.reminder.message, `נוסח-ו ${name} ${link}`);
+    assert.match(out.verifyCode.message, /^נוסח-ז \d{6}$/);
+    assert.match(out.resetCode.message, /^נוסח-ח (\d{6}) \1$/);
+    assert.equal(out.alreadyRegistered.message, `נוסח-ט ${link}`);
+    assert.equal(out.test.message, "נוסח-י");
+  } finally {
+    await resetTemplates(admin);
+  }
+});
+
+test("sms texts: values are placed in one pass, so a name or service can bring in neither a placeholder nor a link", async () => {
+  assert.equal(SMS_API.fillTemplate("{שם} {קוד}", { "שם": "{קוד}", "קוד": "123456" }), "{קוד} 123456");
+  assert.equal(SMS_API.fillTemplate("{שם}", { "שם": "$& $1 {שם}" }), "$& $1 {שם}");
+  assert.equal(SMS_API.fillTemplate("{constructor} {לא}", {}), "{constructor} {לא}");
+  const admin = await newAdmin();
+  try {
+    assert.equal((await saveTemplate(admin, "adminBooked", "שלום {שם} שעה {שעה} שירות {שירות}")).status, 200);
+    const phone = freshPhone();
+    const slot = freshSlot();
+    let count = h.outbox.sms.length;
+    await admin.post("/admin/apply", { appointments: { upsert: [adminAppt(slot, "דני {שעה}", phone, { service: "{שם} www.evil.example" })], remove: [] } });
+    const msg = smsSince(count).find(s => s.to === phone).message;
+    assert.equal(msg, `שלום דני שעה שעה ${slot.time} שירות {שם} wwwevilexample`, "a brace in the name and a placeholder in the service stay inert");
+    assert.equal((msg.match(new RegExp(slot.time, "g")) || []).length, 1);
+    // A customer whose name holds the placeholder gets no code in it.
+    assert.equal((await saveTemplate(admin, "clientBooked", "שלום {שם}")).status, 200);
+    const c = await newClient({ fullName: "דני {קוד}" });
+    count = h.outbox.sms.length;
+    await book(c);
+    const own = smsSince(count).find(s => s.to === c.phone).message;
+    assert.ok(!/\d{6}/.test(own));
+    assert.equal(own, "שלום דני קוד");
+  } finally {
+    await resetTemplates(admin);
+  }
+});
+
+test("sms texts: the server refuses what is not allowed, in Hebrew, and stores nothing", async () => {
+  const admin = await newAdmin();
+  const hebrew = /[א-ת]/;
+  const refused = [
+    ["unknown placeholder", "clientBooked", "שלום {לקוח}"],
+    ["english placeholder", "clientBooked", "שלום {name}"],
+    ["prototype name", "clientBooked", "שלום {constructor}"],
+    ["placeholder of another message", "clientBooked", "הקוד {קוד}"],
+    ["customer name in a code text", "verifyCode", "{קוד} {שם}"],
+    ["typed name in the already-registered text", "alreadyRegistered", "שלום {שם}"],
+    ["link in a code text", "resetCode", "{קוד} {קישור}"],
+    ["stray brace", "clientBooked", "שלום { שם"],
+    ["nested braces", "clientBooked", "שלום {{שם}}"],
+    ["missing code", "verifyCode", "קוד האימות שלך נשלח"],
+    ["missing code in reset", "resetCode", "לחצו כאן"],
+    ["empty", "test", ""],
+    ["only spaces", "test", "   \n "],
+    ["foreign link", "clientBooked", "היכנסו ל-https://evil.example/x"],
+    ["foreign bare domain", "clientBooked", "evil.example/x"],
+    ["short link", "test", "bit.ly/abc"],
+    ["hebrew label domain", "test", "אתר.com"],
+    ["bare ip", "test", "1.2.3.4/x"],
+    ["hidden by an invisible char", "test", "evil\u200b.example"],
+    ["fullwidth dot", "test", "evil\uff0eexample"],
+    ["placeholder as the domain", "clientBooked", "https://{שם}.example"],
+    ["placeholder spelling a domain", "clientBooked", "{שם}.com"],
+    ["too long", "test", "א".repeat(501)],
+    ["fits but overflows once filled in", "clientBooked", "{קישור}".repeat(20)],
+    ["unknown key", "marketing", "שלום"],
+    ["proto key", "__proto__", "שלום"],
+    ["broadcast is not editable", "broadcast", "שלום"]
+  ];
+  for (const [what, key, text] of refused) {
+    const r = await saveTemplate(admin, key, text);
+    assert.equal(r.status, 400, what + ": " + r.text);
+    assert.match(r.json.reason, hebrew, what);
+  }
+  assert.equal((await admin.post("/admin/sms/templates", { key: "test", text: 5 })).status, 400);
+  assert.equal((await admin.post("/admin/sms/templates", { key: ["test"], text: "שלום" })).status, 400);
+  assert.deepEqual((await admin.get("/admin/state")).json.state.smsTemplates, {});
+  const limit = await saveTemplate(admin, "test", "א".repeat(500));
+  assert.equal(limit.status, 200, "exactly 500 is fine");
+  const own = await saveTemplate(admin, "clientBooked", `אתר: ${h.base}/ {קישור}`);
+  assert.equal(own.status, 200, "the site's own link is fine: " + own.text);
+  await resetTemplates(admin);
+});
+
+test("sms texts: saved text is plain, without control characters or markup", async () => {
+  const admin = await newAdmin();
+  try {
+    const r = await saveTemplate(admin, "test", "  שלום\u0007 <b>עולם</b>\r\nשורה\u202e שנייה\u0000  ");
+    assert.equal(r.status, 200, r.text);
+    assert.equal(r.json.state.smsTemplates.test, "שלום bעולם/b\nשורה שנייה");
+  } finally {
+    await resetTemplates(admin);
+  }
+});
+
+test("sms texts: only an admin, from this site: non-admin 401, other origin 403", async () => {
+  const anon = new Client();
+  const client = await newClient();
+  for (const c of [anon, client]) {
+    assert.equal((await c.get("/admin/sms/templates")).status, 401);
+    assert.equal((await c.post("/admin/sms/templates", { key: "test", text: "שלום" })).status, 401);
+    assert.equal((await c.post("/admin/sms/templates/reset", { key: "test" })).status, 401);
+  }
+  const admin = await newAdmin();
+  const evil = new Client({ ip: admin.ip, origin: "https://evil.example" });
+  evil.jar = admin.jar;
+  assert.equal((await evil.post("/admin/sms/templates", { key: "test", text: "שלום" })).status, 403);
+  assert.equal((await evil.post("/admin/sms/templates/reset", { key: "test" })).status, 403);
+  assert.equal((await admin.post("/admin/sms/templates", { key: "test", text: "שלום" }, { noOrigin: true })).status, 403);
+  assert.deepEqual((await admin.get("/admin/state")).json.state.smsTemplates, {});
+});
+
+test("sms texts: reset returns to the default, saving the default is no edit, and each write bumps the version", async () => {
+  const admin = await newAdmin();
+  const version = async () => (await admin.get("/admin/version")).json.v;
+  let v = await version();
+  const saved = await saveTemplate(admin, "test", "נוסח זמני");
+  assert.equal(saved.json.templates.find(t => t.key === "test").edited, true);
+  assert.ok(await version() > v, "save bumps");
+  v = await version();
+  let count = h.outbox.sms.length;
+  await admin.post("/admin/sms/test");
+  assert.equal(smsSince(count)[0].message, "נוסח זמני");
+  const reset = await admin.post("/admin/sms/templates/reset", { key: "test" });
+  assert.equal(reset.status, 200);
+  assert.ok(await version() > v, "reset bumps");
+  const item = reset.json.templates.find(t => t.key === "test");
+  assert.equal(item.edited, false);
+  assert.equal(item.text, item.defaultText);
+  assert.equal(h.fake.run(["HGET", "cfg:smsTemplates", "test"]).result, null);
+  count = h.outbox.sms.length;
+  await admin.post("/admin/sms/test");
+  assert.equal(smsSince(count)[0].message, item.defaultText);
+  assert.equal((await admin.post("/admin/sms/templates/reset", { key: "nope" })).status, 400);
+  await saveTemplate(admin, "test", "נוסח זמני");
+  const same = await saveTemplate(admin, "test", item.defaultText);
+  assert.equal(same.json.templates.find(t => t.key === "test").edited, false, "default wording clears the edit");
+  assert.equal(h.fake.run(["HGET", "cfg:smsTemplates", "test"]).result, null);
+});
+
+test("sms texts: test mode has its own wording and never touches the real one", async () => {
+  const admin = await newAdmin();
+  try {
+    assert.equal((await saveTemplate(admin, "test", "נוסח של מצב בדיקות", "?test=1")).status, 200);
+    assert.equal(h.fake.run(["HGET", "test:cfg:smsTemplates", "test"]).result, "נוסח של מצב בדיקות");
+    assert.equal(h.fake.run(["HGET", "cfg:smsTemplates", "test"]).result, null);
+    assert.equal((await admin.get("/admin/sms/templates?test=1")).json.templates.find(t => t.key === "test").edited, true);
+    assert.equal((await admin.get("/admin/sms/templates")).json.templates.find(t => t.key === "test").edited, false);
+    assert.deepEqual((await admin.get("/admin/state")).json.state.smsTemplates, {});
+    let count = h.outbox.sms.length;
+    await admin.post("/admin/sms/test?test=1");
+    assert.equal(smsSince(count)[0].message, "נוסח של מצב בדיקות");
+    count = h.outbox.sms.length;
+    await admin.post("/admin/sms/test");
+    assert.match(smsSince(count)[0].message, /^בדיקת SMS/);
+    assert.equal((await admin.post("/admin/sms/templates/reset", { key: "test" })).status, 200);
+    assert.equal(h.fake.run(["HGET", "test:cfg:smsTemplates", "test"]).result, "נוסח של מצב בדיקות", "resetting the real one leaves test mode");
+  } finally {
+    await resetTemplates(admin, "?test=1");
+  }
+});
+
+test("sms texts: a code never reaches the log, the state or a retry, whatever the wording", async () => {
+  const admin = await newAdmin();
+  try {
+    assert.equal((await saveTemplate(admin, "resetCode", "הקוד הוא {קוד} ותקף רק עכשיו")).status, 200);
+    assert.equal((await saveTemplate(admin, "verifyCode", "קוד להרשמה {קוד}")).status, 200);
+    freshCodeBudget();
+    const c = new Client();
+    const phone = freshPhone();
+    await c.post("/auth/register", { fullName: freshName(), phone, password: PASSWORD, consent: true });
+    const vcode = /\d{6}/.exec(h.outbox.sms[h.outbox.sms.length - 1].message)[0];
+    assert.equal((await c.post("/auth/register/verify", { phone, code: vcode })).status, 200, "the edited text still delivers a working code");
+    await new Client().post("/auth/reset/request", { phone });
+    const sent = h.outbox.sms[h.outbox.sms.length - 1];
+    const code = /\d{6}/.exec(sent.message)[0];
+    assert.equal(sent.message, `הקוד הוא ${code} ותקף רק עכשיו`);
+    const state = await admin.get("/admin/state");
+    assert.ok(!state.text.includes(code) && !state.text.includes(vcode));
+    const logs = state.json.state.smsLogs.filter(l => l.phone === phone);
+    const reset = logs.find(l => l.category === "reset");
+    assert.equal(reset.message, "קוד לאיפוס סיסמה (התוכן לא נשמר)");
+    assert.equal(reset.noRetry, true);
+    assert.equal(logs.find(l => l.category === "verify").message, "קוד לאימות טלפון (התוכן לא נשמר)");
+    assert.equal((await admin.post("/admin/sms/retry", { id: reset.id })).json.sent, false);
+    // And the changed code text still resets the password.
+    const done = await new Client().post("/auth/reset/confirm", { phone, code, newPassword: "another-pass-123" });
+    assert.equal(done.status, 200, done.text);
+  } finally {
+    await resetTemplates(admin);
+  }
+});
+
+test("sms texts: a stored wording that cannot be used sends the default instead of nothing", async () => {
+  const admin = await newAdmin();
+  freshCodeBudget();
+  try {
+    h.fake.run(["HSET", "cfg:smsTemplates", "resetCode", "קוד שבור בלי מקום לקוד"]);
+    h.fake.run(["HSET", "cfg:smsTemplates", "test", "לחצו על https://evil.example"]);
+    const c = await newClient();
+    const count = h.outbox.sms.length;
+    await new Client().post("/auth/reset/request", { phone: c.phone });
+    assert.match(smsSince(count)[0].message, /^קוד איפוס הסיסמה שלך ב-Ilay Barbershop: \d{6}/);
+    await admin.post("/admin/sms/test");
+    assert.match(h.outbox.sms[h.outbox.sms.length - 1].message, /^בדיקת SMS/);
+  } finally {
+    await resetTemplates(admin);
+  }
+});
+
+test("sms texts: marketing keeps its fixed opening and opt-out line, whatever is edited", async () => {
+  const admin = await newAdmin();
+  try {
+    for (const key of ALL_TEMPLATE_KEYS.filter(k => !/Code/.test(k))) assert.equal((await saveTemplate(admin, key, "נוסח אחר לגמרי")).status, 200);
+    const c = await newClient({ marketingOptIn: true });
+    const count = h.outbox.sms.length;
+    assert.equal((await admin.post("/admin/sms/broadcast", { message: "מבצע ל{שם}" })).status, 200);
+    const msg = smsSince(count).find(s => s.to === c.phone).message;
+    const lines = msg.split("\n");
+    assert.equal(lines[0], "פרסומת: Ilay Barbershop");
+    assert.equal(lines[1], `מבצע ל${c.name}`);
+    assert.match(lines[2], /^להסרה: \S+ או השב\/י הסר$/);
+  } finally {
+    await resetTemplates(admin);
+  }
+});
+
+test("sms texts: the reminder count reports only texts that left, and parts follow the edited length", async () => {
+  const admin = await newAdmin();
+  try {
+    const c = await newClient();
+    await book(c);
+    h.outbox.smsFail = true;
+    const failed = await admin.post("/admin/reminders");
+    h.outbox.smsFail = false;
+    assert.equal(failed.json.sent, 0);
+    assert.ok(failed.json.failed >= 1);
+    const c2 = await newClient();
+    await book(c2);
+    assert.equal((await saveTemplate(admin, "reminder", "ת".repeat(140))).status, 200);
+    const before = (await admin.get("/admin/state")).json.state.smsStats;
+    const ok2 = await admin.post("/admin/reminders");
+    assert.equal(ok2.json.sent, 1);
+    assert.equal(ok2.json.failed, 0);
+    const after = ok2.json.state.smsStats;
+    assert.equal(after.parts_reminder - (before.parts_reminder || 0), 3, "140 Hebrew characters are 3 parts");
+    assert.equal(after.partsTotal - before.partsTotal, 3);
+  } finally {
+    await resetTemplates(admin);
+  }
+});
+
+test("sms texts: saving is rate limited, and the limit of test mode stays in test mode", async () => {
+  const admin = await newAdmin();
+  let last;
+  for (let i = 0; i < 121; i++) last = await admin.post("/admin/sms/templates?test=1", { key: "nope", text: "x" });
+  assert.equal(last.status, 429);
+  assert.match(last.json.reason, /[א-ת]/);
+  assert.equal((await saveTemplate(admin, "test", "ניסיון")).status, 200, "the real namespace is not limited by it");
+  await resetTemplates(admin);
+  h.fake.run(["DEL", "test:rl:smstpl:all"]);
 });
 
 test("no outbound request ever tried to leave the harness", () => {

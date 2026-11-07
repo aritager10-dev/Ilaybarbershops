@@ -366,6 +366,26 @@ body.adm .adm-mini-btn { display: inline-flex; align-items: center; gap: 0.25rem
 body.adm .adm-mini-btn .ic { width: 1rem; height: 1rem; }
 body.adm .adm-mini-btn.is-danger { background: var(--danger-tint); color: var(--danger); }
 .club-add { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.5rem; margin-bottom: 0.75rem; }
+/* editable SMS texts */
+.sms-tpl-row { display: flex; align-items: center; gap: 0.75rem; width: 100%; min-height: 3.5rem; padding: 0.625rem 1rem; border: 0; border-bottom: 0.5px solid var(--sep); background: transparent; color: var(--label); font: 400 1rem var(--font); text-align: start; cursor: pointer; transition: background-color 0.15s ease; }
+.sms-tpl-row:last-child { border-bottom: 0; }
+.sms-tpl-row:focus-visible { outline-offset: -3px; }
+@media (hover: hover) { .sms-tpl-row:hover { background: var(--fill-2); } }
+.sms-tpl-row:active { background: var(--fill); }
+.sms-tpl-row__main { display: block; flex: 1; min-width: 0; }
+.sms-tpl-row__title { display: block; font-size: 0.9375rem; font-weight: 600; line-height: 1.35; }
+.sms-tpl-row__text { display: block; margin-top: 0.125rem; overflow: hidden; font-size: 0.8125rem; line-height: 1.4; color: var(--label-2); text-overflow: ellipsis; white-space: nowrap; }
+.sms-tpl-row__go { flex: none; width: 0.875rem; height: 0.875rem; color: var(--label-3); transform: rotate(90deg); }
+.sms-tpl-hint { margin: 0 0 0.875rem; line-height: 1.45; }
+.sms-tpl-label { display: block; margin-bottom: 0.375rem; font-size: 0.875rem; font-weight: 600; color: var(--label); }
+body.adm #smsTplText { display: block; min-height: 10.5rem; margin-bottom: 0.875rem; background: var(--card) !important; }
+.sms-tpl-chips { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.875rem; }
+body.adm .sms-tpl-chip { min-height: 2.75rem; padding: 0 0.875rem; border: 0; border-radius: 999px; background: var(--accent-tint); color: var(--accent); font: 600 0.9375rem var(--font); cursor: pointer; }
+.sms-tpl-preview { padding: 0.75rem; border-radius: 14px; background: var(--card); box-shadow: var(--shadow-card); font-size: 0.9375rem; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.sms-tpl-count { margin-top: 0.625rem; font-size: 0.875rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.sms-tpl-count.is-over { color: var(--danger); }
+.sms-tpl-error { margin-top: 0.75rem; padding: 0.625rem 0.75rem; border-radius: 10px; background: var(--danger-tint); color: var(--danger); font-size: 0.9375rem; font-weight: 500; line-height: 1.45; overflow-wrap: anywhere; }
+.sms-tpl-error[hidden] { display: none; }
 .sms-status { width: 100%; font-size: 0.875rem; padding: 0.625rem 0.75rem; border-radius: 10px; background: var(--fill-2); }
 .test-state { font-size: 0.875rem; line-height: 1.5; color: var(--label-2); }
 

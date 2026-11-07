@@ -1,5 +1,6 @@
 // Redis layout (every key below is prefixed with "test:" in test mode):
 //   cfg:site, cfg:services, cfg:portfolio   JSON config (defaults apply until saved)
+//   cfg:smsTemplates (hash)     SMS wording the owner changed, key->text; a missing key means the default in _sms.js
 //   cfg:availability            open days: { weekly: 7 rows, dates: { YYYY-MM-DD: rule } }; missing means every date is closed
 //   availmx                     short lock around saving cfg:availability
 //   ver                         counter bumped on every data change; drives polling
@@ -135,6 +136,12 @@ function flatToCounters(flat) {
   return out;
 }
 
+function flatToStrings(flat) {
+  const out = {};
+  if (Array.isArray(flat)) for (let i = 0; i + 1 < flat.length; i += 2) out[flat[i]] = String(flat[i + 1]);
+  return out;
+}
+
 // Commands that remove a deleted person's traces from the admin history. Notifications are matched by
 // account, appointment, phone or name, since those written for barber actions name the customer too.
 // byPhone is false only for an account that never proved its phone: what else carries that number may be someone else's.
@@ -151,9 +158,10 @@ async function scrubNotifCmds(ctx, user, apptIds = [], { byPhone = true } = {}) 
 
 // Full admin view. Credentials are stored under separate keys and so cannot appear here.
 async function adminState(ctx) {
-  const [appts, users, logs, notifs, stats, cfg] = await pipeline([
+  const [appts, users, logs, notifs, stats, cfg, smsTemplates] = await pipeline([
     ["HGETALL", K(ctx, "appts")], ["HGETALL", K(ctx, "users")], ["HGETALL", K(ctx, "smslogs")], ["HGETALL", K(ctx, "notifs")], ["HGETALL", K(ctx, "smsstats")],
-    ["MGET", K(ctx, "cfg:site"), K(ctx, "cfg:services"), K(ctx, "cfg:availability"), K(ctx, "cfg:portfolio"), K(ctx, "ver")]
+    ["MGET", K(ctx, "cfg:site"), K(ctx, "cfg:services"), K(ctx, "cfg:availability"), K(ctx, "cfg:portfolio"), K(ctx, "ver")],
+    ["HGETALL", K(ctx, "cfg:smsTemplates")]
   ]);
   return {
     v: Number(cfg[4]) || 0,
@@ -166,7 +174,8 @@ async function adminState(ctx) {
     registeredUsers: hashValues(users).map(publicUser),
     smsLogs: hashValues(logs).sort(byNewest).slice(0, 300).map(withoutUid),
     adminNotifications: hashValues(notifs).sort(byNewest).slice(0, 120).map(withoutUid),
-    smsStats: flatToCounters(stats)
+    smsStats: flatToCounters(stats),
+    smsTemplates: flatToStrings(smsTemplates)
   };
 }
 

@@ -7,7 +7,7 @@ const A = require("./_auth");
 const D = require("./_data");
 const { K } = D;
 const S = require("./_appts");
-const { sendTracked, sendApptSms, retryLog, hasForeignLink, smsStatus, templates, smsName, MAX_LEN } = require("./_sms");
+const { sendTracked, sendApptSms, retryLog, hasForeignLink, smsStatus, templates, smsName, MAX_LEN, TEMPLATES_KEY, templateCatalog, isTemplateKey, cleanTemplateText, templateProblem, defaultTemplateText } = require("./_sms");
 const { runReminders, maybeRunReminders } = require("./_reminders");
 const { uploadPhoto, savePortfolio } = require("./_photos");
 const { DAYS_HEB, heDate } = require("./_time");
@@ -74,7 +74,7 @@ async function createFromAdmin(ctx, raw, out) {
   if (!(await S.acquireSlot(ctx, date, raw.time, appt.id))) { out.conflicts.push({ id: raw.id, reason: "השעה הזו כבר תפוסה ביומן!" }); return; }
   await pipeline(D.saveApptCmds(ctx, appt));
   await ensureUserForPhone(ctx, name, phone);
-  out.sms[appt.id] = await sendTracked(ctx, { phone, name, message: templates.adminBooked(ctx, appt), category: "booking", apptId: appt.id });
+  out.sms[appt.id] = await sendTracked(ctx, { phone, name, message: await templates.adminBooked(ctx, appt), category: "booking", apptId: appt.id });
 }
 
 // The client's own note stays as written; the barber edits only adminNote, which clients never receive.
@@ -130,11 +130,11 @@ async function updateFromAdmin(ctx, raw, out) {
   if (action === "move") {
     if (prev.status !== "canceled") await S.releaseSlot(ctx, prev.date, prev.time, appt.id);
     await D.addNotification(ctx, { type: "moved", title: "תור הוזז ביומן", message: `התור של ${appt.name} הועבר ל${S.describeSlot(appt)}.`, apptId: appt.id, dayIdx: appt.dayIdx, date: appt.date });
-    out.sms[appt.id] = await sendApptSms(ctx, appt, templates.adminMoved(ctx, appt), "move");
+    out.sms[appt.id] = await sendApptSms(ctx, appt, await templates.adminMoved(ctx, appt), "move");
   } else if (action === "cancel") {
     await S.releaseSlot(ctx, appt.date, appt.time, appt.id);
     await D.addNotification(ctx, { type: "canceled", title: "תור בוטל ביומן", message: `התור של ${appt.name} ליום ${DAYS_HEB[appt.dayIdx]} בשעה ${appt.time} בוטל.`, apptId: appt.id, dayIdx: appt.dayIdx, date: appt.date });
-    out.sms[appt.id] = await sendApptSms(ctx, appt, templates.adminCanceled(ctx, appt), "cancel");
+    out.sms[appt.id] = await sendApptSms(ctx, appt, await templates.adminCanceled(ctx, appt), "cancel");
   }
 }
 
@@ -284,8 +284,8 @@ async function resetNamespace(ctx) {
 
 async function manualReminders(ctx) {
   await enforceLimit(ctx.ns, "remind", ipKey(ctx.req), 30, 3600);
-  const { sent } = await runReminders(ctx, { force: true, budgetMs: 20000 });
-  ok(ctx, { sent, state: await D.adminState(ctx) });
+  const { sent, failed } = await runReminders(ctx, { force: true, budgetMs: 20000 });
+  ok(ctx, { sent, failed, state: await D.adminState(ctx) });
 }
 
 // --- SMS ---
@@ -326,8 +326,38 @@ async function testSms(ctx) {
   const config = await D.getConfig(ctx);
   const phone = config.siteConfig.barberPhone;
   if (!phone) throw V.bad("אין מספר טלפון של הספר בהגדרות");
-  const result = await sendTracked(ctx, { phone, name: "בדיקה", message: templates.test(), category: "test" });
+  const result = await sendTracked(ctx, { phone, name: "בדיקה", message: await templates.test(ctx), category: "test" });
   ok(ctx, { sent: result.ok, reason: result.reason, state: await D.adminState(ctx) });
+}
+
+// --- Editable SMS texts. The default wording lives in code; the hash holds only what the owner changed. ---
+const getSmsTemplates = async ctx => ok(ctx, await templateCatalog(ctx));
+
+const templateSaved = async ctx => ok(ctx, { ...(await templateCatalog(ctx)), state: await D.adminState(ctx) });
+
+function templateKeyFrom(ctx) {
+  if (!isTemplateKey(ctx.body.key)) throw V.bad("ההודעה הזו לא קיימת במערכת");
+  return ctx.body.key;
+}
+
+async function saveSmsTemplate(ctx) {
+  await enforceLimit(ctx.ns, "smstpl", "all", 120, 3600, "נשמרו יותר מדי שינויים בשעה האחרונה. נסו שוב מאוחר יותר.");
+  const key = templateKeyFrom(ctx);
+  if (typeof ctx.body.text !== "string") throw V.bad("נא לכתוב את נוסח ההודעה");
+  const text = cleanTemplateText(ctx.body.text);
+  const problem = templateProblem(key, text, ctx.host);
+  if (problem) throw V.bad(problem);
+  // Wording equal to the default is not an edit: it keeps following the code.
+  const write = text === defaultTemplateText(key) ? ["HDEL", K(ctx, TEMPLATES_KEY), key] : ["HSET", K(ctx, TEMPLATES_KEY), key, text];
+  await pipeline([write, ["INCR", K(ctx, "ver")]]);
+  await templateSaved(ctx);
+}
+
+async function resetSmsTemplate(ctx) {
+  await enforceLimit(ctx.ns, "smstpl", "all", 120, 3600, "נשמרו יותר מדי שינויים בשעה האחרונה. נסו שוב מאוחר יותר.");
+  const key = templateKeyFrom(ctx);
+  await pipeline([["HDEL", K(ctx, TEMPLATES_KEY), key], ["INCR", K(ctx, "ver")]]);
+  await templateSaved(ctx);
 }
 
 async function retrySms(ctx) {
@@ -351,5 +381,5 @@ async function postPortfolio(ctx) {
 
 module.exports = {
   adminLogin, adminLogout, adminSession, adminWhoami, adminVersion, getState, getSmsStatus, applyChanges, saveAvailability, resetNamespace,
-  manualReminders, broadcast, optOutUser, testSms, retrySms, postPhoto, postPortfolio
+  manualReminders, broadcast, optOutUser, testSms, retrySms, getSmsTemplates, saveSmsTemplate, resetSmsTemplate, postPhoto, postPortfolio
 };

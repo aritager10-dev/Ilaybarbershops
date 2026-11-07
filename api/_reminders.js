@@ -20,6 +20,7 @@ async function runReminders(ctx, { force = false, budgetMs = 6000 } = {}) {
   const windowMs = (Number(config.siteConfig.reminderHoursBefore) || 3) * 3600 * 1000;
   const now = Date.now();
   let sent = 0;
+  let failed = 0;
   for (const appt of appts) {
     if (appt.status === "canceled" || appt.reminderSent || appt.noSms) continue;
     const diff = Number(appt.startsAtMs) - now;
@@ -33,10 +34,11 @@ async function runReminders(ctx, { force = false, budgetMs = 6000 } = {}) {
       next.reminderSent = true;
     });
     if (!result || !result.changed) continue;
-    await sendApptSms(ctx, result.appt, templates.reminder(ctx, result.appt), "reminder");
-    sent++;
+    const sms = await sendApptSms(ctx, result.appt, await templates.reminder(ctx, result.appt), "reminder");
+    // Only a text that really left counts: the owner reads this number as "customers reminded".
+    if (sms.ok) sent++; else failed++;
   }
-  return { sent, appts };
+  return { sent, failed, appts };
 }
 
 // Once a day: drop appointments past the retention period, trim the history hashes and drop date rules that have passed.

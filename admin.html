@@ -262,6 +262,12 @@
 
       <h3 class="adm-section-h">חבילת SMS</h3>
       <div class="kpi-mini-grid" id="kpiPracticalSmsGrid"></div>
+      <p class="adm-group-foot">המספרים נספרים בחלקי SMS: הודעה ארוכה נספרת כמה חלקים מהחבילה.</p>
+
+      <h3 class="adm-section-h" id="ttl-smstpl">עריכת הודעות SMS</h3>
+      <div class="adm-group" id="smsTplList" aria-labelledby="ttl-smstpl"><div class="adm-empty adm-empty--sm">טוען את ההודעות…</div></div>
+      <p class="adm-group-foot">הקש על הודעה כדי לשנות את הנוסח שלה. לקוח שמבטל תור בעצמו לא מקבל הודעה, ולכן אין נוסח כזה ברשימה.</p>
+      <p class="adm-group-foot">הודעות פרסום לכל הלקוחות נכתבות בזמן השליחה. הפתיחה "פרסומת: Ilay Barbershop" ושורת ההסרה קבועות לפי החוק, ואי אפשר לערוך אותן.</p>
 
       <div class="sms-hub-grid">
         <div class="hub-card">
@@ -521,6 +527,32 @@
     </div>
   </div>
 
+  <!-- גיליון עריכת נוסח הודעת SMS -->
+  <div class="modal-backdrop" id="smsTplSheet" onclick="if(event.target===this) requestCloseSmsTpl()">
+    <div class="square-modal" role="dialog" aria-modal="true" aria-labelledby="smsTplTitle" aria-describedby="smsTplHint">
+      <div class="sheet-grabber" aria-hidden="true"></div>
+      <div class="modal-head">
+        <h3 id="smsTplTitle"></h3>
+        <button type="button" class="modal-close" id="smsTplClose" aria-label="סגירה" onclick="requestCloseSmsTpl()"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
+      </div>
+      <p class="dv-sheet-note sms-tpl-hint" id="smsTplHint"></p>
+      <label class="sms-tpl-label" for="smsTplText">נוסח ההודעה</label>
+      <textarea id="smsTplText" class="input-field" rows="7" dir="rtl" aria-describedby="smsTplCount smsTplError" oninput="updateSmsTplEditor()"></textarea>
+      <div class="sms-tpl-label" id="smsTplChipsLabel">הוספת פרט אוטומטי במקום הסמן</div>
+      <div class="sms-tpl-chips" id="smsTplChips" role="group" aria-labelledby="smsTplChipsLabel"></div>
+      <div class="sms-tpl-label" id="smsTplPreviewLabel">כך זה ייראה אצל הלקוח (דוגמה)</div>
+      <div class="sms-tpl-preview" id="smsTplPreview" aria-labelledby="smsTplPreviewLabel"></div>
+      <p class="sms-tpl-count" id="smsTplCount" aria-live="polite"></p>
+      <p class="dv-sheet-note">עד 70 תווים נספרים כחלק אחד. מעבר לזה כל 67 תווים הם חלק, וכל חלק מנצל עוד מהחבילה.</p>
+      <p class="dv-sheet-note" id="smsTplLinkNote" hidden>בלי הקישור הלקוח לא יגיע ישירות לאתר מההודעה.</p>
+      <p class="sms-tpl-error" id="smsTplError" role="alert" hidden></p>
+      <div class="dv-confirm-btns">
+        <button type="button" class="adm-btn adm-btn--primary adm-btn--lg adm-btn--block" id="smsTplSave" onclick="saveSmsTpl()">שמירה</button>
+        <button type="button" class="adm-btn adm-btn--plain adm-btn--lg adm-btn--block" id="smsTplReset" onclick="resetSmsTpl()">החזרה לנוסח המקורי</button>
+      </div>
+    </div>
+  </div>
+
   <!-- גיליון אישור לפני פעולה שקשה לבטל -->
   <div class="modal-backdrop" id="confirmSheet" onclick="if(event.target===this) answerConfirm(false)">
     <div class="square-modal" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmText">
@@ -574,6 +606,7 @@
       adminUnlocked = true;
       await refreshAdminState();
       renderAllAdmin();
+      loadSmsTemplates();
       if (!adminPollStarted) {
         adminPollStarted = true;
         pollWhileVisible(() => (adminUnlocked ? pollAdminVersion() : null), 15000);
@@ -582,6 +615,7 @@
 
     function lockAdminScreen() {
       adminUnlocked = false;
+      closeSmsTplSheet();
       adminSnapshot = null;
       appointments = []; registeredUsers = []; smsLogs = []; adminNotifications = [];
       availability = closedAvailability();
@@ -1694,7 +1728,8 @@
       const r = await checkAndSendUpcomingReminders();
       if (!r.ok) return showToast(r.reason);
       renderAllAdmin();
-      const count = r.data.sent;
+      const count = r.data.sent, failed = r.data.failed || 0;
+      if (failed) return showToast(`נשלחו ${count} תזכורות, ו-${failed} לא נשלחו. הפרטים בהיסטוריית ההודעות.`);
       showToast(count > 0 ? `נשלחו ${count} תזכורות SMS לתורים הקרובים!` : "כל התורים הממתינים כבר קיבלו תזכורת.");
     }
   
@@ -1778,6 +1813,139 @@
       showToast(r.data.sent ? "נשלח! בדוק את הטלפון." : "נכשל: " + (r.data.reason || "בדוק הגדרות ב-Vercel"));
     }
   
+
+    // --- עריכת נוסחי ה-SMS. הברירת מחדל והאימות נמצאים בשרת; כאן רק עורכים ומציגים ---
+    let smsTplCatalog = null;
+    let smsTplOpen = null;
+    let smsTplBase = "";
+    let smsTplBusy = false;
+    let smsTplListHtml = "";
+
+    const smsTplEl = id => document.getElementById(id);
+    const smsTplParts = n => (!n ? 0 : n <= 70 ? 1 : Math.ceil(n / 67));
+    const smsTplDirty = () => !!smsTplOpen && smsTplEl("smsTplText").value !== smsTplBase;
+    const smsTplOverrides = () => (adminSnapshot && adminSnapshot.smsTemplates) || {};
+    const smsTplIsEdited = t => Object.prototype.hasOwnProperty.call(smsTplOverrides(), t.key);
+    const smsTplCurrent = t => (smsTplIsEdited(t) ? smsTplOverrides()[t.key] : t.defaultText);
+    // מעבר אחד על הנוסח, בדיוק כמו בשרת
+    const smsTplFill = (text, sample) => text.replace(/\{([^{}]*)\}/g, (whole, name) => (Object.prototype.hasOwnProperty.call(sample, name) ? sample[name] : whole));
+
+    async function loadSmsTemplates() {
+      const r = await api("/admin/sms/templates");
+      if (r.ok) {
+        smsTplCatalog = r.data;
+        renderSmsTplList();
+        return;
+      }
+      smsTplListHtml = "";
+      smsTplEl("smsTplList").innerHTML = `<div class="adm-row adm-row--note"><p class="test-state">${esc(r.reason)}</p></div><div class="adm-row"><button type="button" class="adm-row-btn" onclick="loadSmsTemplates()">ניסיון נוסף</button></div>`;
+    }
+
+    function renderSmsTplList() {
+      if (!smsTplCatalog) return;
+      const html = smsTplCatalog.templates.map(t => `<button type="button" class="sms-tpl-row" data-fk="smstpl-${esc(t.key)}" onclick="openSmsTpl('${esc(t.key)}')">
+          <span class="sms-tpl-row__main">
+            <span class="sms-tpl-row__title">${esc(t.title)}${smsTplIsEdited(t) ? ' <span class="user-row__tag">נערך</span>' : ""}</span>
+            <span class="sms-tpl-row__text">${esc(smsTplCurrent(t))}</span>
+          </span>
+          <svg class="ic sms-tpl-row__go" aria-hidden="true"><use href="#i-chevron"/></svg>
+        </button>`).join("");
+      // הרשימה נבנית מחדש רק כשמשהו השתנה, כדי שפולינג לא יזיז את המיקוד
+      if (html === smsTplListHtml) return;
+      smsTplListHtml = html;
+      smsTplEl("smsTplList").innerHTML = html;
+    }
+
+    function openSmsTpl(key) {
+      const t = smsTplCatalog && smsTplCatalog.templates.find(x => x.key === key);
+      if (!t) return;
+      smsTplOpen = t;
+      smsTplBase = smsTplCurrent(t);
+      smsTplEl("smsTplTitle").textContent = t.title;
+      smsTplEl("smsTplHint").textContent = t.hint;
+      smsTplEl("smsTplText").value = smsTplBase;
+      smsTplEl("smsTplChips").innerHTML = t.fields.map(f => `<button type="button" class="sms-tpl-chip" aria-label="הוספת ${esc(f.label)}" data-token="${esc(f.token)}" onmousedown="event.preventDefault()" onclick="insertSmsTplField(this.dataset.token)">${esc(f.label)}</button>`).join("");
+      showSmsTplError("");
+      updateSmsTplEditor();
+      smsTplEl("smsTplSheet").classList.add("open");
+    }
+
+    function updateSmsTplEditor() {
+      if (!smsTplOpen) return;
+      const text = smsTplEl("smsTplText").value;
+      const max = smsTplCatalog.maxLength;
+      const sample = {};
+      smsTplOpen.fields.forEach(f => { sample[f.token] = smsTplCatalog.sample[f.token]; });
+      const shown = smsTplFill(text.trim(), sample);
+      const parts = smsTplParts(shown.length);
+      smsTplEl("smsTplPreview").textContent = shown || "ההודעה ריקה";
+      smsTplEl("smsTplCount").textContent = `${text.trim().length} מתוך ${max} תווים. בדוגמה: ${shown.length} תווים, ${parts === 1 ? "חלק SMS אחד" : parts + " חלקי SMS"}.`;
+      smsTplEl("smsTplCount").classList.toggle("is-over", text.trim().length > max);
+      smsTplEl("smsTplLinkNote").hidden = !smsTplOpen.defaultText.includes("{קישור}") || text.includes("{קישור}");
+      smsTplEl("smsTplReset").style.display = smsTplIsEdited(smsTplOpen) || text !== smsTplOpen.defaultText ? "" : "none";
+    }
+
+    function insertSmsTplField(token) {
+      const box = smsTplEl("smsTplText");
+      const place = "{" + token + "}";
+      const from = box.selectionStart, to = box.selectionEnd;
+      box.focus({ preventScroll: true });
+      box.setRangeText(place, from, to, "end");
+      showSmsTplError("");
+      updateSmsTplEditor();
+    }
+
+    function showSmsTplError(message) {
+      const box = smsTplEl("smsTplError");
+      box.textContent = message;
+      box.hidden = !message;
+    }
+
+    function closeSmsTplSheet() {
+      smsTplOpen = null;
+      smsTplBase = "";
+      smsTplEl("smsTplSheet").classList.remove("open");
+    }
+
+    async function requestCloseSmsTpl() {
+      if (smsTplDirty()) {
+        const leave = await askConfirm({ title: "לצאת בלי לשמור?", text: "השינויים שעשית בהודעה לא יישמרו.", yes: "יציאה בלי שמירה", no: "המשך עריכה", danger: true });
+        if (!leave) return;
+      }
+      closeSmsTplSheet();
+    }
+
+    async function postSmsTpl(path, body, doneMessage) {
+      if (smsTplBusy) return;
+      smsTplBusy = true;
+      smsTplEl("smsTplSave").disabled = smsTplEl("smsTplReset").disabled = true;
+      showSmsTplError("");
+      const r = await apiPost(path, body);
+      smsTplBusy = false;
+      smsTplEl("smsTplSave").disabled = smsTplEl("smsTplReset").disabled = false;
+      if (!r.ok) return showSmsTplError(r.reason);
+      smsTplCatalog = r.data;
+      closeSmsTplSheet();
+      applyAdminState(r.data.state);
+      showToast(doneMessage);
+    }
+
+    function saveSmsTpl() {
+      if (!smsTplOpen) return;
+      if (!smsTplDirty()) return closeSmsTplSheet();
+      return postSmsTpl("/admin/sms/templates", { key: smsTplOpen.key, text: smsTplEl("smsTplText").value }, "ההודעה נשמרה");
+    }
+
+    async function resetSmsTpl() {
+      if (!smsTplOpen) return;
+      const yes = await askConfirm({ title: "להחזיר לנוסח המקורי?", text: "הנוסח הנוכחי יימחק וההודעה תחזור לנוסח שהיה בהתחלה.", yes: "החזרה לנוסח המקורי", no: "ביטול", danger: true });
+      if (!yes || !smsTplOpen) return;
+      if (!smsTplIsEdited(smsTplOpen)) { closeSmsTplSheet(); return showToast("ההודעה חזרה לנוסח המקורי"); }
+      return postSmsTpl("/admin/sms/templates/reset", { key: smsTplOpen.key }, "ההודעה חזרה לנוסח המקורי");
+    }
+
+    window.addEventListener("beforeunload", e => { if (smsTplDirty()) { e.preventDefault(); e.returnValue = ""; } });
+
 
     async function saveSmsSettings() {
       siteConfig.smsPackageQuota = Math.max(1, Number(document.getElementById("smsQuotaInput").value) || 1000);
@@ -2051,6 +2219,7 @@
       renderApptSheet();
       renderWeeklyRows();
       renderStatsAndSmsHub();
+      renderSmsTplList();
       renderPortfolioAdmin();
       if (!opts.keepEditors) renderEditors();
       if (document.getElementById("tab-analytics").style.display === "block") renderAnalyticsDashboard();
@@ -2128,7 +2297,7 @@
         });
 
         // גיליונות: מיקוד, לכידת Tab, Escape, נעילת גלילה והחזרת מיקוד
-        const SHEET_FOCUS = { apptSheet: "apptSheetClose", hoursSheet: "dayOpenSwitch", manualAddModal: "manualNameInput", moveSheet: "moveDateInput", confirmSheet: "confirmNo" };
+        const SHEET_FOCUS = { apptSheet: "apptSheetClose", hoursSheet: "dayOpenSwitch", manualAddModal: "manualNameInput", moveSheet: "moveDateInput", smsTplSheet: "smsTplClose", confirmSheet: "confirmNo" };
         const sheetIds = Object.keys(SHEET_FOCUS);
         const sheetReturn = {};
         const openSheets = () => sheetIds.map($).filter(el => el.classList.contains("open"));
@@ -2159,7 +2328,9 @@
           const top = topSheet();
           if (e.key === "Escape") {
             if (top) {
-              if (top.id === "confirmSheet") answerConfirm(false); else top.classList.remove("open");
+              if (top.id === "confirmSheet") answerConfirm(false);
+              else if (top.id === "smsTplSheet") requestCloseSmsTpl();
+              else top.classList.remove("open");
               return;
             }
             if (drawer.classList.contains("open")) { drawer.classList.remove("open"); bell.focus(); return; }
