@@ -86,7 +86,11 @@ async function updateFromAdmin(ctx, raw, out) {
     conflict = null;
     const date = raw.date === undefined ? stored.date : raw.date;
     const time = raw.time === undefined ? stored.time : raw.time;
-    const status = ["pending", "confirmed", "canceled"].includes(raw.status) ? raw.status : stored.status;
+    // Only the customer confirms arrival. The barber may cancel, or bring a canceled one back as waiting;
+    // any other status he sends changes nothing, so a stale screen can't undo a customer's answer.
+    let status = stored.status;
+    if (raw.status === "canceled") status = "canceled";
+    else if (stored.status === "canceled" && (raw.status === "pending" || raw.status === "confirmed")) status = "pending";
     const moved = date !== stored.date || time !== stored.time;
     const wasCanceled = stored.status === "canceled";
     const nowCanceled = status === "canceled";
@@ -117,6 +121,7 @@ async function updateFromAdmin(ctx, raw, out) {
     // A canceled appointment returning to the calendar must win its slot back first.
     if (!nowCanceled && wasCanceled && !(await S.acquireSlot(ctx, stored.date, stored.time, raw.id))) { conflict = "המשבצת כבר נתפסה"; return false; }
     next.status = status;
+    if (wasCanceled && status === "pending") delete next.confirmedAt;
     return undefined;
   });
   if (conflict) { out.conflicts.push({ id: raw.id, reason: conflict }); return; }

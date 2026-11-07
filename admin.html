@@ -39,6 +39,7 @@
       <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 20l1.3-3.7A8.25 8.25 0 1 1 8 19z"/><path d="M9.2 8.6c-.3 2.9 2.6 5.9 5.6 5.8l.9-1.3-1.9-1-.9.7a3.6 3.6 0 0 1-1.9-1.9l.7-.9-1-1.9z" fill="currentColor" stroke="none"/></symbol>
       <symbol id="i-person" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.75"/><path d="M4.75 20a7.25 7.25 0 0 1 14.5 0"/></symbol>
       <symbol id="i-phone" viewBox="0 0 24 24"><path d="M6.6 3.75h2.2c.46 0 .86.31.97.76l.86 3.44c.08.34-.02.7-.27.94L8.9 10.4a12.2 12.2 0 0 0 4.7 4.7l1.51-1.46c.25-.25.6-.35.94-.27l3.44.86c.45.11.76.51.76.97v2.2a2.1 2.1 0 0 1-2.3 2.1C10.3 18.9 5.1 13.7 4.5 6.05a2.1 2.1 0 0 1 2.1-2.3z"/></symbol>
+      <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.75"/><path d="M12 7.25V12l3.25 2"/></symbol>
       <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m6.5 9.5 5.5 5.5 5.5-5.5"/></symbol>
     </defs>
   </svg>
@@ -119,73 +120,66 @@
 
     <main class="adm-main" id="admMain">
 
-    <!-- לשונית 1: תורים ושעות. תאריך אחד, וכל מה ששייך אליו -->
+    <!-- לשונית 1: תורים ושעות. שתי תצוגות נפרדות, רק אחת גלויה -->
     <section id="tab-day" class="adm-panel" aria-labelledby="ttl-day">
-      <div class="dv-head">
-        <h2 class="dv-title" id="ttl-day">תורים ושעות</h2>
-        <label class="dv-jump">
-          <svg class="ic" aria-hidden="true"><use href="#i-cal"/></svg>
-          <span>בחירת תאריך</span>
-          <input type="date" id="dayJumpInput" onchange="jumpToDate(this.value)" />
-        </label>
+      <h2 class="adm-sr" id="ttl-day">תורים ושעות</h2>
+      <div class="dv-seg" role="group" aria-label="בחירת תצוגה">
+        <button type="button" class="dv-seg__btn" id="viewBtnDiary" aria-pressed="true" onclick="setAdminView('diary')"><svg class="ic" aria-hidden="true"><use href="#i-cal"/></svg>יומן תורים</button>
+        <button type="button" class="dv-seg__btn" id="viewBtnHours" aria-pressed="false" onclick="setAdminView('hours')"><svg class="ic" aria-hidden="true"><use href="#i-clock"/></svg>שעות פתיחה</button>
       </div>
       <p class="av-notice" id="availNothingOpen" hidden>כרגע אף יום לא פתוח, ולקוחות לא יכולים לקבוע תור.</p>
 
-      <div class="adm-card dv-strip-card">
-        <div class="dv-nav">
-          <strong class="dv-nav__month" id="stripMonth"></strong>
-          <button type="button" class="adm-icon-btn dv-nav__arrow" id="stripPrev" aria-label="ימים קודמים" onclick="moveStrip(-1)"><svg class="ic dv-chev is-prev" aria-hidden="true"><use href="#i-chevron"/></svg></button>
-          <button type="button" class="adm-btn adm-btn--tinted adm-btn--sm" id="stripToday" onclick="selectDay(ilToday())">היום</button>
-          <button type="button" class="adm-icon-btn dv-nav__arrow" id="stripNext" aria-label="ימים הבאים" onclick="moveStrip(1)"><svg class="ic dv-chev is-next" aria-hidden="true"><use href="#i-chevron"/></svg></button>
+      <!-- יומן תורים -->
+      <div id="viewDiary">
+        <div class="dk-nav">
+          <strong class="dk-nav__title" id="weekTitle"></strong>
+          <div class="dk-mode" role="group" aria-label="תצוגת היומן">
+            <button type="button" id="modeWeek" aria-pressed="true" onclick="setDiaryMode('week')">שבוע</button>
+            <button type="button" id="modeDay" aria-pressed="false" onclick="setDiaryMode('day')">יום</button>
+          </div>
+          <button type="button" class="adm-icon-btn" id="weekPrev" aria-label="השבוע הקודם" onclick="moveDiaryWeek(-1)"><svg class="ic dv-chev is-prev" aria-hidden="true"><use href="#i-chevron"/></svg></button>
+          <button type="button" class="adm-btn adm-btn--tinted adm-btn--sm" id="weekToday" onclick="selectDay(ilToday())">היום</button>
+          <button type="button" class="adm-icon-btn" id="weekNext" aria-label="השבוע הבא" onclick="moveDiaryWeek(1)"><svg class="ic dv-chev is-next" aria-hidden="true"><use href="#i-chevron"/></svg></button>
         </div>
-        <div id="dateStrip" class="dv-strip" role="group" aria-label="בחירת יום"></div>
+        <div class="dk-week" id="diaryWeekRow" role="group" aria-label="בחירת יום בשבוע"></div>
+        <div class="dk-head">
+          <div class="dk-head__txt" id="diaryHeadText"></div>
+          <button type="button" class="adm-btn adm-btn--primary dk-add" id="addApptBtn" onclick="openManualAddModal()"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>הוספת תור</button>
+        </div>
+        <div id="diaryClosedLine"></div>
+        <div id="diaryBody"></div>
+        <label class="adm-inline-switch dv-canceled" id="showCanceledRow" for="showCanceledInDay" hidden>
+          <span id="showCanceledText"></span>
+          <input type="checkbox" class="adm-switch" id="showCanceledInDay" onchange="renderDiaryView()" />
+        </label>
       </div>
 
-      <div class="dv-cols">
-        <div class="dv-main">
-          <div class="adm-card dv-card">
-            <h3 class="dv-card__title" id="dayTitle" aria-live="polite"></h3>
-            <label class="dv-switch" id="daySwitchRow" for="dayOpenSwitch">
-              <span id="dayOpenLabel"></span>
-              <input type="checkbox" class="adm-switch" id="dayOpenSwitch" onchange="dayOpenSwitchChanged()" />
-            </label>
-            <div class="dv-hours" id="dayHours">
-              <div class="dv-field">
-                <label for="dayStart">משעה</label>
-                <select id="dayStart" class="input-field" onchange="dayHoursChanged()"></select>
-              </div>
-              <div class="dv-field">
-                <label for="dayEnd">עד שעה</label>
-                <select id="dayEnd" class="input-field" onchange="dayHoursChanged()"></select>
-              </div>
-            </div>
-            <p class="dv-error" id="dayHoursError" role="alert" hidden></p>
-            <p class="dv-status" id="dayStatus"></p>
-            <p class="dv-source" id="daySource"></p>
-            <button type="button" class="adm-link dv-reset" id="dayResetLink" onclick="resetDayToWeekly()" hidden>חזרה להגדרה השבועית</button>
+      <!-- שעות פתיחה -->
+      <div id="viewHours" hidden>
+        <div class="adm-card hc">
+          <div class="hc__head">
+            <button type="button" class="adm-icon-btn" id="availPrevMonth" aria-label="החודש הקודם" onclick="moveAvailMonth(-1)"><svg class="ic dv-chev is-prev" aria-hidden="true"><use href="#i-chevron"/></svg></button>
+            <h3 class="hc__title" id="availMonthTitle" aria-live="polite"></h3>
+            <button type="button" class="adm-icon-btn" id="availNextMonth" aria-label="החודש הבא" onclick="moveAvailMonth(1)"><svg class="ic dv-chev is-next" aria-hidden="true"><use href="#i-chevron"/></svg></button>
           </div>
-
-          <div class="dv-list-head">
-            <h3 class="adm-section-h" id="dayListTitle"></h3>
-            <button type="button" class="adm-btn adm-btn--primary adm-btn--lg adm-btn--block" id="addApptBtn" onclick="openManualAddModal()"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>הוספת תור</button>
-          </div>
-          <ul class="dv-list" id="dayApptList" aria-labelledby="dayListTitle"></ul>
-          <label class="adm-inline-switch dv-canceled" id="showCanceledRow" for="showCanceledInDay" hidden>
-            <span id="showCanceledText"></span>
-            <input type="checkbox" class="adm-switch" id="showCanceledInDay" onchange="renderDayList()" />
-          </label>
+          <div id="availGrid" class="hc__grid" role="grid" aria-labelledby="availMonthTitle"></div>
         </div>
+        <p class="hc__hint">הקש על תאריך כדי לפתוח או לסגור אותו. לקוחות רואים <span id="availHorizon">30</span> ימים קדימה.</p>
 
-        <details class="adm-card dv-weekly" id="weeklyDetails">
-          <summary class="dv-weekly__sum">
-            <span class="dv-weekly__txt"><strong>פתיחה קבועה כל שבוע</strong><small id="weeklySummary"></small></span>
-            <svg class="ic" aria-hidden="true"><use href="#i-chevron"/></svg>
-          </summary>
-          <div class="dv-weekly__body">
-            <p class="dv-weekly__hint">יום שתפעיל כאן ייפתח ללקוחות בכל שבוע. תאריך אחד אפשר לשנות למעלה.</p>
-            <div id="weeklyRows" class="dv-weekly__rows"></div>
-            <h4 class="dv-weekly__sub">כל כמה זמן אפשר לקבוע תור</h4>
-            <div class="adm-group dv-slots">
+        <div class="hc-panels">
+          <details class="adm-card dv-weekly" id="weeklyDetails">
+            <summary class="dv-weekly__sum">
+              <span class="dv-weekly__txt"><strong>פתיחה קבועה כל שבוע</strong><small id="weeklySummary"></small></span>
+              <svg class="ic" aria-hidden="true"><use href="#i-chevron"/></svg>
+            </summary>
+            <div class="dv-weekly__body">
+              <p class="dv-weekly__hint">יום שתפעיל כאן ייפתח ללקוחות בכל שבוע. תאריך אחד אפשר לשנות בלוח למעלה.</p>
+              <div id="weeklyRows" class="dv-weekly__rows"></div>
+            </div>
+          </details>
+          <div class="adm-card hc-slots">
+            <h3 class="hc-slots__title">כל כמה זמן אפשר לקבוע תור</h3>
+            <div class="dv-slots">
               <div class="adm-row">
                 <label class="adm-row__label" for="slotIntervalSelect">זמן בין תור לתור</label>
                 <select id="slotIntervalSelect" class="input-field adm-row__input" onchange="saveHoursSettings()">
@@ -209,7 +203,7 @@
               </div>
             </div>
           </div>
-        </details>
+        </div>
       </div>
     </section>
 
@@ -421,6 +415,48 @@
     </main>
   </div>
 
+  <!-- גיליון פרטי תור -->
+  <div class="modal-backdrop" id="apptSheet" onclick="if(event.target===this) this.classList.remove('open')">
+    <div class="square-modal" role="dialog" aria-modal="true" aria-labelledby="apptSheetTitle">
+      <div class="sheet-grabber" aria-hidden="true"></div>
+      <div class="modal-head">
+        <h3 id="apptSheetTitle"></h3>
+        <button type="button" class="modal-close" id="apptSheetClose" aria-label="סגירה" onclick="document.getElementById('apptSheet').classList.remove('open')"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
+      </div>
+      <div id="apptSheetBody"></div>
+    </div>
+  </div>
+
+  <!-- גיליון שעות של תאריך אחד -->
+  <div class="modal-backdrop" id="hoursSheet" onclick="if(event.target===this) this.classList.remove('open')">
+    <div class="square-modal" role="dialog" aria-modal="true" aria-labelledby="dayTitle">
+      <div class="sheet-grabber" aria-hidden="true"></div>
+      <div class="modal-head">
+        <h3 id="dayTitle"></h3>
+        <button type="button" class="modal-close" aria-label="סגירה" onclick="document.getElementById('hoursSheet').classList.remove('open')"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
+      </div>
+      <p class="av-notice" id="dayApptNote" hidden></p>
+      <label class="dv-switch" id="daySwitchRow" for="dayOpenSwitch">
+        <span id="dayOpenLabel"></span>
+        <input type="checkbox" class="adm-switch" id="dayOpenSwitch" onchange="dayOpenSwitchChanged()" />
+      </label>
+      <div class="dv-hours" id="dayHours">
+        <div class="dv-field">
+          <label for="dayStart">משעה</label>
+          <select id="dayStart" class="input-field" onchange="dayHoursChanged()"></select>
+        </div>
+        <div class="dv-field">
+          <label for="dayEnd">עד שעה</label>
+          <select id="dayEnd" class="input-field" onchange="dayHoursChanged()"></select>
+        </div>
+      </div>
+      <p class="dv-error" id="dayHoursError" role="alert" hidden></p>
+      <p class="dv-status" id="dayStatus"></p>
+      <p class="dv-source" id="daySource"></p>
+      <button type="button" class="adm-link dv-reset" id="dayResetLink" onclick="resetDayToWeekly()" hidden>חזרה להגדרה השבועית</button>
+    </div>
+  </div>
+
   <!-- גיליון הוספת תור -->
   <div class="modal-backdrop" id="manualAddModal" onclick="if(event.target===this) this.classList.remove('open')">
     <div class="square-modal" role="dialog" aria-modal="true" aria-labelledby="manualAddTitle">
@@ -622,6 +658,7 @@
           document.getElementById("notifDrawer").classList.remove("open");
           if (n.date) {
             switchTab("day");
+            if (adminView !== "diary") setAdminView("diary");
             selectDay(n.date);
           }
         };
@@ -635,21 +672,38 @@
       renderNotificationsBell();
     }
 
-    // --- תורים ושעות: תאריך אחד נבחר, וכל המסך מציג אותו ---
+    // --- תורים ושעות: שתי תצוגות נפרדות, יומן תורים ושעות פתיחה ---
     const HEB_MONTHS = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
     const AVAIL_MAX_FUTURE_DAYS = 366;
     const DEFAULT_OPEN_HOURS = { start: "10:00", end: "20:00" };
+    const VIEW_KEY = "ilay_admin_view";
     // Null follows today, so a screen left open overnight moves on by itself.
     let selectedDate = null;
+    // Null means the default: a week on a wide screen, a day on a phone.
+    let diaryMode = null;
+    let adminView = (() => { try { return localStorage.getItem(VIEW_KEY) === "hours" ? "hours" : "diary"; } catch (_) { return "diary"; } })();
+    let hoursDate = null;
     let dayPending = 0;
     let dayHoursInvalid = false;
+    let availMonth = null;
+    let availFocusDate = null;
+    let apptSheetId = null;
 
     const currentDate = () => selectedDate || ilToday();
-    // "היום" for today, otherwise the weekday, for sentences such as "יום שני פתוח ללקוחות".
     const weekdayName = i => (i === 6 ? DAYS_HEB[6] : `יום ${DAYS_HEB[i]}`);
+    // "היום" for today, otherwise the weekday, for sentences such as "יום שני פתוח ללקוחות".
     const dayWord = date => (date === ilToday() ? "היום" : weekdayName(ilDow(date)));
     const liveApptsOn = date => appointments.filter(a => apptDate(a) === date && a.status !== "canceled");
     const countWords = n => (n === 0 ? "אין תורים" : n === 1 ? "תור אחד" : `${n} תורים`);
+    const isWide = () => window.matchMedia("(min-width: 900px)").matches;
+    const weekMode = () => isWide() && (diaryMode || "week") === "week";
+    const weekDatesOf = date => { const sun = ilAddDays(date, -ilDow(date)); return [0, 1, 2, 3, 4, 5, 6].map(n => ilAddDays(sun, n)); };
+    const pastTime = (date, time) => {
+      const today = ilToday();
+      if (date !== today) return date < today;
+      const [h, m] = time.split(":").map(Number);
+      return h * 60 + m <= israelNowMinutes();
+    };
 
     function fullHebDate(date) {
       const [y, m, d] = date.split("-").map(Number);
@@ -659,6 +713,7 @@
       const [, m, d] = date.split("-").map(Number);
       return `${d} ב${HEB_MONTHS[m - 1]}`;
     }
+    const dayHeading = date => (date === ilToday() ? `היום, ${weekdayName(ilDow(date))}, ${shortHebDate(date)}` : `${weekdayName(ilDow(date))}, ${shortHebDate(date)}`);
 
     // Replaces the content only when it changed, so a poll leaves the scroll and the focus alone.
     function setHtml(el, html) {
@@ -669,94 +724,329 @@
       if (key) el.querySelector(`[data-fk="${key}"]`)?.focus({ preventScroll: true });
     }
 
-    function selectDay(date, opts = {}) {
+    function applyAdminView() {
+      const diary = adminView === "diary";
+      document.getElementById("viewDiary").hidden = !diary;
+      document.getElementById("viewHours").hidden = diary;
+      document.getElementById("viewBtnDiary").setAttribute("aria-pressed", String(diary));
+      document.getElementById("viewBtnHours").setAttribute("aria-pressed", String(!diary));
+    }
+
+    function setAdminView(view) {
+      adminView = view === "hours" ? "hours" : "diary";
+      try { localStorage.setItem(VIEW_KEY, adminView); } catch (_) {}
+      applyAdminView();
+      renderDiaryView();
+      renderHoursView();
+      window.scrollTo({ top: 0, behavior: "instant" });
+    }
+
+    function selectDay(date) {
       selectedDate = date === ilToday() ? null : date;
-      dayHoursInvalid = false;
-      renderDayView();
-      const chip = document.querySelector(`#dateStrip [data-date="${date}"]`);
-      if (chip) {
-        chip.scrollIntoView({ inline: "center", block: "nearest", behavior: motionOk() ? "smooth" : "auto" });
-        if (opts.focus) chip.focus({ preventScroll: true });
-      }
+      renderDiaryView();
     }
-
-    function jumpToDate(value) {
-      if (!value) return;
+    function setDiaryMode(mode) {
+      diaryMode = mode;
+      renderDiaryView();
+    }
+    function diaryDayClick(date) {
+      if (weekMode()) diaryMode = "day";
+      selectDay(date);
+    }
+    function moveDiaryWeek(dir) {
+      const next = ilAddDays(currentDate(), 7 * dir);
       const last = ilAddDays(ilToday(), AVAIL_MAX_FUTURE_DAYS);
-      selectDay(value > last ? last : value);
+      selectDay(next > last ? last : next);
     }
 
-    const motionOk = () => !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    // --- יומן תורים ---
+    // The customer alone confirms arrival. The barber only reads the answer here.
+    const STATUS_WORDS = { confirmed: "הלקוח אישר הגעה", pending: "ממתין לאישור הלקוח", canceled: "בוטל" };
 
-    // --- רצועת התאריכים ---
-    function stripDates() {
+    function shownAppts() {
+      const showCanceled = document.getElementById("showCanceledInDay").checked;
+      return appointments.filter(a => showCanceled || a.status !== "canceled");
+    }
+
+    function weekCellHtml(date) {
       const today = ilToday();
-      const sel = currentDate();
-      let end = ilAddDays(today, horizonDays - 1);
-      if (sel > end) end = ilAddDays(sel, 6);
-      const out = [];
-      for (let d = today; d <= end; d = ilAddDays(d, 1)) out.push(d);
-      return out;
+      const sel = !weekMode() && date === currentDate();
+      const open = effectiveDay(date).open;
+      const n = liveApptsOn(date).length;
+      const label = `${date === today ? "היום, " : ""}${fullHebDate(date)}, ${open ? "פתוח" : "סגור"}, ${countWords(n)}`;
+      return `<button type="button" class="dk-day ${open ? "" : "is-closed"} ${sel ? "is-sel" : ""} ${date === today ? "is-today" : ""}" data-date="${date}" data-fk="dk-${date}" aria-pressed="${sel}" ${date === today ? 'aria-current="date"' : ""} aria-label="${esc(label)}" onclick="diaryDayClick('${date}')"><span class="dk-day__w">${DAYS_HEB[ilDow(date)]}</span><span class="dk-day__d">${Number(date.slice(8))}</span><span class="dk-day__foot">${open ? "" : `<span class="dk-day__closed">סגור</span>`}${n ? `<span class="dk-day__n">${n}</span>` : ""}</span></button>`;
     }
 
-    function renderDateStrip() {
+    function apptBlockHtml(a, compact) {
+      const st = safeStatus(a.status);
+      const id = safeId(a.id);
+      const nm = sanitizeStr(a.name, 35);
+      const svc = sanitizeStr(String(a.service || "").split(" • ")[0], 40);
+      const price = Number(a.price) || 0;
+      const time = esc(safeTime(a.time));
+      return `<button type="button" class="dk-appt is-${st} ${compact ? "is-compact" : ""}" data-fk="appt-${id}" data-id="${id}" aria-label="${time}, ${nm}, ${svc}, ${price} שקלים, ${STATUS_WORDS[st]}. פרטים ופעולות" onclick="openApptSheet('${id}')">
+          <span class="dk-appt__main"><span class="dk-appt__time">${time}</span> <span class="dk-appt__name">${nm}</span></span>
+          <span class="dk-appt__svc">${svc} · <span class="dv-nowrap">${price} ₪</span></span>
+          <span class="dk-appt__status">${STATUS_WORDS[st]}</span>
+        </button>`;
+    }
+
+    // One square of the diary: appointments, a free place to add one, or nothing to do.
+    function diaryCellHtml(date, time, list, compact) {
+      const here = list.filter(a => apptDate(a) === date && a.time === time);
+      if (here.length) return here.map(a => apptBlockHtml(a, compact)).join("");
+      if (pastTime(date, time)) return `<div class="dk-past" aria-hidden="true"></div>`;
+      if (slotClosedReason(date, time)) return `<div class="dk-off" aria-hidden="true"></div>`;
+      return `<button type="button" class="dk-free" data-fk="add-${date}-${time}" aria-label="פנוי. הוספת תור, ${esc(fullHebDate(date))} בשעה ${time}" onclick="openManualAddModal('${date}', '${time}')"><span aria-hidden="true">+ פנוי</span></button>`;
+    }
+
+    // Every slot of the open days shown, and any time that has an appointment.
+    function diaryTimes(dates, list) {
+      const out = new Set();
+      dates.forEach(date => {
+        const day = effectiveDay(date);
+        if (day.open) daySlots(date, day.start, day.end).forEach(t => out.add(t));
+      });
+      list.forEach(a => { if (dates.includes(apptDate(a)) && safeTime(a.time)) out.add(a.time); });
+      return [...out].sort();
+    }
+
+    function nowSlot(times) {
+      const nowMin = israelNowMinutes();
+      return times.filter(t => { const [h, m] = t.split(":").map(Number); return h * 60 + m <= nowMin; }).pop() || null;
+    }
+
+    function renderDiaryDay(date, list) {
       const today = ilToday();
-      const sel = currentDate();
-      const dates = stripDates();
-      const rover = dates.includes(sel) ? sel : today;
-      const html = dates.map(date => {
-        const open = effectiveDay(date).open;
-        const n = liveApptsOn(date).length;
-        const state = open ? "פתוח" : "סגור";
-        const label = `${date === today ? "היום, " : ""}${fullHebDate(date)}, ${state}, ${countWords(n)}`;
-        return `<button type="button" class="dv-chip ${open ? "is-open" : "is-closed"} ${date === sel ? "is-sel" : ""} ${date === today ? "is-today" : ""}" data-date="${date}" data-fk="chip-${date}" tabindex="${date === rover ? 0 : -1}" aria-pressed="${date === sel}" ${date === today ? 'aria-current="date"' : ""} aria-label="${esc(label)}" onclick="selectDay('${date}')"><span class="dv-chip__w">${date === today ? "היום" : DAYS_HEB[ilDow(date)]}</span><span class="dv-chip__d">${Number(date.slice(8))}</span><span class="dv-chip__st">${state}</span><span class="dv-chip__n">${countWords(n)}</span></button>`;
-      }).join("");
-      setHtml(document.getElementById("dateStrip"), html);
-      syncStripNav();
+      const times = diaryTimes([date], list);
+      const now = date === today ? nowSlot(times) : null;
+      if (!times.length) {
+        return `<p class="dk-empty">${date < today ? "לא היו תורים ביום הזה." : date === today ? "אין תורים היום." : "אין תורים ביום הזה."}</p>`;
+      }
+      return `<div class="dk-diary" role="group" aria-label="${esc(fullHebDate(date))}">${times.map(t =>
+        `<div class="dk-row"><div class="dk-time ${t === now ? "is-now" : ""}">${t}</div><div class="dk-cell">${diaryCellHtml(date, t, list, false)}</div></div>`
+      ).join("")}</div>`;
     }
 
-    function syncStripNav() {
-      const strip = document.getElementById("dateStrip");
-      const prev = document.getElementById("stripPrev");
-      const next = document.getElementById("stripNext");
-      const pos = Math.abs(strip.scrollLeft);
-      const atStart = pos < 2;
-      const atEnd = pos + strip.clientWidth >= strip.scrollWidth - 2;
+    function renderDiaryWeek(dates, list) {
+      const today = ilToday();
+      const times = diaryTimes(dates, list);
+      const now = dates.includes(today) ? nowSlot(times) : null;
+      const head = `<div class="dw__corner" aria-hidden="true"></div>${dates.map(weekCellHtml).join("")}`;
+      const rows = times.map(t =>
+        `<div class="dk-time dw__time ${t === now ? "is-now" : ""}">${t}</div>${dates.map(d =>
+          `<div class="dw__cell ${d === today ? "is-today" : ""} ${effectiveDay(d).open ? "" : "is-closed"}">${diaryCellHtml(d, t, list, true)}</div>`
+        ).join("")}`
+      ).join("");
+      return `<div class="dw" role="group" aria-label="יומן השבוע">${head}${rows}</div>${times.length ? "" : `<p class="dk-empty">אין תורים בשבוע הזה, וכל הימים בו סגורים.</p>`}`;
+    }
+
+    function renderDiaryView() {
+      const today = ilToday();
+      const date = currentDate();
+      const dates = weekDatesOf(date);
+      const wide = isWide();
+      const week = weekMode();
+      const list = shownAppts();
+
+      const [y1, m1] = dates[0].split("-").map(Number);
+      const [y2, m2] = dates[6].split("-").map(Number);
+      document.getElementById("weekTitle").textContent = m1 === m2 ? `${HEB_MONTHS[m1 - 1]} ${y1}` : `${HEB_MONTHS[m1 - 1]}–${HEB_MONTHS[m2 - 1]} ${y2}`;
+      document.getElementById("weekNext").disabled = dates[6] >= ilAddDays(today, AVAIL_MAX_FUTURE_DAYS);
+      const modeBox = document.querySelector(".dk-mode");
+      modeBox.hidden = !wide;
+      document.getElementById("modeWeek").setAttribute("aria-pressed", String(week));
+      document.getElementById("modeDay").setAttribute("aria-pressed", String(!week));
+
+      const row = document.getElementById("diaryWeekRow");
+      row.hidden = week;
+      setHtml(row, week ? "" : dates.map(weekCellHtml).join(""));
+
+      const head = document.getElementById("diaryHeadText");
+      const add = document.getElementById("addApptBtn");
+      const closedLine = document.getElementById("diaryClosedLine");
+      if (week) {
+        const n = dates.reduce((sum, d) => sum + liveApptsOn(d).length, 0);
+        setHtml(head, `<strong class="dk-head__title">השבוע: ${countWords(n)}</strong>`);
+        add.hidden = dates[6] < today;
+        setHtml(closedLine, "");
+      } else {
+        const day = effectiveDay(date);
+        const live = liveApptsOn(date);
+        const past = date < today;
+        const next = date === today ? live.filter(a => !pastTime(date, a.time)).sort((a, b) => String(a.time).localeCompare(String(b.time)))[0] : null;
+        const facts = [countWords(live.length)];
+        if (day.open && !past) facts.push(`פתוח ${day.start} עד ${day.end}`);
+        setHtml(head, `<strong class="dk-head__title">${esc(dayHeading(date))}</strong><span class="dk-head__sub">${esc(facts.join(" · "))}</span>${next ? `<span class="dk-head__next">התור הבא: ${esc(safeTime(next.time))}, ${sanitizeStr(next.name, 35)}</span>` : ""}`);
+        add.hidden = past;
+        setHtml(closedLine, past
+          ? `<p class="dk-closed"><strong>התאריך הזה כבר עבר.</strong></p>`
+          : day.open ? "" : `<div class="dk-closed"><strong>${esc(dayWord(date))} סגור ללקוחות</strong><button type="button" class="adm-link dk-closed__link" data-fk="closed-link" onclick="openHoursFor('${date}')">לשינוי בשעות פתיחה</button></div>`);
+      }
+
+      setHtml(document.getElementById("diaryBody"), week ? renderDiaryWeek(dates, list) : renderDiaryDay(date, list));
+
+      const visible = week ? dates : [date];
+      const canceled = appointments.filter(a => a.status === "canceled" && visible.includes(apptDate(a))).length;
+      document.getElementById("showCanceledRow").hidden = !canceled;
+      document.getElementById("showCanceledText").textContent = canceled === 1 ? "להציג גם תור אחד שבוטל" : `להציג גם ${canceled} תורים שבוטלו`;
+    }
+
+    // --- גיליון פרטי תור ---
+    function renderApptSheet() {
+      if (!apptSheetId) return;
+      const sheet = document.getElementById("apptSheet");
+      if (!sheet.classList.contains("open")) return;
+      const a = appointments.find(x => x.id === apptSheetId);
+      if (!a) { sheet.classList.remove("open"); apptSheetId = null; return; }
+      const st = safeStatus(a.status);
+      const id = safeId(a.id);
+      const date = apptDate(a);
+      const nm = sanitizeStr(a.name, 35);
+      const phone = toIsraeliLocalPhone(a.phone);
+      const past = date < ilToday();
+      const note = sanitizeStr(a.adminNote || a.note || "", 120);
+      document.getElementById("apptSheetTitle").textContent = a.name;
+      const line = (k, v) => `<div class="dk-detail"><dt>${k}</dt><dd>${v}</dd></div>`;
+      const act = (key, cls, icon, label, click) => `<button type="button" class="dv-act ${cls}" data-fk="${key}-${id}" onclick="${click}"><svg class="ic" aria-hidden="true"><use href="#${icon}"/></svg><span>${label}</span></button>`;
+      const actions = [];
+      if (st !== "canceled" && !past) actions.push(act("move", "", "i-swap", "הזזה", `openMoveSheet('${id}')`));
+      if (phone) {
+        actions.push(`<a class="dv-act" href="tel:${esc(phone)}"><svg class="ic" aria-hidden="true"><use href="#i-phone"/></svg><span>התקשרות</span></a>`);
+        actions.push(act("wa", "is-wa", "i-chat", "WhatsApp", `sendWhatsappFromCard('${id}', event)`));
+      }
+      if (st !== "canceled" && !past) actions.push(act("cancel", "is-danger", "i-x", "ביטול", `askCancelAppt('${id}')`));
+      if (st === "canceled") actions.push(act("del", "is-danger", "i-trash", "מחיקה", `askCancelAppt('${id}')`));
+      setHtml(document.getElementById("apptSheetBody"), `<dl class="dk-details">
+          ${line("מתי", `${esc(dayHeading(date))}, ${esc(safeTime(a.time))}`)}
+          ${line("שירות", `${sanitizeStr(String(a.service || "").split(" • ")[0], 40)} · ${Number(a.price) || 0} ₪`)}
+          ${phone ? line("טלפון", `<span dir="ltr">${esc(phone)}</span>`) : ""}
+          ${note ? line("הערה", note) : ""}
+          ${line("מצב", `<span class="dk-state is-${st}">${STATUS_WORDS[st]}</span>`)}
+        </dl>
+        ${st === "pending" ? `<p class="dk-sheet-hint">רק הלקוח מאשר הגעה, מהאזור האישי שלו באתר.</p>` : ""}
+        ${actions.length ? `<div class="dk-actions">${actions.join("")}</div>` : ""}`);
+    }
+
+    function openApptSheet(apptId) {
+      apptSheetId = apptId;
+      document.getElementById("apptSheet").classList.add("open");
+      renderApptSheet();
+    }
+
+    // --- שעות פתיחה: לוח חודשי ---
+    function availLastDate() { return ilAddDays(ilToday(), AVAIL_MAX_FUTURE_DAYS); }
+    function monthOf(date) { const [y, m] = date.split("-").map(Number); return { y, m }; }
+    const monthNum = o => o.y * 12 + o.m - 1;
+
+    function moveAvailMonth(delta) {
+      const n = monthNum(availMonth) + delta;
+      availMonth = { y: Math.floor(n / 12), m: (n % 12) + 1 };
+      availFocusDate = null;
+      renderHoursView();
+    }
+
+    function renderAvailMonthButtons() {
+      const prev = document.getElementById("availPrevMonth");
+      const next = document.getElementById("availNextMonth");
+      const atStart = monthNum(availMonth) <= monthNum(monthOf(ilToday()));
+      const atEnd = monthNum(availMonth) >= monthNum(monthOf(availLastDate()));
       // The focus must not fall out of the page when a button turns off.
-      if (atStart && document.activeElement === prev) next.focus();
-      if (atEnd && document.activeElement === next) prev.focus();
+      if ((atStart && document.activeElement === prev) || (atEnd && document.activeElement === next)) (atStart ? next : prev).focus();
       prev.disabled = atStart;
       next.disabled = atEnd;
-      // The month of the first date showing. Right to left, that is the chip nearest the right edge.
-      const right = strip.getBoundingClientRect().right;
-      const first = [...strip.children].find(c => c.getBoundingClientRect().right <= right + 8) || strip.firstElementChild;
-      if (first) {
-        const [y, m] = first.dataset.date.split("-").map(Number);
-        document.getElementById("stripMonth").textContent = `${HEB_MONTHS[m - 1]} ${y}`;
-      }
     }
 
-    function moveStrip(dir) {
-      const strip = document.getElementById("dateStrip");
-      const chip = strip.firstElementChild ? strip.firstElementChild.getBoundingClientRect().width + 6 : 80;
-      const page = Math.max(chip, Math.floor(strip.clientWidth / chip) * chip);
-      // Right to left, going forward is scrolling to the left.
-      strip.scrollBy({ left: -dir * page, behavior: motionOk() ? "smooth" : "auto" });
-    }
-
-    // Right to left: the left arrow is the next day.
-    function onStripKey(e) {
-      const date = e.target.closest?.(".dv-chip")?.dataset.date;
-      if (!date) return;
+    function renderAvailCalendar() {
+      const grid = document.getElementById("availGrid");
       const today = ilToday();
-      const moves = { ArrowLeft: () => ilAddDays(date, 1), ArrowRight: () => ilAddDays(date, -1), Home: () => today, End: () => stripDates().pop() };
+      const last = availLastDate();
+      const { y, m } = availMonth;
+      const first = `${y}-${pad2(m)}-01`;
+      const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
+      document.getElementById("availMonthTitle").textContent = `${HEB_MONTHS[m - 1]} ${y}`;
+
+      const usable = d => d >= today && d <= last;
+      const firstUsable = [...Array(daysInMonth).keys()].map(i => ilAddDays(first, i)).find(usable) || null;
+      const inMonth = availFocusDate && availFocusDate.startsWith(first.slice(0, 7)) && usable(availFocusDate);
+      const rover = inMonth ? availFocusDate : (today.startsWith(first.slice(0, 7)) ? today : firstUsable);
+
+      const header = `<div role="row" class="hc__row">${DAYS_HEB.map((d, i) => `<div role="columnheader" class="hc__dow" aria-label="${esc(weekdayName(i))}">${esc(d)}</div>`).join("")}</div>`;
+      const cells = [];
+      for (let i = 0; i < ilDow(first); i++) cells.push(`<div role="gridcell"></div>`);
+      for (let i = 0; i < daysInMonth; i++) {
+        const date = ilAddDays(first, i);
+        const day = effectiveDay(date);
+        const past = !usable(date);
+        const isToday = date === today;
+        const word = day.open ? "פתוח" : "סגור";
+        const label = `${fullHebDate(date)}${isToday ? ", היום" : ""}, ${past ? "עבר" : day.open ? `פתוח ${day.start} עד ${day.end}` : "סגור"}`;
+        const body = past ? "" : `<span class="hc__word">${word}</span>${day.open ? `<span class="hc__hours" dir="ltr"><span>${esc(day.start)}</span><span class="hc__dash">–</span><span>${esc(day.end)}</span></span>` : ""}`;
+        cells.push(`<div role="gridcell"><button type="button" class="hc__day ${past ? "is-past" : day.open ? "is-open" : "is-closed"} ${isToday ? "is-today" : ""}" data-date="${date}" data-fk="hd-${date}" tabindex="${date === rover ? 0 : -1}" ${past ? "disabled" : ""} ${isToday ? 'aria-current="date"' : ""} aria-label="${esc(label)}" onclick="openHoursSheet('${date}')"><span class="hc__num">${i + 1}</span>${body}</button></div>`);
+      }
+      while (cells.length % 7) cells.push(`<div role="gridcell"></div>`);
+      let rows = "";
+      for (let i = 0; i < cells.length; i += 7) rows += `<div role="row" class="hc__row">${cells.slice(i, i + 7).join("")}</div>`;
+      setHtml(grid, header + rows);
+    }
+
+    function focusAvailDate(date) {
+      const today = ilToday();
+      const last = availLastDate();
+      const target = date < today ? today : date > last ? last : date;
+      availFocusDate = target;
+      const m = monthOf(target);
+      if (monthNum(m) !== monthNum(availMonth)) {
+        availMonth = m;
+        renderHoursView();
+      }
+      const grid = document.getElementById("availGrid");
+      grid.querySelectorAll(".hc__day").forEach(b => { b.tabIndex = b.dataset.date === target ? 0 : -1; });
+      grid.querySelector(`[data-date="${target}"]`)?.focus();
+    }
+
+    // Right-to-left: the left arrow is the next day.
+    function onAvailGridKey(e) {
+      const date = e.target.closest?.(".hc__day")?.dataset.date;
+      if (!date) return;
+      const dow = ilDow(date);
+      const addMonth = n => {
+        const [y, m, d] = date.split("-").map(Number);
+        const t = new Date(Date.UTC(y, m - 1 + n, 1));
+        const dim = new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth() + 1, 0)).getUTCDate();
+        return `${t.getUTCFullYear()}-${pad2(t.getUTCMonth() + 1)}-${pad2(Math.min(d, dim))}`;
+      };
+      const moves = {
+        ArrowLeft: () => ilAddDays(date, 1), ArrowRight: () => ilAddDays(date, -1),
+        ArrowDown: () => ilAddDays(date, 7), ArrowUp: () => ilAddDays(date, -7),
+        Home: () => ilAddDays(date, -dow), End: () => ilAddDays(date, 6 - dow),
+        PageDown: () => addMonth(1), PageUp: () => addMonth(-1)
+      };
       if (!moves[e.key]) return;
       e.preventDefault();
-      const target = moves[e.key]();
-      selectDay(target < today ? today : target > stripDates().pop() ? date : target, { focus: true });
+      focusAvailDate(moves[e.key]());
     }
 
-    // --- כרטיס היום ---
+    function renderHoursView() {
+      if (!availMonth) availMonth = monthOf(ilToday());
+      document.getElementById("availHorizon").textContent = horizonDays;
+      const today = ilToday();
+      const anyOpen = availability.weekly.some(d => d.open) || Object.entries(availability.dates).some(([d, r]) => r.open && d >= today);
+      document.getElementById("availNothingOpen").hidden = anyOpen;
+      renderAvailCalendar();
+      renderAvailMonthButtons();
+      renderHoursSheet();
+    }
+
+    // Comes from the diary's closed-day line: the hours view, on that date.
+    function openHoursFor(date) {
+      availMonth = monthOf(date);
+      availFocusDate = date;
+      setAdminView("hours");
+      openHoursSheet(date);
+    }
+
+    // --- גיליון שעות של תאריך ---
     const HOUR_OPTIONS = (() => {
       const out = [];
       for (let m = 6 * 60; m < 24 * 60; m += 15) out.push(`${pad2(Math.floor(m / 60))}:${pad2(m % 60)}`);
@@ -782,24 +1072,34 @@
       return week && week.start && week.end ? { start: week.start, end: week.end } : DEFAULT_OPEN_HOURS;
     }
 
-    function renderDayCard() {
-      const date = currentDate();
+    function openHoursSheet(date) {
+      if (date < ilToday()) return;
+      hoursDate = date;
+      availFocusDate = date;
+      dayHoursInvalid = false;
+      document.getElementById("hoursSheet").classList.add("open");
+      renderHoursSheet();
+    }
+
+    function renderHoursSheet() {
+      const date = hoursDate;
+      if (!date || !document.getElementById("hoursSheet").classList.contains("open")) return;
       const today = ilToday();
-      const past = date < today;
       const day = effectiveDay(date);
-      const word = dayWord(date);
       const sw = document.getElementById("dayOpenSwitch");
       if (!dayPending) sw.checked = day.open;
       const open = sw.checked;
 
-      document.getElementById("dayTitle").textContent = date === today ? `היום, ${weekdayName(ilDow(date))}, ${shortHebDate(date)}` : fullHebDate(date);
-      const row = document.getElementById("daySwitchRow");
-      row.hidden = past;
-      row.classList.toggle("is-open", open);
-      document.getElementById("dayOpenLabel").textContent = `${word} ${open ? "פתוח" : "סגור"} ללקוחות`;
+      document.getElementById("dayTitle").textContent = dayHeading(date);
+      document.getElementById("daySwitchRow").classList.toggle("is-open", open);
+      document.getElementById("dayOpenLabel").textContent = `${dayWord(date)} ${open ? "פתוח" : "סגור"} ללקוחות`;
 
-      const hours = document.getElementById("dayHours");
-      hours.hidden = past || !open;
+      const n = liveApptsOn(date).length;
+      const apptNote = document.getElementById("dayApptNote");
+      apptNote.hidden = !n;
+      apptNote.textContent = n ? `${n === 1 ? "יש תור אחד" : `יש ${n} תורים`} בתאריך הזה. הם נשארים גם אם סוגרים.` : "";
+
+      document.getElementById("dayHours").hidden = !open;
       if (!dayHoursInvalid && !dayPending) {
         const h = suggestedHours(date);
         setHourSelect(document.getElementById("dayStart"), h.start);
@@ -810,14 +1110,8 @@
       const status = document.getElementById("dayStatus");
       const source = document.getElementById("daySource");
       const reset = document.getElementById("dayResetLink");
-      const rule = availability.dates[date];
-      reset.hidden = past || !rule;
-      if (past) {
-        status.textContent = "התאריך הזה כבר עבר.";
-        source.textContent = "";
-        return;
-      }
       const week = availability.weekly[ilDow(date)];
+      reset.hidden = !availability.dates[date];
       reset.setAttribute("aria-label", `חזרה להגדרה השבועית: ${week && week.open ? `פתוח ${week.start} עד ${week.end}` : "סגור"}`);
       const beyond = date > ilAddDays(today, horizonDays - 1);
       const notes = [];
@@ -827,7 +1121,7 @@
         if (beyond) notes.push(`לקוחות יראו את התאריך הזה ${horizonDays} ימים לפניו.`);
       } else {
         status.textContent = "לקוחות לא יכולים לקבוע תור.";
-        notes.push(liveApptsOn(date).length ? "התורים שכבר נקבעו נשארים." : day.source === "date" ? "סגור בתאריך הזה בלבד." : "אפשר לפתוח עם המתג למעלה.");
+        notes.push(day.source === "date" ? "סגור בתאריך הזה בלבד." : "אפשר לפתוח עם המתג למעלה.");
       }
       source.textContent = notes.join(" ");
     }
@@ -845,16 +1139,18 @@
       dayPending--;
       if (!r.ok) showToast(r.reason);
       else showToast(doneMsg);
-      renderDayView();
+      renderHoursView();
+      renderDiaryView();
       return r.ok;
     }
 
     async function dayOpenSwitchChanged() {
-      const date = currentDate();
+      const date = hoursDate;
+      if (!date) return;
       const sw = document.getElementById("dayOpenSwitch");
       dayHoursInvalid = false;
       if (sw.checked) {
-        renderDayCard();
+        renderHoursSheet();
         return saveDayRule(date, ruleForDay(date, { open: true, ...suggestedHours(date) }));
       }
       const n = liveApptsOn(date).length;
@@ -862,18 +1158,19 @@
         sw.checked = true;
         const yes = await askConfirm({
           title: `לסגור את ${dayWord(date)}?`,
-          text: `${n === 1 ? "יש תור אחד" : `יש ${n} תורים`} ב${date === ilToday() ? "יום הזה" : "תאריך הזה"}. אם תסגור, לקוחות חדשים לא יוכלו לקבוע. התורים הקיימים נשארים ולא מתבטלים.`,
+          text: `${n === 1 ? "יש תור אחד" : `יש ${n} תורים`} בתאריך הזה. אם תסגור, לקוחות חדשים לא יוכלו לקבוע. התורים הקיימים נשארים ולא מתבטלים.`,
           yes: "לסגור ללקוחות חדשים", no: "להשאיר פתוח", danger: true
         });
-        if (!yes) return renderDayCard();
+        if (!yes) return renderHoursSheet();
         sw.checked = false;
       }
-      renderDayCard();
+      renderHoursSheet();
       return saveDayRule(date, ruleForDay(date, { open: false }));
     }
 
     async function dayHoursChanged() {
-      const date = currentDate();
+      const date = hoursDate;
+      if (!date) return;
       const start = document.getElementById("dayStart").value;
       const end = document.getElementById("dayEnd").value;
       const err = document.getElementById("dayHoursError");
@@ -886,84 +1183,9 @@
 
     async function resetDayToWeekly() {
       dayHoursInvalid = false;
-      // Focus must not fall out of the page when the link disappears.
-      document.getElementById("addApptBtn").focus({ preventScroll: true });
-      return saveDayRule(currentDate(), null);
-    }
-
-    // --- התורים של היום ---
-    const STATUS_WORDS = { confirmed: "אושר", pending: "מחכה לאישור", canceled: "בוטל" };
-
-    function apptRowHtml(a, past) {
-      const st = safeStatus(a.status);
-      const id = safeId(a.id);
-      const nm = sanitizeStr(a.name, 35);
-      const svc = sanitizeStr(String(a.service || "").split(" • ")[0], 40);
-      const price = Number(a.price) || 0;
-      const phone = toIsraeliLocalPhone(a.phone);
-      const note = sanitizeStr(a.adminNote || a.note || "", 120);
-      const act = (key, cls, icon, label, aria, click) => `<button type="button" class="dv-act ${cls}" data-fk="${key}-${id}" aria-label="${aria}" onclick="${click}"><svg class="ic" aria-hidden="true"><use href="#${icon}"/></svg><span>${label}</span></button>`;
-      const actions = [];
-      if (st !== "canceled" && !past) actions.push(act("move", "", "i-swap", "הזזה", `הזזת התור של ${nm}`, `openMoveSheet('${id}')`));
-      if (phone) {
-        actions.push(`<a class="dv-act" href="tel:${esc(phone)}" aria-label="התקשרות אל ${nm}"><svg class="ic" aria-hidden="true"><use href="#i-phone"/></svg><span>התקשרות</span></a>`);
-        actions.push(act("wa", "is-wa", "i-chat", "WhatsApp", `WhatsApp אל ${nm}`, `sendWhatsappFromCard('${id}', event)`));
-      }
-      if (st !== "canceled" && !past) actions.push(act("cancel", "is-danger", "i-x", "ביטול", `ביטול התור של ${nm}`, `askCancelAppt('${id}')`));
-      if (st === "canceled") actions.push(act("del", "is-danger", "i-trash", "מחיקה", `מחיקת התור של ${nm} מהרשימה`, `askCancelAppt('${id}')`));
-      const confirmBtn = st === "pending" && !past
-        ? `<button type="button" class="dv-confirm" data-fk="ok-${id}" aria-label="אישור התור של ${nm}" onclick="toggleApptStatusAdmin('${id}', event)"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>אישור</button>`
-        : "";
-      const undo = st === "confirmed" && !past
-        ? `<button type="button" class="adm-link dv-undo" data-fk="undo-${id}" aria-label="החזרת התור של ${nm} להמתנה לאישור" onclick="toggleApptStatusAdmin('${id}', event)">החזרה להמתנה</button>`
-        : "";
-      return `<li class="dv-appt is-${st}" data-id="${id}">
-          <div class="dv-appt__top">
-            <span class="dv-appt__time">${esc(safeTime(a.time))}</span>
-            <div class="dv-appt__info">
-              <div class="dv-appt__name">${nm}</div>
-              <div class="dv-appt__svc">${svc} · ${price} ₪</div>
-              ${note ? `<div class="dv-appt__note">הערה: ${note}</div>` : ""}
-              <div class="dv-appt__state"><span class="status-pill ${st}">${STATUS_WORDS[st]}</span>${undo}</div>
-            </div>
-          </div>
-          ${confirmBtn}
-          ${actions.length ? `<div class="dv-actions">${actions.join("")}</div>` : ""}
-        </li>`;
-    }
-
-    function renderDayList() {
-      const date = currentDate();
-      const today = ilToday();
-      const past = date < today;
-      document.getElementById("dayListTitle").textContent = date === today ? "התורים של היום" : `התורים של ${weekdayName(ilDow(date))}, ${shortHebDate(date)}`;
-      document.getElementById("addApptBtn").hidden = past;
-
-      const all = appointments.filter(a => apptDate(a) === date).sort((a, b) => String(a.time).localeCompare(String(b.time)));
-      const canceled = all.filter(a => a.status === "canceled").length;
-      const showCanceled = document.getElementById("showCanceledInDay").checked;
-      const shown = all.filter(a => showCanceled || a.status !== "canceled");
-      document.getElementById("showCanceledRow").hidden = !canceled;
-      document.getElementById("showCanceledText").textContent = canceled === 1 ? "להציג גם תור אחד שבוטל" : `להציג גם ${canceled} תורים שבוטלו`;
-
-      const open = effectiveDay(date).open;
-      const empty = date === today ? "אין תורים היום." : "אין תורים ביום הזה.";
-      const hint = past || open ? "" : " אפשר לפתוח את היום למעלה, או להוסיף תור ידנית.";
-      setHtml(document.getElementById("dayApptList"), shown.length
-        ? shown.map(a => apptRowHtml(a, past)).join("")
-        : `<li class="dv-empty">${empty}${hint}</li>`);
-    }
-
-    function renderDayView() {
-      renderDateStrip();
-      renderDayCard();
-      renderDayList();
-      const today = ilToday();
-      const jump = document.getElementById("dayJumpInput");
-      jump.max = ilAddDays(today, AVAIL_MAX_FUTURE_DAYS);
-      if (document.activeElement !== jump) jump.value = currentDate();
-      const anyOpen = availability.weekly.some(d => d.open) || Object.entries(availability.dates).some(([d, r]) => r.open && d >= today);
-      document.getElementById("availNothingOpen").hidden = anyOpen;
+      // Focus must not fall out of the sheet when the link disappears.
+      document.getElementById("dayOpenSwitch").focus({ preventScroll: true });
+      return saveDayRule(hoursDate, null);
     }
 
     // The default rows, every open day's own rows and any time that already has an appointment.
@@ -989,20 +1211,6 @@
     async function confirmClosedSlot(date, time) {
       const reason = slotClosedReason(date, time);
       return !reason || askConfirm({ title: reason, text: "אפשר להוסיף את התור בכל זאת. זה לא פותח את היום ללקוחות.", yes: "להוסיף בכל זאת", no: "חזרה" });
-    }
-
-    function toggleApptStatusAdmin(apptId, ev) {
-      if (ev) ev.stopPropagation();
-      const appt = appointments.find(a => a.id === apptId);
-      if (!appt) return;
-      appt.status = appt.status === "confirmed" ? "pending" : "confirmed";
-      const confirmed = appt.status === "confirmed";
-      renderDayList();
-      return broadcastCloudState().then(r => {
-        renderAllAdmin();
-        if (r.ok) showToast(confirmed ? "התור אושר" : "התור חזר להמתנה");
-        return r;
-      });
     }
 
     async function moveAppointmentToSlot(apptId, newDate, newTime) {
@@ -1044,13 +1252,14 @@
       const appt = appointments.find(a => a.id === apptId);
       if (!appt) return;
       const when = `${dayWord(apptDate(appt))} בשעה ${appt.time}`;
-      if (appt.status === "canceled") {
-        const yes = await askConfirm({ title: "למחוק מהרשימה?", text: `התור של ${appt.name} (${when}) כבר בוטל. הוא יימחק מהרשימה, ואי אפשר להחזיר אותו.`, yes: "מחיקה מהרשימה", no: "להשאיר", danger: true });
-        if (yes) await cancelAppointmentAdmin(apptId);
-        return;
-      }
-      const yes = await askConfirm({ title: "לבטל את התור?", text: `התור של ${appt.name}, ${when}, יבוטל והלקוח יקבל SMS.`, yes: "ביטול התור", no: "לא, להשאיר", danger: true });
-      if (yes) await cancelAppointmentAdmin(apptId);
+      const wasCanceled = appt.status === "canceled";
+      const yes = wasCanceled
+        ? await askConfirm({ title: "למחוק מהרשימה?", text: `התור של ${appt.name} (${when}) כבר בוטל. הוא יימחק מהרשימה, ואי אפשר להחזיר אותו.`, yes: "מחיקה מהרשימה", no: "להשאיר", danger: true })
+        : await askConfirm({ title: "לבטל את התור?", text: `התור של ${appt.name}, ${when}, יבוטל והלקוח יקבל SMS.`, yes: "ביטול התור", no: "לא, להשאיר", danger: true });
+      if (!yes) return;
+      document.getElementById("apptSheet").classList.remove("open");
+      apptSheetId = null;
+      await cancelAppointmentAdmin(apptId);
     }
 
     function sendWhatsappFromCard(apptId, ev) {
@@ -1136,6 +1345,7 @@
       const appt = appointments.find(a => a.id === apptId);
       if (!appt) return;
       const today = ilToday();
+      document.getElementById("apptSheet").classList.remove("open");
       moveApptId = apptId;
       moveTime = null;
       document.getElementById("moveWho").textContent = `${appt.name}. עכשיו: ${dayWord(apptDate(appt))}, ${shortHebDate(apptDate(appt))} בשעה ${appt.time}.`;
@@ -1739,14 +1949,9 @@
     }
 
     document.addEventListener("DOMContentLoaded", () => {
-      const strip = document.getElementById("dateStrip");
-      strip.addEventListener("keydown", onStripKey);
-      strip.addEventListener("scroll", () => requestAnimationFrame(syncStripNav), { passive: true });
-      window.addEventListener("resize", syncStripNav);
+      document.getElementById("availGrid").addEventListener("keydown", onAvailGridKey);
+      window.addEventListener("resize", () => { if (adminUnlocked) renderDiaryView(); });
       document.getElementById("weeklyRows").addEventListener("focusout", () => setTimeout(renderWeeklyRows));
-      // Tapping anywhere on the control opens the date picker, where the browser allows it.
-      const jump = document.getElementById("dayJumpInput");
-      jump.addEventListener("click", () => { try { jump.showPicker?.(); } catch (_) {} });
       const moveInput = document.getElementById("moveDateInput");
       moveInput.addEventListener("input", moveDateChanged);
     });
@@ -1840,7 +2045,10 @@
 
     function renderAllAdmin(opts = {}) {
       renderNotificationsBell();
-      renderDayView();
+      applyAdminView();
+      renderDiaryView();
+      renderHoursView();
+      renderApptSheet();
       renderWeeklyRows();
       renderStatsAndSmsHub();
       renderPortfolioAdmin();
@@ -1920,7 +2128,7 @@
         });
 
         // גיליונות: מיקוד, לכידת Tab, Escape, נעילת גלילה והחזרת מיקוד
-        const SHEET_FOCUS = { manualAddModal: "manualNameInput", moveSheet: "moveDateInput", confirmSheet: "confirmNo" };
+        const SHEET_FOCUS = { apptSheet: "apptSheetClose", hoursSheet: "dayOpenSwitch", manualAddModal: "manualNameInput", moveSheet: "moveDateInput", confirmSheet: "confirmNo" };
         const sheetIds = Object.keys(SHEET_FOCUS);
         const sheetReturn = {};
         const openSheets = () => sheetIds.map($).filter(el => el.classList.contains("open"));
@@ -1965,8 +2173,8 @@
           }
         });
 
-        // בלוח רחב שני טורים: הפתיחה הקבועה גלויה מההתחלה
-        if (window.matchMedia("(min-width: 1100px)").matches) $("weeklyDetails").open = true;
+        // במסך רחב יש מקום: הפתיחה הקבועה גלויה מההתחלה
+        if (window.matchMedia("(min-width: 900px)").matches) $("weeklyDetails").open = true;
       });
     })();
   </script>

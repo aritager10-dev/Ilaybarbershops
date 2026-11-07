@@ -696,15 +696,77 @@ test("admin move and cancel use server templates, and removal releases the lock"
   assert.equal((await a.post("/appointments", { ...s3, srvIdx: 0 })).status, 200, "removed slot free");
 });
 
-test("admin status toggle sends no SMS", async () => {
+test("the barber cannot confirm or undo arrival: only the customer's answer counts, and no SMS goes out", async () => {
   const admin = await newAdmin();
   const a = await newClient();
   const ap = await book(a);
   const count = h.outbox.sms.length;
-  const r = await admin.post("/admin/apply", { appointments: { upsert: [{ id: ap.id, status: "confirmed" }], remove: [] } });
-  assert.equal(r.status, 200);
+  const send = status => admin.post("/admin/apply", { appointments: { upsert: [{ id: ap.id, status }], remove: [] } });
+  const statusIn = r => r.json.state.appointments.find(x => x.id === ap.id).status;
+
+  const tried = await send("confirmed");
+  assert.equal(tried.status, 200);
+  assert.equal(statusIn(tried), "pending", "the barber's confirm is ignored");
+  assert.equal(tried.json.state.appointments.find(x => x.id === ap.id).confirmedAt, undefined);
+
+  assert.equal((await a.post(`/appointments/${ap.id}/confirm`)).json.appointment.status, "confirmed");
+  const reverted = await send("pending");
+  assert.equal(reverted.status, 200);
+  assert.equal(statusIn(reverted), "confirmed", "a stale or hostile pending does not undo the customer");
+  const state = (await admin.get("/admin/state")).json.state;
+  assert.ok(state.appointments.find(x => x.id === ap.id).confirmedAt, "the customer's time stays");
   assert.equal(h.outbox.sms.length, count);
-  assert.equal(r.json.state.appointments.find(x => x.id === ap.id).status, "confirmed");
+});
+
+test("the barber can still cancel, a canceled one comes back only as waiting, and a move resets the answer", async () => {
+  const admin = await newAdmin();
+  const a = await newClient();
+  const ap = await book(a);
+  await a.post(`/appointments/${ap.id}/confirm`);
+  const send = patch => admin.post("/admin/apply", { appointments: { upsert: [{ id: ap.id, ...patch }], remove: [] } });
+  const statusIn = r => r.json.state.appointments.find(x => x.id === ap.id).status;
+  assert.equal(statusIn(await send({ status: "canceled" })), "canceled");
+  assert.equal(statusIn(await send({ status: "confirmed" })), "pending", "bringing it back never confirms it");
+  await a.post(`/appointments/${ap.id}/confirm`);
+  const slot = freshSlot();
+  const moved = await send(slot);
+  assert.equal(statusIn(moved), "pending");
+  assert.equal(moved.json.state.appointments.find(x => x.id === ap.id).time, slot.time);
+});
+
+test("a manual appointment starts waiting even if confirmed is sent, and a verified customer confirms it", async () => {
+  const admin = await newAdmin();
+  const a = await newClient();
+  const slot = freshSlot();
+  const r = await admin.post("/admin/apply", { appointments: { upsert: [{ id: "ap_manualconf", ...slot, name: a.name, phone: a.phone, price: 70, service: "x", status: "confirmed" }], remove: [] } });
+  assert.equal(r.status, 200);
+  assert.equal(r.json.state.appointments.find(x => x.id === "ap_manualconf").status, "pending");
+  const sms = h.outbox.sms[h.outbox.sms.length - 1];
+  assert.equal(sms.to, a.phone);
+  assert.match(sms.message, /לאישור הגעה:/);
+  assert.ok((await a.get("/me")).json.appointments.some(x => x.id === "ap_manualconf"), "it is in the customer's personal area");
+  assert.equal((await a.post("/appointments/ap_manualconf/confirm")).json.appointment.status, "confirmed");
+  const state = (await admin.get("/admin/state")).json.state;
+  assert.equal(state.appointments.find(x => x.id === "ap_manualconf").status, "confirmed");
+  assert.ok(state.adminNotifications.some(n => n.type === "confirmed" && n.apptId === "ap_manualconf"));
+});
+
+test("a manual customer with no account cannot confirm until claiming it with the SMS code, and then can", async () => {
+  const admin = await newAdmin();
+  const phone = freshPhone();
+  const slot = freshSlot();
+  const r = await admin.post("/admin/apply", { appointments: { upsert: [{ id: "ap_manualstub", ...slot, name: freshName(), phone, price: 70, service: "x" }], remove: [] } });
+  assert.equal(r.status, 200);
+  const c = new Client();
+  assert.equal((await c.post("/appointments/ap_manualstub/confirm")).status, 401, "the link alone confirms nothing");
+  const login = await c.post("/auth/login", { ident: phone, password: PASSWORD });
+  assert.equal(login.status, 401, "no password yet");
+  await c.post("/auth/reset/request", { phone });
+  const code = lastCodeFor(phone);
+  assert.ok(code, "the SMS code reaches the phone");
+  assert.equal((await c.post("/auth/reset/confirm", { phone, code, newPassword: PASSWORD })).status, 200);
+  assert.equal((await c.post("/auth/login", { ident: phone, password: PASSWORD })).status, 200);
+  assert.equal((await c.post("/appointments/ap_manualstub/confirm")).json.appointment.status, "confirmed");
 });
 
 test("admin validation rejects bad services, config and ids", async () => {

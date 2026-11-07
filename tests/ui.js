@@ -336,7 +336,7 @@ async function runAtWidth(browser, width, shots, steps) {
       assert.deepEqual(await other.eval(`[registeredUsers.length, smsLogs.length]`), [0, 0]);
     });
 
-    await step("admin login is server-side: wrong password refused, right password opens the calendar", async () => {
+    await step("admin login is server-side: wrong password refused, right password opens the diary", async () => {
       await adminPage.goto(adminUrl);
       await adminPage.waitFor(`document.getElementById("loginScreen")`);
       assert.equal(await adminPage.eval(`document.getElementById("adminApp").classList.contains("authenticated")`), false);
@@ -355,24 +355,24 @@ async function runAtWidth(browser, width, shots, steps) {
       await adminPage.fill("#barberPass", "test-admin-pass-1");
       await adminPage.click(".login-box .adm-btn--primary");
       await adminPage.waitFor(`document.getElementById("adminApp").classList.contains("authenticated") && adminSnapshot`);
-      // One tab for appointments and hours, open first, on today.
+      // One category with two separate views; the diary comes first, on today.
       assert.equal(await adminPage.eval(`document.getElementById("tab-day").style.display`), "");
       assert.equal(await adminPage.eval(`document.getElementById("tabbtn-day").classList.contains("active")`), true);
       assert.equal(await adminPage.text("#tabbtn-day .tab-label"), "תורים ושעות");
       assert.deepEqual(await adminPage.eval(`[...document.querySelectorAll(".admin-tab-btn .tab-label")].map(e => e.textContent)`), ["תורים ושעות", "הכנסות", "הודעות", "תמונות", "מחירון"]);
-      assert.equal(await adminPage.eval(`document.querySelector('#dateStrip [aria-pressed="true"]').dataset.date === ilToday()`), true);
-      assert.equal(await adminPage.eval(`["#calendarBoard", "#tab-hours", "#tab-cal", ".stat-rev-card", ".cal-legend", "#availGrid", ".adm-add-btn"].every(s => !document.querySelector(s))`), true, "the old screens are gone");
+      assert.deepEqual(await adminPage.eval(`[...document.querySelectorAll(".dv-seg__btn")].map(b => [b.textContent.trim(), b.getAttribute("aria-pressed")])`), [["יומן תורים", "true"], ["שעות פתיחה", "false"]]);
+      assert.equal(await adminPage.eval(`currentDate() === ilToday()`), true);
+      assert.equal(await adminPage.eval(`["#calendarBoard", "#tab-hours", "#tab-cal", ".stat-rev-card", ".cal-legend", ".adm-add-btn", ".dv-confirm", ".dv-undo"].every(s => !document.querySelector(s))`), true, "the old screens are gone");
       await adminPage.eval(`selectDay(appointments[0].date)`);
-      await adminPage.waitFor(`document.querySelectorAll("#dayApptList .dv-appt").length === 1`, "appointment in the list");
+      await adminPage.waitFor(`document.querySelectorAll("#diaryBody .dk-appt").length === 1`, "appointment in the diary");
       assert.equal(await adminPage.eval(`window.__xss`), undefined);
-      assert.equal(await adminPage.eval(`document.querySelectorAll("#dayApptList img").length`), 0);
+      assert.equal(await adminPage.eval(`document.querySelectorAll("#diaryBody img").length`), 0);
       assert.equal(await adminPage.eval(`appointments[0].price`), 70);
-      assert.match(await adminPage.text("#dayApptList .dv-appt__svc"), /70 ₪/);
-      assert.equal(await adminPage.text("#dayApptList .status-pill"), "מחכה לאישור");
-      assert.match(await adminPage.eval(`document.querySelector('#dayApptList a.dv-act').getAttribute("href")`), new RegExp("^tel:" + clientPhone + "$"));
+      assert.match(await adminPage.text("#diaryBody .dk-appt__svc"), /70 ₪/);
+      assert.equal(await adminPage.text("#diaryBody .dk-appt__status"), "ממתין לאישור הלקוח");
       await assertLight(adminPage, "admin.html", light);
       await noHorizontalScroll(adminPage, "admin");
-      await adminPage.shot(shots, `${width}-admin-day`);
+      await adminPage.shot(shots, `${width}-admin-diary`);
     });
 
     await step("client confirms arrival; admin sees it through polling, with the live notification", async () => {
@@ -381,25 +381,28 @@ async function runAtWidth(browser, width, shots, steps) {
       await client.toast("אישרת הגעה");
       await adminPage.eval(`pollAdminVersion()`);
       await adminPage.waitFor(`appointments[0].status === "confirmed"`);
-      await adminPage.waitFor(`document.querySelector("#dayApptList .dv-appt.is-confirmed")`);
-      assert.equal(await adminPage.text("#dayApptList .status-pill"), "אושר");
+      await adminPage.waitFor(`document.querySelector("#diaryBody .dk-appt.is-confirmed")`);
+      assert.equal(await adminPage.text("#diaryBody .dk-appt__status"), "הלקוח אישר הגעה");
       assert.ok(await adminPage.eval(`window.__tone >= 1`), "alert tone played");
       await adminPage.toast("אישור הגעה התקבל");
       assert.ok(await adminPage.eval(`Number(document.getElementById("notifUnreadBadge").textContent) >= 1`));
     });
 
-    await step("admin confirms in the list, returns to waiting; the client sees it after polling", async () => {
-      await adminPage.click("#dayApptList .dv-undo");
-      await adminPage.waitFor(`appointments[0].status === "pending" && adminSnapshot.appointments[0].status === "pending"`);
-      await adminPage.waitFor(`document.querySelector("#dayApptList .dv-confirm")`, "the confirm button is back");
-      await adminPage.click("#dayApptList .dv-confirm");
-      await adminPage.toast("התור אושר");
-      await adminPage.waitFor(`adminSnapshot.appointments[0].status === "confirmed"`);
-      await adminPage.click("#dayApptList .dv-undo");
-      await adminPage.toast("התור חזר להמתנה");
-      await adminPage.waitFor(`adminSnapshot.appointments[0].status === "pending"`);
+    await step("arrival is the customer's alone: the barber sees it read-only and cannot change it", async () => {
+      const id = await adminPage.eval(`appointments[0].id`);
+      await adminPage.click(`[data-fk="appt-${id}"]`);
+      await adminPage.waitFor(`document.getElementById("apptSheet").classList.contains("open")`);
+      assert.equal(await adminPage.text("#apptSheet .dk-state"), "הלקוח אישר הגעה");
+      assert.deepEqual(await adminPage.eval(`[...document.querySelectorAll("#apptSheet .dk-actions .dv-act")].map(b => b.textContent.trim())`), ["הזזה", "התקשרות", "WhatsApp", "ביטול"]);
+      assert.match(await adminPage.eval(`document.querySelector('#apptSheet a.dv-act').getAttribute("href")`), new RegExp("^tel:" + clientPhone + "$"));
+      assert.equal(await adminPage.eval(`[...document.querySelectorAll("#adminApp button, #apptSheet button, #manualAddModal button")].some(b => /^\\s*(אישור|החזרה להמתנה)\\s*$/.test(b.textContent))`), false, "no confirm or revert control anywhere");
+      assert.equal(await adminPage.eval(`typeof toggleApptStatusAdmin`), "undefined");
+      await adminPage.eval(`document.getElementById("apptSheet").classList.remove("open")`);
+      // Even a forced change from the page is ignored by the server.
+      await adminPage.eval(`(async () => { appointments[0].status = "pending"; await broadcastCloudState(); })()`);
+      await adminPage.waitFor(`adminSnapshot.appointments[0].status === "confirmed" && appointments[0].status === "confirmed"`);
       await client.eval(`pollPublicSite()`);
-      await client.waitFor(`document.querySelector(".btn-confirm-arrival")`, "client can confirm again");
+      assert.equal(await client.eval(`myAppointments[0].status`), "confirmed");
     });
 
     await step("client moves the appointment; old slot frees and admin sees the new time", async () => {
@@ -419,8 +422,10 @@ async function runAtWidth(browser, width, shots, steps) {
     await step("admin moves it with the move sheet; the client gets the SMS", async () => {
       const a = await adminPage.eval(`({ id: appointments[0].id, date: appointments[0].date, time: appointments[0].time })`);
       await adminPage.eval(`selectDay(${JSON.stringify(a.date)})`);
-      await adminPage.click(`[data-fk="move-${a.id}"]`);
-      await adminPage.waitFor(`document.getElementById("moveSheet").classList.contains("open")`);
+      await adminPage.click(`[data-fk="appt-${a.id}"]`);
+      await adminPage.waitFor(`document.getElementById("apptSheet").classList.contains("open")`);
+      await adminPage.click(`#apptSheet [data-fk="move-${a.id}"]`);
+      await adminPage.waitFor(`document.getElementById("moveSheet").classList.contains("open") && !document.getElementById("apptSheet").classList.contains("open")`);
       assert.equal(await adminPage.eval(`document.getElementById("moveSaveBtn").disabled`), true, "no time chosen yet");
       assert.equal(await adminPage.eval(`document.querySelector('#moveTimes [data-time="${a.time}"]').disabled`), true, "its own time is not offered");
       const target = await adminPage.eval(`[...document.querySelectorAll("#moveTimes .dv-time:not(:disabled)")].map(b => b.dataset.time).find(t => t >= "11:00")`);
@@ -460,11 +465,10 @@ async function runAtWidth(browser, width, shots, steps) {
       await adminPage.eval(`pollAdminVersion()`);
       await adminPage.waitFor(`appointments[0].status === "canceled"`);
       await adminPage.waitFor(`document.getElementById("showCanceledRow").hidden === false`, "the small toggle appears");
-      assert.equal(await adminPage.eval(`document.querySelector("#dayApptList .dv-appt.is-canceled")`), null, "canceled ones stay out of the way");
-      assert.match(await adminPage.text("#dayApptList"), /אין תורים/);
+      assert.equal(await adminPage.eval(`document.querySelector("#diaryBody .dk-appt.is-canceled")`), null, "canceled ones stay out of the way");
       await adminPage.click("#showCanceledInDay");
-      await adminPage.waitFor(`document.querySelector("#dayApptList .dv-appt.is-canceled")`);
-      assert.equal(await adminPage.text("#dayApptList .status-pill"), "בוטל");
+      await adminPage.waitFor(`document.querySelector("#diaryBody .dk-appt.is-canceled")`);
+      assert.equal(await adminPage.text("#diaryBody .dk-appt.is-canceled .dk-appt__status"), "בוטל");
       await adminPage.click("#showCanceledInDay");
     });
 
@@ -496,78 +500,108 @@ async function runAtWidth(browser, width, shots, steps) {
       const addDays = (d, k) => { const [y, m, dd] = d.split("-").map(Number); return new Date(Date.UTC(y, m - 1, dd + k)).toISOString().slice(0, 10); };
       while (new Date(addDays(today, n) + "T12:00:00Z").getUTCDay() !== 6) n++;
       const date = addDays(today, n);
-      const chipSel = `#dateStrip [data-date="${date}"]`;
-      const pick = (sel, value) => adminPage.eval(`(() => { const el = document.querySelector(${JSON.stringify(sel)}); el.value = ${JSON.stringify(value)}; el.dispatchEvent(new Event("change", { bubbles: true })); })()`);
+      const cell = `#availGrid [data-date="${date}"]`;
+      const J = JSON.stringify;
+      const pick = (sel, value) => adminPage.eval(`(() => { const el = document.querySelector(${J(sel)}); el.value = ${J(value)}; el.dispatchEvent(new Event("change", { bubbles: true })); })()`);
       const clearToast = () => adminPage.eval(`document.getElementById("toastPopup").textContent = ""`);
       const saved = async fn => { await clearToast(); await fn(); await adminPage.toast("נשמר"); };
+      const isOpen = id => adminPage.eval(`document.getElementById(${J(id)}).classList.contains("open")`);
+      const shows = sel => adminPage.eval(`[...document.querySelectorAll(${J(sel)})].some(el => el.offsetParent !== null)`);
       const answer = async yes => {
         await adminPage.waitFor(`document.getElementById("confirmSheet").classList.contains("open")`, "the warning opens");
         await adminPage.click(yes ? "#confirmYes" : "#confirmNo");
         await adminPage.waitFor(`!document.getElementById("confirmSheet").classList.contains("open")`);
       };
       const key = (k, sel = "document.activeElement") => adminPage.eval(sel + ".dispatchEvent(new KeyboardEvent('keydown', { key: '" + k + "', bubbles: true, cancelable: true }))");
+      const big = sel => adminPage.eval(`[...document.querySelectorAll(${J(sel)})].filter(el => el.offsetParent).every(el => el.offsetHeight >= 44 && el.offsetWidth >= 44)`);
 
-      // The tab at first sight.
+      // Two views, never together, and the choice is remembered.
       await adminPage.eval("switchTab('day'); selectDay(ilToday())");
       assert.equal(await adminPage.text("#ttl-day"), "תורים ושעות");
-      await noHorizontalScroll(adminPage, "day tab");
+      assert.equal(await shows("#viewDiary"), true);
+      assert.equal(await shows("#viewHours, #availGrid, .dv-switch, #dayStart, #weeklyRows, #slotIntervalSelect"), false, "no hours controls in the diary");
+      assert.equal(await big(".dv-seg__btn, .dk-day, .dk-free, .dk-appt, #addApptBtn, #weekPrev, #weekNext, #weekToday, .dk-mode button"), true, "44px targets in the diary");
+      await noHorizontalScroll(adminPage, "diary");
+      await adminPage.shot(shots, width + "-admin-diary-today");
+      await assertAxeClean(adminPage, "diary", '"#tab-day"');
+      await adminPage.click("#viewBtnHours");
+      assert.equal(await shows("#viewDiary, .dk-appt, .dk-day, .dk-free, #addApptBtn"), false, "no appointments in the hours view");
+      assert.equal(await shows("#availGrid"), true);
+      assert.equal(await adminPage.eval(`document.getElementById("viewBtnHours").getAttribute("aria-pressed")`), "true");
+      await adminPage.goto(adminUrl);
+      await adminPage.waitFor("adminSnapshot && document.getElementById('adminApp').classList.contains('authenticated')");
+      assert.equal(await shows("#availGrid"), true, "the last view is remembered");
+      assert.equal(await shows("#viewDiary"), false);
       assert.equal(await adminPage.eval("document.querySelectorAll('#weeklyRows .hrs-row').length"), 7);
-      assert.equal(await adminPage.eval("document.getElementById('weeklyDetails').open"), width >= 1100, "the weekly section starts collapsed on a phone");
+      assert.equal(await adminPage.eval("document.getElementById('weeklyDetails').open"), width >= 900, "the weekly section starts collapsed on a phone");
       assert.equal(await adminPage.text(".dv-weekly__txt strong"), "פתיחה קבועה כל שבוע");
-      assert.equal(await adminPage.eval("[...document.querySelectorAll('.dv-chip, .dv-switch, #dayStart, #dayEnd, #addApptBtn, #stripPrev, #stripNext, #stripToday, .dv-jump, .dv-weekly__sum, .dv-act, .dv-confirm, #slotIntervalSelect, #slotBufferSelect')].filter(el => el.offsetParent).every(el => el.offsetHeight >= 44 && el.offsetWidth >= 44)"), true, "44px targets");
-      assert.equal(await adminPage.text("#dayListTitle"), "התורים של היום");
-      assert.match(await adminPage.text("#dateStrip .dv-chip .dv-chip__w"), /^היום$/);
-      assert.match(await adminPage.text("#stripMonth"), /^[א-ת]+ \d{4}$/);
-      await adminPage.shot(shots, width + "-admin-day-today");
-      await assertAxeClean(adminPage, "day tab", '"#tab-day"');
+      assert.equal(await big(".dv-seg__btn, .hc__day:not([disabled]), #availNextMonth, .dv-weekly__sum, #slotIntervalSelect, #slotBufferSelect"), true, "44px targets in the hours view");
+      await noHorizontalScroll(adminPage, "hours view");
+      await adminPage.shot(shots, width + "-admin-hours");
+      await assertAxeClean(adminPage, "hours view", '"#tab-day"');
+
+      // The month: right to left, Sunday first, past days off, today marked, each date in words.
+      assert.equal(await adminPage.eval("getComputedStyle(document.getElementById('availGrid')).direction"), "rtl");
+      assert.equal(await adminPage.text("#availGrid .hc__dow"), "ראשון");
+      assert.equal(await adminPage.eval("document.querySelector('#availGrid [aria-current=\"date\"]').dataset.date"), today);
+      assert.equal(await adminPage.eval("document.getElementById('availPrevMonth').disabled"), true);
+      assert.equal(await adminPage.eval("[...document.querySelectorAll('#availGrid .is-past')].every(b => b.disabled && b.dataset.date < ilToday())"), true);
+      assert.equal(await adminPage.eval("[...document.querySelectorAll('#availGrid .hc__day:not(.is-past)')].every(b => /פתוח\\s*\\d\\d:\\d\\d|סגור/.test(b.textContent))"), true, "every date says it in words");
 
       // Keyboard: arrows move through dates, right to left, and only one date is in the Tab order.
-      await adminPage.eval("document.querySelector('#dateStrip [tabindex=\"0\"]').focus()");
-      assert.equal(await adminPage.eval("document.querySelectorAll('#dateStrip [tabindex=\"0\"]').length"), 1);
+      await adminPage.eval("document.querySelector('#availGrid [tabindex=\"0\"]').focus()");
+      assert.equal(await adminPage.eval("document.querySelectorAll('#availGrid [tabindex=\"0\"]').length"), 1);
       await key("ArrowLeft");
       assert.equal(await adminPage.eval("document.activeElement.dataset.date"), addDays(today, 1), "left is the next day");
-      assert.equal(await adminPage.eval("currentDate()"), addDays(today, 1), "the choice drives the screen");
+      await key("ArrowDown");
+      assert.equal(await adminPage.eval("document.activeElement.dataset.date"), addDays(today, 8));
+      await key("ArrowUp");
       await key("ArrowRight");
       assert.equal(await adminPage.eval("document.activeElement.dataset.date"), today);
       await key("ArrowRight");
       assert.equal(await adminPage.eval("document.activeElement.dataset.date"), today, "cannot walk into the past");
-      assert.match(await adminPage.eval("document.activeElement.getAttribute('aria-label')"), /^היום, .*, \d+ ב.* \d{4}, (פתוח|סגור), /);
+      assert.match(await adminPage.eval("document.activeElement.getAttribute('aria-label')"), /, \d+ ב.* \d{4}, היום, /);
 
-      // Previous and next move the strip, and "today" comes back.
-      assert.equal(await adminPage.eval("document.getElementById('stripPrev').disabled"), true);
-      await adminPage.eval("document.getElementById('dateStrip').style.scrollBehavior = 'auto'; moveStrip(1)");
-      await adminPage.waitFor("Math.abs(document.getElementById('dateStrip').scrollLeft) > 10", "the strip moves");
-      await adminPage.waitFor("!document.getElementById('stripPrev').disabled");
-      await adminPage.click("#stripToday");
-      assert.equal(await adminPage.eval("currentDate()"), today);
+      // Find the date's month: closed, in words.
+      for (let i = 0; i < 3 && !(await adminPage.eval(`!!document.querySelector(${J(cell)})`)); i++) await adminPage.click("#availNextMonth");
+      assert.equal(await adminPage.text(cell + " .hc__word"), "סגור", "untouched date is closed");
+      assert.match(await adminPage.eval(`document.querySelector(${J(cell)}).getAttribute("aria-label")`), /, סגור$/);
 
-      // "Choose a date" jumps ahead; an untouched date is closed, in words.
-      await pick("#dayJumpInput", date);
-      await adminPage.waitFor("currentDate() === " + JSON.stringify(date));
-      assert.equal(await adminPage.text(chipSel + " .dv-chip__st"), "סגור", "untouched date is closed");
-      assert.match(await adminPage.eval("document.querySelector(" + JSON.stringify(chipSel) + ").getAttribute('aria-label')"), /, סגור, אין תורים$/);
+      // The date's sheet: focus inside, Escape, focus returns, the trap holds.
+      await adminPage.eval(`document.querySelector(${J(cell)}).focus(); document.querySelector(${J(cell)}).click()`);
+      await adminPage.waitFor("document.getElementById('hoursSheet').classList.contains('open')");
+      await adminPage.waitFor("document.activeElement.id === 'dayOpenSwitch'", "focus moves into the sheet");
       assert.equal(await adminPage.text("#dayOpenLabel"), "מוצ״ש סגור ללקוחות");
       assert.equal(await adminPage.eval("document.getElementById('dayOpenSwitch').checked"), false);
       assert.equal(await adminPage.eval("document.getElementById('dayHours').offsetParent"), null, "no hours on a closed day");
       assert.equal(await adminPage.eval("document.getElementById('dayResetLink').offsetParent"), null, "nothing to go back from");
-      assert.match(await adminPage.text("#dayApptList .dv-empty"), /אין תורים ביום הזה/);
-      await noHorizontalScroll(adminPage, "closed day");
-      await adminPage.shot(shots, width + "-admin-day-closed");
+      await key("Escape");
+      assert.equal(await isOpen("hoursSheet"), false);
+      await adminPage.waitFor(`document.activeElement.dataset.date === ${J(date)}`, "focus returns to the date");
+      await adminPage.eval(`document.querySelector(${J(cell)}).click()`);
+      await adminPage.waitFor("document.activeElement.id === 'dayOpenSwitch'");
+      await adminPage.eval("[...document.querySelectorAll('#hoursSheet button, #hoursSheet input, #hoursSheet select')].filter(el => el.offsetParent).pop().focus()");
+      await key("Tab");
+      assert.equal(await adminPage.eval("document.getElementById('hoursSheet').contains(document.activeElement)"), true, "focus trap");
+      await noHorizontalScroll(adminPage, "date sheet");
 
       // Open it with the one big switch: saved at once, in plain words.
       await saved(() => adminPage.click("#dayOpenSwitch"));
-      await adminPage.waitFor("availability.dates[" + JSON.stringify(date) + "] && availability.dates[" + JSON.stringify(date) + "].open === true");
+      await adminPage.waitFor(`availability.dates[${J(date)}] && availability.dates[${J(date)}].open === true`);
       assert.equal(await adminPage.text("#dayOpenLabel"), "מוצ״ש פתוח ללקוחות");
       assert.equal(await adminPage.text("#dayStatus"), "לקוחות יכולים לקבוע בין 10:00 ל-20:00");
-      assert.equal(await adminPage.text(chipSel + " .dv-chip__st"), "פתוח");
+      assert.equal(await adminPage.text(cell + " .hc__word"), "פתוח");
+      assert.match(await adminPage.text(cell + " .hc__hours"), /10:00.*20:00/);
       assert.equal(await adminPage.text("#dayResetLink"), "חזרה להגדרה השבועית");
       assert.ok(await adminPage.eval("document.getElementById('dayResetLink').offsetHeight >= 44 && document.getElementById('dayResetLink').offsetParent"), "the way back appears");
+      await adminPage.shot(shots, width + "-admin-date-sheet");
+      await assertAxeClean(adminPage, "date sheet", '"#hoursSheet"');
 
       // Bad hours are refused in place, nothing is saved, and a poll does not wipe them.
       await saved(() => pick("#dayStart", "18:00"));
       await pick("#dayEnd", "12:00");
       await adminPage.waitFor("!document.getElementById('dayHoursError').hidden");
-      assert.equal(await adminPage.eval("availability.dates[" + JSON.stringify(date) + "].end"), "20:00", "nothing saved");
+      assert.equal(await adminPage.eval(`availability.dates[${J(date)}].end`), "20:00", "nothing saved");
       await adminPage.eval("refreshAdminState({ fromPoll: true })");
       assert.equal(await adminPage.eval("document.getElementById('dayEnd').value"), "12:00", "what was chosen stays");
       await pick("#dayStart", "12:00");
@@ -575,7 +609,8 @@ async function runAtWidth(browser, width, shots, steps) {
       await saved(() => pick("#dayEnd", "14:00"));
       await adminPage.waitFor("document.getElementById('dayStatus').textContent === 'לקוחות יכולים לקבוע בין 12:00 ל-14:00'");
       assert.equal(await adminPage.eval("document.getElementById('dayHoursError').hidden"), true);
-      assert.match(await adminPage.eval("document.querySelector(" + JSON.stringify(chipSel) + ").getAttribute('aria-label')"), /פתוח, אין תורים$/);
+      assert.match(await adminPage.eval(`document.querySelector(${J(cell)}).getAttribute("aria-label")`), /פתוח 12:00 עד 14:00$/);
+      await key("Escape");
 
       // The public site offers it, and the customer books it.
       await other.goto(h.base + "/");
@@ -585,7 +620,7 @@ async function runAtWidth(browser, width, shots, steps) {
       await other.eval("openBookingModal(0)");
       await other.waitFor("document.getElementById('bookingModal').classList.contains('open')");
       const chip = "#bookingDaysRow [data-date=\"" + date + "\"]";
-      await other.waitFor("document.querySelector(" + JSON.stringify(chip) + ")", "the new date is offered");
+      await other.waitFor("document.querySelector(" + J(chip) + ")", "the new date is offered");
       assert.match(await other.text(chip), /מוצ״ש/);
       assert.equal(await other.eval("[...document.querySelectorAll('#bookingDaysRow .day-chip')].every(b => b.offsetHeight >= 44)"), true);
       await noHorizontalScroll(other, "booking sheet with many days");
@@ -596,45 +631,73 @@ async function runAtWidth(browser, width, shots, steps) {
       await other.click("#bookingHoursGrid .hour-chip");
       await other.click("#confirmBookingBtn");
       await other.toast("התור נקבע");
-      await other.waitFor("myAppointments.some(a => a.date === " + JSON.stringify(date) + ")");
+      await other.waitFor("myAppointments.some(a => a.date === " + J(date) + ")");
 
-      // The booking reaches the list and the strip.
+      // The booking reaches the diary, a tidy page with equal rows at the slot interval.
       await adminPage.eval("pollAdminVersion()");
-      await adminPage.waitFor("document.querySelectorAll('#dayApptList .dv-appt').length === 1", "the booking is in the list");
-      assert.equal(await adminPage.text(chipSel + " .dv-chip__n"), "תור אחד");
+      await adminPage.waitFor(`appointments.some(a => a.date === ${J(date)})`);
+      await adminPage.click("#viewBtnDiary");
+      await adminPage.eval(`selectDay(${J(date)}); setDiaryMode("day")`);
+      await adminPage.waitFor("document.querySelectorAll('#diaryBody .dk-appt').length === 1", "the booking is in the diary");
+      assert.deepEqual(await adminPage.eval("[...document.querySelectorAll('#diaryBody .dk-time')].map(e => e.textContent)"), ["12:00", "12:30", "13:00", "13:30"]);
+      assert.equal(await adminPage.eval("new Set([...document.querySelectorAll('#diaryBody .dk-row')].map(r => r.offsetHeight)).size"), 1, "evenly spaced rows");
+      assert.equal(await adminPage.text(`#diaryWeekRow [data-date="${date}"] .dk-day__n`), "1");
+      assert.equal(await adminPage.eval("document.querySelectorAll('#diaryWeekRow .dk-day').length"), 7);
+      assert.equal(await adminPage.eval("(s => s.scrollWidth <= s.clientWidth)(document.getElementById('diaryWeekRow'))"), true, "the week row fits without scrolling");
 
-      // Add one by phone: the date comes filled in, and the taken hour cannot be chosen.
-      await adminPage.eval("document.getElementById('addApptBtn').focus()");
-      await adminPage.click("#addApptBtn");
+      // Tap a free row: the sheet comes filled with its date and time, and the taken hour cannot be chosen.
+      const free = `[data-fk="add-${date}-13:00"]`;
+      await adminPage.eval(`document.querySelector(${J(free)}).focus()`);
+      await adminPage.click(free);
       await adminPage.waitFor("document.getElementById('manualAddModal').classList.contains('open')");
       await adminPage.waitFor("document.activeElement.id === 'manualNameInput'", "focus moves into the sheet");
       assert.equal(await adminPage.eval("document.getElementById('manualDateInput').value"), date);
+      assert.equal(await adminPage.eval("document.getElementById('manualHourSelect').value"), "13:00");
       assert.deepEqual(await adminPage.eval("(o => [o.disabled, o.textContent])(document.querySelector('#manualHourSelect option[value=\"12:00\"]'))"), [true, "12:00 (תפוס)"]);
-      assert.equal(await adminPage.eval("document.getElementById('manualHourSelect').value"), "12:30", "the first free hour inside the opening hours");
       assert.equal(await adminPage.eval("document.getElementById('manualClosedWarning').hidden"), true);
+      assert.equal(await adminPage.eval("/אישור/.test(document.getElementById('manualAddModal').textContent)"), false, "no way to mark it confirmed");
       await noHorizontalScroll(adminPage, "manual sheet");
       await key("Escape");
-      assert.equal(await adminPage.eval("document.getElementById('manualAddModal').classList.contains('open')"), false, "Escape closes it");
-      await adminPage.waitFor("document.activeElement.id === 'addApptBtn'", "focus returns");
-      await adminPage.click("#addApptBtn");
+      assert.equal(await isOpen("manualAddModal"), false, "Escape closes it");
+      await adminPage.waitFor(`document.activeElement.dataset.fk === "add-${date}-13:00"`, "focus returns");
+      await adminPage.click(free);
       await adminPage.waitFor("document.getElementById('manualAddModal').classList.contains('open')");
-      await adminPage.eval("document.getElementById('manualHourSelect').value = '13:00'; document.getElementById('manualHourSelect').dispatchEvent(new Event('change', { bubbles: true }))");
       assert.equal(await adminPage.eval("[...document.querySelectorAll('#manualAddModal input, #manualAddModal select, #manualAddModal button')].every(el => el.offsetHeight >= 44)"), true, "44px targets in the sheet");
       await adminPage.fill("#manualNameInput", "לקוח מהטלפון");
       await adminPage.fill("#manualPhoneInput", "0528887765");
       await assertAxeClean(adminPage, "add sheet", '"#manualAddModal"');
       await adminPage.click("#manualSaveBtn");
       await adminPage.toast("התור נוסף");
-      await adminPage.waitFor("adminSnapshot.appointments.some(a => a.phone === '0528887765')");
-      assert.deepEqual(await adminPage.eval("[...document.querySelectorAll('#dayApptList .dv-appt__time')].map(e => e.textContent)"), [await adminPage.eval("appointments.filter(a => a.date === " + JSON.stringify(date) + ").map(a => a.time).sort()[0]"), "13:00"], "sorted by time");
+      await adminPage.waitFor("adminSnapshot.appointments.some(a => a.phone === '0528887765' && a.status === 'pending')", "a manual appointment starts waiting");
+      assert.equal(await adminPage.eval("document.querySelectorAll('#diaryBody .dk-appt').length"), 2);
+      assert.equal(await adminPage.text(`#diaryWeekRow [data-date="${date}"] .dk-day__n`), "2");
       await noHorizontalScroll(adminPage, "day with appointments");
-      await adminPage.shot(shots, width + "-admin-day-list");
+      await adminPage.shot(shots, width + "-admin-diary-day");
+
+      // Details sheet: all the facts, the actions, Escape returns to the block.
+      const phoneId = await adminPage.eval("appointments.find(a => a.phone === '0528887765').id");
+      const customerTime = await adminPage.eval(`appointments.find(a => a.date === ${J(date)} && a.phone !== '0528887765').time`);
+      const block = `[data-fk="appt-${phoneId}"]`;
+      await adminPage.eval(`document.querySelector(${J(block)}).focus()`);
+      await adminPage.click(block);
+      await adminPage.waitFor("document.getElementById('apptSheet').classList.contains('open')");
+      await adminPage.waitFor("document.activeElement.id === 'apptSheetClose'", "focus moves into the sheet");
+      assert.equal(await adminPage.text("#apptSheetTitle"), "לקוח מהטלפון");
+      assert.match(await adminPage.text("#apptSheetBody"), /13:00/);
+      assert.match(await adminPage.text("#apptSheetBody"), /0528887765/);
+      assert.equal(await adminPage.text("#apptSheet .dk-state"), "ממתין לאישור הלקוח");
+      assert.equal(await big("#apptSheet .dv-act"), true, "44px actions");
+      await noHorizontalScroll(adminPage, "appointment sheet");
+      await adminPage.shot(shots, width + "-admin-appt-sheet");
+      await assertAxeClean(adminPage, "appointment sheet", '"#apptSheet"');
+      await key("Escape");
+      assert.equal(await isOpen("apptSheet"), false);
+      await adminPage.waitFor(`document.activeElement.dataset.fk === "appt-${phoneId}"`, "focus returns to the block");
 
       // Move sheet: only this day's real slots, taken ones say so, Escape and the focus trap work.
-      const phoneId = await adminPage.eval("appointments.find(a => a.phone === '0528887765').id");
-      const customerTime = await adminPage.eval("appointments.find(a => a.date === " + JSON.stringify(date) + " && a.phone !== '0528887765').time");
-      await adminPage.eval(`document.querySelector('[data-fk="move-${phoneId}"]').focus()`);
-      await adminPage.click(`[data-fk="move-${phoneId}"]`);
+      await adminPage.click(block);
+      await adminPage.waitFor("document.getElementById('apptSheet').classList.contains('open')");
+      await adminPage.click(`#apptSheet [data-fk="move-${phoneId}"]`);
       await adminPage.waitFor("document.getElementById('moveSheet').classList.contains('open')");
       await adminPage.waitFor("document.activeElement.id === 'moveDateInput'", "focus moves into the sheet");
       assert.deepEqual(await adminPage.eval("[...document.querySelectorAll('#moveTimes .dv-time')].map(b => b.dataset.time)"), ["12:00", "12:30", "13:00", "13:30"], "only valid times");
@@ -647,11 +710,10 @@ async function runAtWidth(browser, width, shots, steps) {
       await adminPage.shot(shots, width + "-admin-move-sheet");
       await assertAxeClean(adminPage, "move sheet", '"#moveSheet"');
       await key("Escape");
-      assert.equal(await adminPage.eval("document.getElementById('moveSheet').classList.contains('open')"), false);
-      await adminPage.waitFor(`document.activeElement.dataset.fk === "move-${phoneId}"`, "focus returns to the button");
-      await adminPage.click(`[data-fk="move-${phoneId}"]`);
+      assert.equal(await isOpen("moveSheet"), false);
+      await adminPage.eval(`openMoveSheet(${J(phoneId)})`);
       await adminPage.waitFor("document.getElementById('moveSheet').classList.contains('open')");
-      // Another date with no opening: warned in place, with no time taken away.
+      // Another date with no opening: warned in place.
       await pick("#moveDateInput", addDays(date, 7));
       await adminPage.waitFor("!document.getElementById('moveNotice').hidden");
       assert.match(await adminPage.text("#moveNotice"), /סגור ללקוחות/);
@@ -663,7 +725,12 @@ async function runAtWidth(browser, width, shots, steps) {
       await adminPage.waitFor(`adminSnapshot.appointments.find(a => a.id === "${phoneId}").time === "13:30"`);
 
       // Cancel confirms first. Declining changes nothing; the customer hears only when it is done.
-      await adminPage.click(`[data-fk="cancel-${phoneId}"]`);
+      const openDetails = async () => {
+        await adminPage.click(block);
+        await adminPage.waitFor("document.getElementById('apptSheet').classList.contains('open')");
+      };
+      await openDetails();
+      await adminPage.click(`#apptSheet [data-fk="cancel-${phoneId}"]`);
       await adminPage.waitFor("document.getElementById('confirmSheet').classList.contains('open')");
       assert.match(await adminPage.text("#confirmText"), /לקוח מהטלפון/);
       await adminPage.waitFor("document.activeElement.id === 'confirmNo'", "the safe answer has the focus");
@@ -671,52 +738,73 @@ async function runAtWidth(browser, width, shots, steps) {
       await adminPage.shot(shots, width + "-admin-confirm");
       await assertAxeClean(adminPage, "confirm sheet", '"#confirmSheet"');
       await key("Escape");
-      assert.equal(await adminPage.eval("document.getElementById('confirmSheet').classList.contains('open')"), false);
+      assert.equal(await isOpen("confirmSheet"), false);
+      assert.equal(await isOpen("apptSheet"), true, "Escape closes only the top sheet");
       assert.equal(await adminPage.eval(`adminSnapshot.appointments.find(a => a.id === "${phoneId}").status`), "pending", "Escape means no");
-      await adminPage.click(`[data-fk="cancel-${phoneId}"]`);
+      await adminPage.click(`#apptSheet [data-fk="cancel-${phoneId}"]`);
       await answer(true);
       await adminPage.toast("בוטל");
       await adminPage.waitFor(`adminSnapshot.appointments.find(a => a.id === "${phoneId}").status === "canceled"`);
+      assert.equal(await isOpen("apptSheet"), false);
       // Removing a canceled one from the list also asks.
       await adminPage.click("#showCanceledInDay");
-      await adminPage.click(`[data-fk="del-${phoneId}"]`);
+      await openDetails();
+      assert.equal(await adminPage.text("#apptSheet .dk-state"), "בוטל");
+      await adminPage.click(`#apptSheet [data-fk="del-${phoneId}"]`);
       await answer(false);
       assert.ok(await adminPage.eval(`appointments.some(a => a.id === "${phoneId}")`));
-      await adminPage.click(`[data-fk="del-${phoneId}"]`);
+      await adminPage.click(`#apptSheet [data-fk="del-${phoneId}"]`);
       await answer(true);
       await adminPage.waitFor(`!adminSnapshot.appointments.some(a => a.id === "${phoneId}")`);
       await adminPage.click("#showCanceledInDay");
 
       // Closing a day with an appointment warns in plain words, and never cancels anything.
+      await adminPage.click("#viewBtnHours");
+      assert.equal(await adminPage.eval("availMonth && document.querySelector(" + J(cell) + ") !== null"), true);
+      await adminPage.click(cell);
+      await adminPage.waitFor("document.getElementById('hoursSheet').classList.contains('open')");
+      assert.match(await adminPage.text("#dayApptNote"), /יש תור אחד/);
       await adminPage.click("#dayOpenSwitch");
       await adminPage.waitFor("document.getElementById('confirmSheet').classList.contains('open')");
       assert.match(await adminPage.text("#confirmText"), /יש תור אחד/);
       assert.match(await adminPage.text("#confirmText"), /נשארים ולא מתבטלים/);
       await answer(false);
       assert.equal(await adminPage.eval("document.getElementById('dayOpenSwitch').checked"), true, "still open after no");
-      assert.equal(await adminPage.eval("effectiveDay(" + JSON.stringify(date) + ").open"), true);
+      assert.equal(await adminPage.eval(`effectiveDay(${J(date)}).open`), true);
       await clearToast();
       await adminPage.click("#dayOpenSwitch");
       await answer(true);
       await adminPage.toast("נשמר");
-      await adminPage.waitFor("!effectiveDay(" + JSON.stringify(date) + ").open");
-      assert.equal(await adminPage.text(chipSel + " .dv-chip__st"), "סגור");
-      assert.equal(await adminPage.text(chipSel + " .dv-chip__n"), "תור אחד");
-      assert.equal(await adminPage.eval("appointments.find(a => a.date === " + JSON.stringify(date) + ").status"), "pending", "the appointment stays as it was");
-      assert.equal(await adminPage.eval("document.querySelectorAll('#dayApptList .dv-appt').length"), 1);
+      await adminPage.waitFor(`!effectiveDay(${J(date)}).open`);
+      assert.equal(await adminPage.text(cell + " .hc__word"), "סגור");
+      assert.equal(await adminPage.eval(`appointments.find(a => a.date === ${J(date)}).status !== "canceled"`), true, "the appointment stays as it was");
       assert.match(await adminPage.text("#dayStatus"), /לא יכולים לקבוע/);
-      await noHorizontalScroll(adminPage, "closed day with an appointment");
-      await adminPage.shot(shots, width + "-admin-day-closed-appt");
+      await key("Escape");
       await other.eval("pollPublicSite()");
-      await other.waitFor("!openDays.some(d => d.date === " + JSON.stringify(date) + ")", "no longer offered");
+      await other.waitFor(`!openDays.some(d => d.date === ${J(date)})`, "no longer offered");
       await other.eval("openBookingModal(0)");
       await other.waitFor("document.querySelector('#bookingDaysRow .day-chip')");
-      assert.equal(await other.eval("!!document.querySelector(" + JSON.stringify(chip) + ")"), false);
+      assert.equal(await other.eval("!!document.querySelector(" + J(chip) + ")"), false);
       await other.eval("closeBookingModal()");
-      assert.ok(await other.eval("myAppointments.some(a => a.date === " + JSON.stringify(date) + " && a.status !== 'canceled')"), "the appointment stays");
+      assert.ok(await other.eval(`myAppointments.some(a => a.date === ${J(date)} && a.status !== "canceled")`), "the appointment stays");
+
+      // The diary on a closed day: a plain line, muted in the week row, no switch, and a link to its hours.
+      await adminPage.click("#viewBtnDiary");
+      assert.equal(await adminPage.text("#diaryClosedLine strong"), "מוצ״ש סגור ללקוחות");
+      assert.equal(await adminPage.eval("document.querySelectorAll('#diaryBody .dk-appt').length"), 1, "the appointment is still there");
+      assert.equal(await adminPage.eval(`document.querySelector('#diaryWeekRow [data-date="${date}"]').classList.contains("is-closed")`), true);
+      assert.equal(await adminPage.text(`#diaryWeekRow [data-date="${date}"] .dk-day__closed`), "סגור");
+      assert.equal(await shows(".dv-switch"), false, "no switch in the diary");
+      await noHorizontalScroll(adminPage, "closed day");
+      await adminPage.shot(shots, width + "-admin-diary-closed");
+      await adminPage.click("#diaryClosedLine .dk-closed__link");
+      await adminPage.waitFor("document.getElementById('hoursSheet').classList.contains('open')");
+      assert.equal(await shows("#availGrid"), true, "the link goes to the hours view");
+      assert.equal(await adminPage.eval("hoursDate"), date);
+      await adminPage.eval("document.getElementById('hoursSheet').classList.remove('open')");
 
       // Weekly section: on shows the pickers, saved at once, bad hours are refused, a poll does not wipe them.
-      if (width < 1100) await adminPage.click(".dv-weekly__sum");
+      if (width < 900) await adminPage.click(".dv-weekly__sum");
       assert.equal(await adminPage.eval("document.getElementById('weeklyDetails').open"), true);
       assert.equal(await adminPage.eval("document.getElementById('wk_open_6').checked"), false);
       assert.equal(await adminPage.eval("document.getElementById('wk_times_6').hidden"), true);
@@ -739,28 +827,31 @@ async function runAtWidth(browser, width, shots, steps) {
       assert.equal(await adminPage.eval("document.getElementById('wk_err_6').hidden"), true);
 
       // A date follows the week until it is changed: date beats week, and the link goes back.
-      assert.equal(await adminPage.eval("!availability.dates[" + JSON.stringify(date) + "]"), true);
+      await adminPage.eval(`openHoursSheet(${J(date)})`);
+      await adminPage.waitFor("document.getElementById('hoursSheet').classList.contains('open')");
+      assert.equal(await adminPage.eval(`!availability.dates[${J(date)}]`), true);
       assert.equal(await adminPage.text("#dayStatus"), "לקוחות יכולים לקבוע בין 10:00 ל-20:00");
       assert.match(await adminPage.text("#daySource"), /הקבועה של כל שבוע/);
       assert.equal(await adminPage.eval("document.getElementById('dayResetLink').offsetParent"), null);
       await saved(() => pick("#dayEnd", "16:00"));
-      await adminPage.waitFor("availability.dates[" + JSON.stringify(date) + "] && availability.dates[" + JSON.stringify(date) + "].end === '16:00'");
+      await adminPage.waitFor(`availability.dates[${J(date)}] && availability.dates[${J(date)}].end === "16:00"`);
       assert.equal(await adminPage.eval("availability.weekly[6].end"), "20:00", "the week stays as it was");
-      assert.equal(await adminPage.eval("!!availability.dates[" + JSON.stringify(addDays(date, 14)) + "]"), false, "only this date changed");
-      assert.equal(await adminPage.eval("effectiveDay(" + JSON.stringify(addDays(date, 14)) + ").end"), "20:00");
+      assert.equal(await adminPage.eval(`!!availability.dates[${J(addDays(date, 14))}]`), false, "only this date changed");
+      assert.equal(await adminPage.eval(`effectiveDay(${J(addDays(date, 14))}).end`), "20:00");
       assert.match(await adminPage.text("#daySource"), /לתאריך הזה בלבד/);
       assert.ok(await adminPage.eval("document.getElementById('dayResetLink').offsetParent"));
       await saved(() => adminPage.click("#dayResetLink"));
-      await adminPage.waitFor("!availability.dates[" + JSON.stringify(date) + "]");
-      assert.equal(await adminPage.eval("effectiveDay(" + JSON.stringify(date) + ").end"), "20:00");
+      await adminPage.waitFor(`!availability.dates[${J(date)}]`);
+      assert.equal(await adminPage.eval(`effectiveDay(${J(date)}).end`), "20:00");
       assert.equal(await adminPage.eval("document.getElementById('dayResetLink').offsetParent"), null);
       await adminPage.click("#dayOpenSwitch");
       await answer(true);
-      await adminPage.waitFor("availability.dates[" + JSON.stringify(date) + "] && availability.dates[" + JSON.stringify(date) + "].open === false");
-      assert.equal(await adminPage.eval("effectiveDay(" + JSON.stringify(date) + ").source"), "date", "closed on this date, open every week");
-      assert.equal(await adminPage.text(chipSel + " .dv-chip__st"), "סגור");
+      await adminPage.waitFor(`availability.dates[${J(date)}] && availability.dates[${J(date)}].open === false`);
+      assert.equal(await adminPage.eval(`effectiveDay(${J(date)}).source`), "date", "closed on this date, open every week");
+      assert.equal(await adminPage.text(cell + " .hc__word"), "סגור");
       await saved(() => adminPage.click("#dayResetLink"));
-      await adminPage.waitFor("effectiveDay(" + JSON.stringify(date) + ").open");
+      await adminPage.waitFor(`effectiveDay(${J(date)}).open`);
+      await key("Escape");
 
       // Closing a weekday with appointments warns too, and returns the switch on no.
       await adminPage.click("#wk_open_6");
@@ -772,14 +863,15 @@ async function runAtWidth(browser, width, shots, steps) {
       await adminPage.toast("נשמר");
       await adminPage.waitFor("availability.weekly[6].open === false");
 
-      // Slots: saved at once, and the public grid follows.
+      // Slots: saved at once, in the hours view only.
       await saved(() => pick("#slotIntervalSelect", "20"));
       await adminPage.waitFor("siteConfig.slotInterval === 20");
       await saved(() => pick("#slotIntervalSelect", "30"));
       await adminPage.waitFor("adminSnapshot.siteConfig.slotInterval === 30");
 
       // Manual appointment on a closed day: warned, confirmed, and it does not open the day.
-      await adminPage.eval("selectDay(" + JSON.stringify(addDays(date, 7)) + "); openManualAddModal(undefined, '11:00')");
+      await adminPage.click("#viewBtnDiary");
+      await adminPage.eval(`selectDay(${J(addDays(date, 7))}); openManualAddModal(undefined, '11:00')`);
       await adminPage.waitFor("!document.getElementById('manualClosedWarning').hidden");
       assert.equal(await adminPage.eval("document.getElementById('manualDateInput').value"), addDays(date, 7));
       assert.equal(await adminPage.eval("document.getElementById('manualHourSelect').value"), "11:00");
@@ -790,37 +882,60 @@ async function runAtWidth(browser, width, shots, steps) {
       await adminPage.click("#manualSaveBtn");
       await answer(false);
       assert.equal(await adminPage.eval("appointments.some(a => a.phone === '0528887766')"), false, "declining the warning books nothing");
-      assert.equal(await adminPage.eval("document.getElementById('manualAddModal').classList.contains('open')"), true, "the sheet keeps what was typed");
+      assert.equal(await isOpen("manualAddModal"), true, "the sheet keeps what was typed");
       await adminPage.click("#manualSaveBtn");
       await answer(true);
       await adminPage.toast("התור נוסף");
-      await adminPage.waitFor("adminSnapshot.appointments.some(a => a.phone === '0528887766' && a.date === " + JSON.stringify(addDays(date, 7)) + ")");
-      assert.equal(await adminPage.eval("effectiveDay(" + JSON.stringify(addDays(date, 7)) + ").open"), false);
+      await adminPage.waitFor(`adminSnapshot.appointments.some(a => a.phone === '0528887766' && a.date === ${J(addDays(date, 7))})`);
+      assert.equal(await adminPage.eval(`effectiveDay(${J(addDays(date, 7))}).open`), false);
       await other.eval("pollPublicSite()");
-      await other.waitFor("!openDays.some(d => d.date === " + JSON.stringify(addDays(date, 7)) + ")");
+      await other.waitFor(`!openDays.some(d => d.date === ${J(addDays(date, 7))})`);
+
+      // Week navigation, the week on a wide screen, and today again.
+      await adminPage.click("#weekToday");
+      assert.equal(await adminPage.eval("currentDate()"), today);
+      await adminPage.click("#weekNext");
+      assert.equal(await adminPage.eval("currentDate()"), addDays(today, 7));
+      await adminPage.click("#weekPrev");
+      assert.equal(await adminPage.eval("currentDate()"), today);
+      assert.equal(await adminPage.eval("!!document.querySelector('[aria-current=\"date\"]')"), true);
+      if (width >= 900) {
+        await adminPage.click("#modeWeek");
+        await adminPage.eval(`selectDay(${J(date)})`);
+        assert.equal(await adminPage.eval("document.querySelectorAll('.dw > .dk-day').length"), 7, "seven columns");
+        assert.equal(await adminPage.eval("new Set([...document.querySelectorAll('.dw > .dk-day')].map(d => d.offsetWidth)).size"), 1, "equal columns");
+        assert.equal(await adminPage.eval("document.getElementById('diaryWeekRow').hidden"), true);
+        assert.equal(await adminPage.eval("document.querySelectorAll('.dw .dk-appt').length"), 1);
+        await adminPage.shot(shots, width + "-admin-diary-week");
+        await adminPage.click(`.dw > [data-date="${date}"]`);
+        assert.equal(await adminPage.eval("!document.querySelector('.dw') && currentDate()"), date, "a day's heading opens that day");
+        await adminPage.click("#modeWeek");
+      } else {
+        assert.equal(await adminPage.eval("document.querySelector('.dk-mode').hidden && !document.querySelector('.dw')"), true, "a phone stays on the day");
+      }
 
       // Far dates: beyond the 30 days customers see, and days gone by, which can be read but not changed.
       const farDate = addDays(date, 56); // Also a Saturday, so closed by the seeded weekly rules.
-      await pick("#dayJumpInput", farDate);
-      await adminPage.waitFor("currentDate() === " + JSON.stringify(farDate));
-      assert.ok(await adminPage.eval("document.querySelector('#dateStrip [data-date=\"" + farDate + "\"]').getAttribute('aria-pressed') === 'true'"));
+      await adminPage.eval(`openHoursFor(${J(farDate)})`);
+      await adminPage.waitFor("document.getElementById('hoursSheet').classList.contains('open')");
       await saved(() => adminPage.click("#dayOpenSwitch"));
-      await adminPage.waitFor("effectiveDay(" + JSON.stringify(farDate) + ").open");
+      await adminPage.waitFor(`effectiveDay(${J(farDate)}).open`);
       assert.match(await adminPage.text("#daySource"), /30 ימים לפניו/);
       await saved(() => adminPage.click("#dayResetLink"));
-      await adminPage.waitFor("!effectiveDay(" + JSON.stringify(farDate) + ").open");
+      await adminPage.waitFor(`!effectiveDay(${J(farDate)}).open`);
+      await adminPage.eval("document.getElementById('hoursSheet').classList.remove('open')");
       await noHorizontalScroll(adminPage, "far date");
-      await pick("#dayJumpInput", addDays(today, -3));
-      await adminPage.waitFor("currentDate() === " + JSON.stringify(addDays(today, -3)));
-      assert.equal(await adminPage.text("#dayStatus"), "התאריך הזה כבר עבר.");
-      assert.equal(await adminPage.eval("document.getElementById('daySwitchRow').offsetParent"), null);
-      assert.equal(await adminPage.eval("document.getElementById('addApptBtn').offsetParent"), null);
+      await adminPage.eval(`setAdminView("diary"); setDiaryMode("day"); selectDay(${J(addDays(today, -3))})`);
+      assert.equal(await adminPage.text("#diaryClosedLine strong"), "התאריך הזה כבר עבר.");
+      assert.equal(await shows("#addApptBtn, .dk-free"), false, "nothing to add in the past");
+      assert.equal(await adminPage.eval("openHoursSheet(" + J(addDays(today, -3)) + "); document.getElementById('hoursSheet').classList.contains('open')"), false, "a past date's hours stay as they were");
+      await adminPage.eval("diaryMode = null; selectDay(ilToday())");
 
-      // A notification opens the tab on its date.
-      await adminPage.eval(`adminNotifications.unshift({ id: "n_ui", title: "בדיקה", message: "x", date: ${JSON.stringify(date)}, read: false }); renderNotificationsBell(); switchTab("sms")`);
+      // A notification opens the diary on its date.
+      await adminPage.eval(`setAdminView("hours"); adminNotifications.unshift({ id: "n_ui", title: "בדיקה", message: "x", date: ${J(date)}, read: false }); renderNotificationsBell(); switchTab("sms")`);
       await adminPage.click("#notifBellBtn");
       await adminPage.click("#notifListContainer .notif-item");
-      await adminPage.waitFor(`document.getElementById("tab-day").style.display === "block" && currentDate() === ${JSON.stringify(date)}`);
+      await adminPage.waitFor(`document.getElementById("tab-day").style.display === "block" && currentDate() === ${J(date)} && adminView === "diary"`);
       await adminPage.eval(`adminNotifications.shift(); selectDay(ilToday())`);
     });
 
