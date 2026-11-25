@@ -130,6 +130,51 @@ function daySlots(date, start, end) {
   return out;
 }
 
+// --- Haircut lengths: same rules as api/_slots.js. One diary; the next free start is the end of the
+// appointment before it plus the break (siteConfig.slotBuffer). ---
+const hmToMin = t => { const [h, m] = String(t).split(":").map(Number); return h * 60 + m; };
+const lenOk = n => Number.isInteger(n) && n >= 5 && n <= 240;
+function serviceMinutes(srv) {
+  const fallback = lenOk(Number(siteConfig.slotInterval)) ? Number(siteConfig.slotInterval) : 30;
+  const own = Number(srv && srv.minutes);
+  if (lenOk(own)) return own;
+  const m = /(\d+)/.exec(String((srv && srv.duration) || ""));
+  return m && lenOk(Number(m[1])) ? Number(m[1]) : fallback;
+}
+function apptMinutes(a) {
+  const own = Number(a && (a.durationMin || a.dur));
+  if (lenOk(own)) return own;
+  return serviceMinutes(SERVICES[Number(a && a.srvIdx)] || null);
+}
+const breakMinutes = () => Math.max(0, Number(siteConfig.slotBuffer) || 0);
+// Busy minutes on a date from the appointments this page knows, leaving out the one being moved.
+function busyRangesOn(date, exceptId) {
+  return appointments
+    .filter(a => apptDate(a) === date && a.status !== "canceled" && a.id !== exceptId && typeof a.time === "string")
+    .map(a => { const s = hmToMin(a.time); return { s, e: s + apptMinutes(a) }; });
+}
+function freeStartsOn(date, start, end, len, exceptId) {
+  const buffer = breakMinutes();
+  const ranges = busyRangesOn(date, exceptId);
+  const out = [];
+  let cur = hmToMin(start);
+  const close = hmToMin(end);
+  while (cur + len <= close) {
+    const hits = ranges.filter(r => cur < r.e + buffer && r.s < cur + len + buffer);
+    if (hits.length) { cur = Math.max(...hits.map(r => r.e + buffer)); continue; }
+    const t = `${pad2(Math.floor(cur / 60))}:${pad2(cur % 60)}`;
+    const p = ilParts(ilEpochFor(date, t));
+    if (ymdOf(p) === date && `${pad2(p.h)}:${pad2(p.mi)}` === t) out.push(t);
+    cur += len + buffer;
+  }
+  return out;
+}
+// True when this time falls inside another appointment or the break after it.
+function insideBusy(date, time, exceptId) {
+  const m = hmToMin(time), buffer = breakMinutes();
+  return busyRangesOn(date, exceptId).some(r => m > r.s && m < r.e + buffer);
+}
+
 // Admin page only: same three steps as api/_availability.js. A rule for the date, then the weekly rule, then closed.
 function effectiveDay(date) {
   const rule = availability.dates[date];
@@ -298,7 +343,7 @@ function rebuildClientAppointments() {
   // A busy row at the visitor's own slot is their own appointment, shown from the fuller record instead.
   const others = busySlots.filter(b => !mine.some(o => apptDate(o) === b.date && o.time === b.time));
   appointments = [
-    ...others.map((b, i) => ({ id: "busy_" + i, busy: true, date: b.date, time: b.time, status: "pending" })),
+    ...others.map((b, i) => ({ id: "busy_" + i, busy: true, date: b.date, time: b.time, dur: b.dur, status: "pending" })),
     ...myAppointments
   ];
 }

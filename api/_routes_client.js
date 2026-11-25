@@ -12,6 +12,7 @@ const S = require("./_appts");
 const { maybeRunReminders } = require("./_reminders");
 const { DAYS_HEB, heTime, heDate, todayYmd, isYmd } = require("./_time");
 const { HORIZON_DAYS, publicOpenDays } = require("./_availability");
+const Slots = require("./_slots");
 const { servePhoto } = require("./_photos");
 const { findOptOutUser } = require("./_optout");
 
@@ -43,7 +44,8 @@ async function buildPublicSnapshot(ctx, v) {
     portfolio: config.portfolio,
     busy: appts
       .filter(a => a.status !== "canceled" && a.date && a.startsAtMs > now && a.startsAtMs < horizon)
-      .map(a => ({ date: a.date, time: a.time }))
+      // dur: how many minutes the appointment holds, so the booking screen can place the next free start.
+      .map(a => ({ date: a.date, time: a.time, dur: Slots.apptMinutes(a, config.services, c) }))
   };
 }
 
@@ -252,7 +254,7 @@ async function requireClient(ctx) {
 function ownView(a) {
   return {
     id: a.id, dayIdx: a.dayIdx, date: a.date, dateStr: a.dateStr, time: a.time, startsAtMs: a.startsAtMs, createdAt: a.createdAt,
-    name: a.name, phone: a.phone, srvIdx: a.srvIdx, price: a.price, service: a.service, note: a.note,
+    name: a.name, phone: a.phone, srvIdx: a.srvIdx, price: a.price, service: a.service, durationMin: a.durationMin || null, note: a.note,
     status: a.status, movedCount: a.movedCount, reminderSent: a.reminderSent === true, confirmedAt: a.confirmedAt || null
   };
 }
@@ -306,8 +308,9 @@ function serviceFrom(config, srvIdxRaw) {
   const srvIdx = V.intIn(srvIdxRaw, 0, config.services.length - 1);
   if (srvIdx === null) throw V.bad("נא לבחור שירות מהמחירון");
   const srv = config.services[srvIdx];
-  // Price always comes from the stored price list, never from the request.
-  return { srvIdx, price: srv.price, service: `${srv.name} • ${srv.price} ₪`, name: srv.name };
+  // Price and length always come from the stored price list, never from the request.
+  const fallback = Number(config.siteConfig.slotInterval) || 30;
+  return { srvIdx, price: srv.price, service: `${srv.name} • ${srv.price} ₪`, name: srv.name, minutes: Slots.serviceMinutes(srv, fallback) };
 }
 
 const slotTakenError = () => new HttpError(409, "השעה הזו נתפסה כרגע, נא לבחור שעה אחרת", { code: "slot_taken" });
@@ -321,31 +324,35 @@ async function createAppointment(ctx) {
   S.assertClientSlot(config, date, time);
   const appt = {
     id: D.newId("ap"), uid: user.id, createdAt: Date.now(), name: user.username, phone: user.phone, srvIdx: srv.srvIdx,
-    price: srv.price, service: srv.service, note: V.text(ctx.body.note, 120), status: "pending", movedCount: 0, reminderSent: false, source: "client",
+    price: srv.price, service: srv.service, durationMin: srv.minutes, note: V.text(ctx.body.note, 120), status: "pending", movedCount: 0, reminderSent: false, source: "client",
     noSms: user.phoneVerified !== true
   };
   S.placeAt(appt, date, time);
 
-  if (!(await S.acquireSlot(ctx, date, time, appt.id))) throw slotTakenError();
-  // Everything below holds the slot, so any refusal has to give it back.
-  const mutexKey = K(ctx, `bookmx:${shortHash(user.phone)}`);
-  let mutexHeld = false;
-  try {
-    // One booking at a time per phone, so parallel requests cannot pass the active-appointment cap.
-    mutexHeld = (await cmd("SET", mutexKey, "1", "NX", "EX", 15)) === "OK";
-    if (!mutexHeld) throw new HttpError(429, "בקשה קודמת עדיין בטיפול, נסו שוב בעוד רגע");
-    const now = Date.now();
-    const active = (await apptsOnPhone(ctx, user.phone)).filter(a => a.status !== "canceled" && a.startsAtMs > now);
-    if (active.length >= MAX_ACTIVE_APPTS) throw new HttpError(409, `אפשר להחזיק עד ${MAX_ACTIVE_APPTS} תורים קרובים. כדי לקבוע עוד, צריך לבטל תור קיים או לפנות לעילי.`, { code: "too_many_active" });
-    await enforceLimit(ctx.ns, "bookip", ipKey(ctx.req), MAX_BOOKINGS_IP_DAY, 86400, "נקבעו יותר מדי תורים מהחיבור הזה היום. אפשר לפנות לעילי בטלפון.");
-    await enforceLimit(ctx.ns, "bookall", todayYmd(), MAX_BOOKINGS_DAY, 172800, "אי אפשר לקבוע עוד תורים באתר היום. אפשר לפנות לעילי בטלפון.");
-    await pipeline([...D.saveApptCmds(ctx, appt), ["INCR", K(ctx, "ver")]]);
-  } catch (err) {
-    await S.releaseSlot(ctx, date, time, appt.id);
-    throw err;
-  } finally {
-    if (mutexHeld) await cmd("DEL", mutexKey);
-  }
+  await S.withDayLock(ctx, date, async () => {
+    // The haircut and its break must fit between the appointments already in the diary.
+    await S.assertFits(ctx, config, date, time, srv.minutes, appt.id);
+    if (!(await S.acquireSlot(ctx, date, time, appt.id))) throw slotTakenError();
+    // Everything below holds the slot, so any refusal has to give it back.
+    const mutexKey = K(ctx, `bookmx:${shortHash(user.phone)}`);
+    let mutexHeld = false;
+    try {
+      // One booking at a time per phone, so parallel requests cannot pass the active-appointment cap.
+      mutexHeld = (await cmd("SET", mutexKey, "1", "NX", "EX", 15)) === "OK";
+      if (!mutexHeld) throw new HttpError(429, "בקשה קודמת עדיין בטיפול, נסו שוב בעוד רגע");
+      const now = Date.now();
+      const active = (await apptsOnPhone(ctx, user.phone)).filter(a => a.status !== "canceled" && a.startsAtMs > now);
+      if (active.length >= MAX_ACTIVE_APPTS) throw new HttpError(409, `אפשר להחזיק עד ${MAX_ACTIVE_APPTS} תורים קרובים. כדי לקבוע עוד, צריך לבטל תור קיים או לפנות לעילי.`, { code: "too_many_active" });
+      await enforceLimit(ctx.ns, "bookip", ipKey(ctx.req), MAX_BOOKINGS_IP_DAY, 86400, "נקבעו יותר מדי תורים מהחיבור הזה היום. אפשר לפנות לעילי בטלפון.");
+      await enforceLimit(ctx.ns, "bookall", todayYmd(), MAX_BOOKINGS_DAY, 172800, "אי אפשר לקבוע עוד תורים באתר היום. אפשר לפנות לעילי בטלפון.");
+      await pipeline([...D.saveApptCmds(ctx, appt), ["INCR", K(ctx, "ver")]]);
+    } catch (err) {
+      await S.releaseSlot(ctx, date, time, appt.id);
+      throw err;
+    } finally {
+      if (mutexHeld) await cmd("DEL", mutexKey);
+    }
+  });
 
   await D.addNotification(ctx, {
     type: "new_booking", title: "תור חדש נקבע באתר!", message: `${appt.name} (${appt.phone}) קבע תור ל${srv.name} ${S.describeSlot(appt)}.`,
@@ -367,17 +374,19 @@ async function moveAppointment(ctx) {
   let acquired = false;
   let result;
   try {
-    result = await S.mutateAppt(ctx, id, async (next, prev) => {
+    result = await S.withDayLock(ctx, date, () => S.mutateAppt(ctx, id, async (next, prev) => {
       if (!canAccess(user, prev)) throw notFound();
       assertUpcoming(prev);
-      if (!(prev.date === date && prev.time === time)) {
+      // Its own current place does not count as busy, so a longer haircut at the same time can still fit.
+      await S.assertFits(ctx, config, date, time, srv.minutes, id);
+      if (!(prev.date === date && prev.time === time) && !acquired) {
         if (!(await S.acquireSlot(ctx, date, time, id))) throw slotTakenError();
         acquired = true;
       }
       S.placeAt(next, date, time);
-      Object.assign(next, { srvIdx: srv.srvIdx, price: srv.price, service: srv.service, status: "pending", movedCount: (Number(prev.movedCount) || 0) + 1, reminderSent: false, noSms: user.phoneVerified !== true });
+      Object.assign(next, { srvIdx: srv.srvIdx, price: srv.price, service: srv.service, durationMin: srv.minutes, status: "pending", movedCount: (Number(prev.movedCount) || 0) + 1, reminderSent: false, noSms: user.phoneVerified !== true });
       delete next.confirmedAt;
-    });
+    }));
   } catch (err) {
     if (acquired) await S.releaseSlot(ctx, date, time, id);
     throw err;

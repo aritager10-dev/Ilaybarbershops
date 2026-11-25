@@ -72,13 +72,15 @@ function slotOnGrid(site, day, time) {
   return false;
 }
 
+// The date and the hour must be open. Which start times are free depends on the haircut and on the diary,
+// so _appts.js assertFits checks that part while it holds the day's lock.
 function assertBookable(av, site, date, time, now = Date.now()) {
   const today = todayYmd(now);
   if (date < today) throw bad("השעה הזו כבר עברה, נא לבחור שעה אחרת");
   if (date > addDays(today, HORIZON_DAYS - 1)) throw bad(`אפשר לקבוע תור עד ${HORIZON_DAYS} ימים קדימה. נא לבחור תאריך קרוב יותר.`);
   const day = effectiveDay(av, date);
   if (!day.open) throw bad("ביום הזה המספרה סגורה. אפשר לבחור יום אחר.");
-  if (!slotOnGrid(site, day, time) || !wallClockExists(date, time)) throw bad("השעה הזו לא זמינה לקביעת תור");
+  if (!isTime(time) || toMin(time) < toMin(day.start) || toMin(time) >= toMin(day.end) || !wallClockExists(date, time)) throw bad("השעה הזו לא זמינה לקביעת תור");
   if (epochFor(date, time) <= now) throw bad("השעה הזו כבר עברה, נא לבחור שעה אחרת");
 }
 

@@ -519,7 +519,7 @@ async function runAtWidth(browser, width, shots, steps) {
       await adminPage.eval("switchTab('day'); selectDay(ilToday())");
       assert.equal(await adminPage.text("#ttl-day"), "תורים ושעות");
       assert.equal(await shows("#viewDiary"), true);
-      assert.equal(await shows("#viewHours, #availGrid, .dv-switch, #dayStart, #weeklyRows, #slotIntervalSelect"), false, "no hours controls in the diary");
+      assert.equal(await shows("#viewHours, #availGrid, .dv-switch, #dayStart, #weeklyRows, #srvLen_0"), false, "no hours controls in the diary");
       assert.equal(await big(".dv-seg__btn, .dk-day, .dk-free, .dk-appt, #addApptBtn, #weekPrev, #weekNext, #weekToday, .dk-mode button"), true, "44px targets in the diary");
       await noHorizontalScroll(adminPage, "diary");
       await adminPage.shot(shots, width + "-admin-diary-today");
@@ -535,7 +535,7 @@ async function runAtWidth(browser, width, shots, steps) {
       assert.equal(await adminPage.eval("document.querySelectorAll('#weeklyRows .hrs-row').length"), 7);
       assert.equal(await adminPage.eval("document.getElementById('weeklyDetails').open"), width >= 900, "the weekly section starts collapsed on a phone");
       assert.equal(await adminPage.text(".dv-weekly__txt strong"), "פתיחה קבועה כל שבוע");
-      assert.equal(await big(".dv-seg__btn, .hc__day:not([disabled]), #availNextMonth, .dv-weekly__sum, #slotIntervalSelect, #slotBufferSelect"), true, "44px targets in the hours view");
+      assert.equal(await big(".dv-seg__btn, .hc__day:not([disabled]), #availNextMonth, .dv-weekly__sum, #srvLen_0, #slotBufferSelect"), true, "44px targets in the hours view");
       await noHorizontalScroll(adminPage, "hours view");
       await adminPage.shot(shots, width + "-admin-hours");
       await assertAxeClean(adminPage, "hours view", '"#tab-day"');
@@ -864,10 +864,11 @@ async function runAtWidth(browser, width, shots, steps) {
       await adminPage.waitFor("availability.weekly[6].open === false");
 
       // Slots: saved at once, in the hours view only.
-      await saved(() => pick("#slotIntervalSelect", "20"));
-      await adminPage.waitFor("siteConfig.slotInterval === 20");
-      await saved(() => pick("#slotIntervalSelect", "30"));
-      await adminPage.waitFor("adminSnapshot.siteConfig.slotInterval === 30");
+      // Haircut lengths (זמן בין תור לתור): one row per haircut, saved at once.
+      await saved(() => pick("#srvLen_0", "40"));
+      await adminPage.waitFor("adminSnapshot.services[0].minutes === 40 && adminSnapshot.services[0].duration === \"40 דק'\"");
+      await saved(() => pick("#srvLen_0", "30"));
+      await adminPage.waitFor("adminSnapshot.services[0].minutes === 30");
 
       // Manual appointment on a closed day: warned, confirmed, and it does not open the day.
       await adminPage.click("#viewBtnDiary");

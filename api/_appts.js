@@ -1,11 +1,12 @@
 // Slot locks and appointment rules shared by the client and admin endpoints.
-// Slot semantics are the ones the booking UI always had: a slot is one start time on one date.
-// Service duration does not block neighbouring slots.
+// A slot lock is one start time on one date. A customer booking also holds the day's lock while it checks that
+// the haircut's length (plus the break) does not overlap another appointment; see assertFits and _slots.js.
 const { cmd, pipeline, parseJson } = require("./_redis");
 const { K, allAppts, scrubLogCmds, scrubNotifCmds } = require("./_data");
 const { HttpError } = require("./_http");
 const { DAYS_HEB, dowOfYmd, epochFor, dateStrOf } = require("./_time");
-const { assertBookable } = require("./_availability");
+const { assertBookable, effectiveDay } = require("./_availability");
+const Slots = require("./_slots");
 
 // A lock's value is "<apptId>|<ms>". Compare-and-delete must be atomic, so these two run as Lua.
 const RELEASE_SCRIPT = "local v=redis.call('GET',KEYS[1]) if v and string.sub(v,1,#ARGV[1]+1)==ARGV[1]..'|' then return redis.call('DEL',KEYS[1]) end return 0";
@@ -99,6 +100,41 @@ function assertClientSlot(config, date, time) {
   assertBookable(config.availability, config.siteConfig, date, time);
 }
 
+// One customer booking per date at a time, so two haircuts that would overlap cannot both pass assertFits.
+async function withDayLock(ctx, date, fn) {
+  const key = K(ctx, `daymx:${date}`);
+  let held = false;
+  for (let i = 0; i < 80 && !held; i++) {
+    held = (await cmd("SET", key, "1", "NX", "EX", 15)) === "OK";
+    if (!held) await new Promise(r => setTimeout(r, 75));
+  }
+  if (!held) throw new HttpError(409, "השעה הזו נתפסה כרגע, נא לבחור שעה אחרת", { code: "slot_taken" });
+  try { return await fn(); } finally { await cmd("DEL", key); }
+}
+
+// The chosen start must be one the booking screen offers for this haircut on the diary as it is now.
+// A start that would not exist even on an empty day is invalid (400); one that is only blocked is taken (409).
+async function assertFits(ctx, config, date, time, len, exceptId) {
+  const day = effectiveDay(config.availability, date);
+  if (!day.open) throw new HttpError(400, "ביום הזה המספרה סגורה. אפשר לבחור יום אחר.");
+  const buffer = Slots.bufferOf(config.siteConfig);
+  const ranges = Slots.busyRanges(await allAppts(ctx), date, config.services, config.siteConfig, exceptId);
+  if (Slots.freeStarts(day, len, buffer, ranges).includes(time)) return;
+  // A start on the day's plain grid (every slotInterval plus the break, as before) is also accepted
+  // when the haircut and its break overlap nothing and it ends by closing time.
+  const interval = Math.max(5, Number(config.siteConfig.slotInterval) || 30);
+  const m0 = Slots.toMin(time);
+  const onGrid = Slots.freeStarts(day, interval, buffer, []).includes(time) && m0 + len <= Slots.toMin(day.end);
+  const m = Slots.toMin(time);
+  const overlaps = ranges.some(r => m < r.e + buffer && r.s < m + len + buffer);
+  if (onGrid && !overlaps) return;
+  const validStart = onGrid || Slots.freeStarts(day, len, buffer, []).includes(time);
+  if (validStart || ranges.some(r => m >= r.s && m < r.e + buffer)) {
+    throw new HttpError(409, "השעה הזו נתפסה כרגע, נא לבחור שעה אחרת", { code: "slot_taken" });
+  }
+  throw new HttpError(400, "השעה הזו לא זמינה לקביעת תור");
+}
+
 // The date is the appointment's identity. dayIdx is only its weekday, kept for messages and the weekly statistics.
 function placeAt(appt, date, time) {
   appt.dayIdx = dowOfYmd(date);
@@ -110,4 +146,4 @@ function placeAt(appt, date, time) {
 
 function describeSlot(a) { return `יום ${DAYS_HEB[a.dayIdx]} (${a.dateStr}) בשעה ${a.time}`; }
 
-module.exports = { acquireSlot, releaseSlot, mutateAppt, eraseCustomer, assertClientSlot, placeAt, describeSlot, RELEASE_SCRIPT, SWAP_SCRIPT, CAS_SCRIPT };
+module.exports = { acquireSlot, releaseSlot, mutateAppt, eraseCustomer, assertClientSlot, withDayLock, assertFits, placeAt, describeSlot, RELEASE_SCRIPT, SWAP_SCRIPT, CAS_SCRIPT };

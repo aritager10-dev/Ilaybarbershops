@@ -419,7 +419,9 @@ test("concurrent double booking: exactly one of 25 succeeds", async () => {
 
 test("cancel frees the slot; a move frees the old slot and takes the new one", async () => {
   const a = await newClient(), b = await newClient();
-  const s1 = freshSlot(), s2 = freshSlot(), s3 = freshSlot();
+  // s2 gets a 35 minute haircut, which runs into the next half hour, so s3 skips one slot.
+  const s1 = freshSlot(), s2 = freshSlot(), skipped = freshSlot(), s3 = freshSlot();
+  void skipped;
   const ap = await book(a, s1);
   assert.equal((await b.post("/appointments", { ...s1, srvIdx: 0 })).status, 409);
   assert.equal((await a.post(`/appointments/${ap.id}/move`, { ...s2, srvIdx: 2 })).status, 200);
@@ -1049,7 +1051,7 @@ test("the public endpoint holds no personal data and is cacheable for a short ti
   assert.ok(!/05\d{8}/.test(r.text), "no phone number of any kind, including the barber's");
   assert.ok(!r.text.includes("smsPackageQuota") && !r.text.includes("reminderHoursBefore"));
   assert.deepEqual(Object.keys(r.json.siteConfig).sort(), ["slotBuffer", "slotInterval", "subtitle", "title"]);
-  r.json.busy.forEach(b => assert.deepEqual(Object.keys(b).sort(), ["date", "time"]));
+  r.json.busy.forEach(b => assert.deepEqual(Object.keys(b).sort(), ["date", "dur", "time"]));
   assert.ok(r.json.busy.some(b => b.time === ap.time && b.date === ap.date));
 });
 
@@ -2246,6 +2248,64 @@ test("availability: a manual admin appointment works on a closed day and opens n
   await admin.post("/admin/apply", { appointments: { upsert: [], remove: ["ap_override1"] } });
 }));
 
+test("haircut length: the next free start is the previous haircut's end plus the break", () => withAvailability(null, async () => {
+  const admin = await newAdmin();
+  const date = plusDays(21);
+  await admin.post("/admin/availability", { dates: { [date]: { open: true, start: "15:30", end: "19:00" } } });
+  await admin.post("/admin/apply", { siteConfig: { slotBuffer: 10 } });
+  try {
+    // Classic is 30 minutes: 15:30 ends at 16:00, plus a 10 minute break, so the next start is 16:10.
+    const first = await book(await newClient(), { date, time: "15:30" }, { srvIdx: 0 });
+    assert.equal(first.durationMin, 30, "the booking keeps its haircut's length");
+    const c = await newClient();
+    assert.equal((await c.post("/appointments", { date, time: "16:00", srvIdx: 0 })).status, 409, "16:00 is inside the break");
+    // Extreme is 45 minutes: 16:10 ends at 16:55, and with the break the next start is 17:05.
+    await book(c, { date, time: "16:10" }, { srvIdx: 1 });
+    const d = await newClient();
+    assert.equal((await d.post("/appointments", { date, time: "16:55", srvIdx: 0 })).status, 409, "16:55 is inside the break");
+    assert.equal((await d.post("/appointments", { date, time: "17:05", srvIdx: 0 })).status, 200, "17:05 is free");
+    const busy = (await new Client().get("/public")).json.busy.filter(b => b.date === date);
+    assert.deepEqual(busy.map(b => [b.time, b.dur]).sort(), [["15:30", 30], ["16:10", 45], ["17:05", 30]]);
+  } finally {
+    await admin.post("/admin/apply", { siteConfig: { slotBuffer: 0 } });
+  }
+}));
+
+test("haircut length: without a break the next start is exactly the end, and the owner's lengths apply", () => withAvailability(null, async () => {
+  const admin = await newAdmin();
+  const date = plusDays(22);
+  await admin.post("/admin/availability", { dates: { [date]: { open: true, start: "05:00", end: "07:00" } } });
+  const before = (await admin.get("/admin/state")).json.state.services;
+  const changed = before.map((s, i) => (i === 0 ? { ...s, minutes: 40 } : s));
+  assert.equal((await admin.post("/admin/apply", { services: changed })).status, 200);
+  try {
+    const stored = (await new Client().get("/public")).json.services[0];
+    assert.equal(stored.minutes, 40);
+    assert.equal(stored.duration, "40 דק'", "the text customers see follows the length");
+    await book(await newClient(), { date, time: "05:00" }, { srvIdx: 0 });
+    const c = await newClient();
+    assert.equal((await c.post("/appointments", { date, time: "05:30", srvIdx: 0 })).status, 409, "05:30 is inside a 40 minute haircut");
+    assert.equal((await c.post("/appointments", { date, time: "05:40", srvIdx: 0 })).status, 200, "05:40 starts right when it ends");
+    // A haircut that would run past closing is not offered: 06:20 + 40 = 07:00 fits, 06:30 does not exist.
+    assert.equal((await (await newClient()).post("/appointments", { date, time: "06:30", srvIdx: 0 })).status, 400);
+  } finally {
+    await admin.post("/admin/apply", { services: before });
+  }
+}));
+
+test("haircut length: two overlapping bookings at different start times cannot both win", () => withAvailability(null, async () => {
+  const admin = await newAdmin();
+  const date = plusDays(23);
+  await admin.post("/admin/availability", { dates: { [date]: { open: true, start: "05:00", end: "08:00" } } });
+  const a = await newClient(), b = await newClient();
+  // Extreme (45) at 05:00 and classic (30) at 05:30 overlap; only one may be saved.
+  const [r1, r2] = await Promise.all([
+    a.post("/appointments", { date, time: "05:00", srvIdx: 1 }),
+    b.post("/appointments", { date, time: "05:30", srvIdx: 0 })
+  ]);
+  assert.deepEqual([r1.status, r2.status].sort(), [200, 409]);
+}));
+
 test("availability: saving is admin only, same-origin, bumps the version and leaves the other namespace alone", () => withAvailability(null, async () => {
   const body = { dates: { [plusDays(2)]: OPEN } };
   assert.equal((await new Client().post("/admin/availability", body)).status, 401);
@@ -2286,7 +2346,7 @@ test("availability: the public payload has only open dates and hours, and no per
   const r = await new Client().get("/public");
   assert.deepEqual(Object.keys(r.json).sort(), ["busy", "horizonDays", "ok", "openDays", "portfolio", "services", "siteConfig", "test", "v"]);
   r.json.openDays.forEach(d => assert.deepEqual(Object.keys(d).sort(), ["date", "end", "start"]));
-  r.json.busy.forEach(b => assert.deepEqual(Object.keys(b).sort(), ["date", "time"]));
+  r.json.busy.forEach(b => assert.deepEqual(Object.keys(b).sort(), ["date", "dur", "time"]));
   assert.equal(r.json.horizonDays, 30);
   for (const leak of [a.name, a.phone, "הערה סודית", "weekly", "weeklySchedule", "availability", "source"]) assert.ok(!r.text.includes(leak), leak);
   assert.ok(!r.text.includes(plusDays(10)) || T.dowOfYmd(plusDays(10)) === 3 || r.json.busy.some(b => b.date === plusDays(10)), "an explicitly closed date is simply absent");
@@ -2366,7 +2426,8 @@ test("ntfy: only a customer's booking, move, cancel and message reach the phone"
   freshCodeBudget();
   const pushes = () => h.outbox.ntfy.length;
   const admin = await newAdmin();
-  const notifCount = async () => (await admin.get("/admin/state")).json.state.adminNotifications.length;
+  // Counted in storage: the admin state lists only the newest 120, which a long run passes.
+  const notifCount = async () => h.fake.run(["HGETALL", "notifs"]).result.length / 2;
   process.env.NTFY_TOPIC = "test-topic";
   try {
     const silent = async (name, fn) => {

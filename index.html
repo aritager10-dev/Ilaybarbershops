@@ -533,7 +533,7 @@
 
         <div class="s-step" data-needs-open-days>
           <label class="s-step__label" for="bookingServiceSelect">שירות</label>
-          <select id="bookingServiceSelect" class="input-field" onchange="selectedServiceIdx=Number(this.value); updateModalHeaderTitle();"></select>
+          <select id="bookingServiceSelect" class="input-field" onchange="selectedServiceIdx=Number(this.value); updateModalHeaderTitle(); renderBookingHours();"></select>
         </div>
 
         <div class="s-step" data-needs-open-days>
@@ -1503,7 +1503,8 @@
     function isSlotTaken(date, tStr) {
       const now = Date.now();
       if (ilEpochFor(date, tStr) <= now) return true;
-      return appointments.some(a => apptDate(a) === date && a.time === tStr && a.status !== "canceled" && a.id !== editingApptId && (a.busy || Number(a.startsAtMs) > now));
+      return appointments.some(a => apptDate(a) === date && a.time === tStr && a.status !== "canceled" && a.id !== editingApptId && (a.busy || Number(a.startsAtMs) > now))
+        || insideBusy(date, tStr, editingApptId);
     }
 
     function renderBookingHours() {
@@ -1512,8 +1513,17 @@
       const cfg = openDays.find(d => d.date === selectedBookDate);
       if (!cfg) return;
 
-      daySlots(cfg.date, cfg.start, cfg.end).forEach(tStr => {
-        const taken = isSlotTaken(cfg.date, tStr);
+      // Free starts follow the chosen haircut's length and the break; booked starts that day show as taken.
+      const len = serviceMinutes(SERVICES[selectedServiceIdx] || SERVICES[0]);
+      const now = Date.now();
+      const free = freeStartsOn(cfg.date, cfg.start, cfg.end, len, editingApptId).filter(t => ilEpochFor(cfg.date, t) > now);
+      const booked = appointments
+        .filter(a => apptDate(a) === cfg.date && a.status !== "canceled" && a.id !== editingApptId && (a.busy || Number(a.startsAtMs) > now))
+        .map(a => a.time)
+        .filter(t => ilEpochFor(cfg.date, t) > now && t >= cfg.start && t < cfg.end);
+      if (selectedBookHour && !free.includes(selectedBookHour)) selectedBookHour = null;
+      [...new Set([...free, ...booked])].sort().forEach(tStr => {
+        const taken = !free.includes(tStr);
         const btn = document.createElement("button");
         btn.type = "button";
         btn.className = "hour-chip" + (taken ? " taken" : "") + (selectedBookHour === tStr ? " active" : "");
@@ -1546,7 +1556,8 @@
         if (!r.ok) {
           showToast(r.reason);
           if (r.data.code === "slot_taken") {
-            busySlots.push({ date: selectedBookDate, time: selectedBookHour });
+            // Until the next poll brings the real one, hold the haircut's length there.
+            busySlots.push({ date: selectedBookDate, time: selectedBookHour, dur: serviceMinutes(SERVICES[selectedServiceIdx]) });
             rebuildClientAppointments();
             selectedBookHour = null;
             renderBookingHours();

@@ -61,7 +61,11 @@ function services(list) {
     const p = s && typeof s === "object" ? price(s.price) : null;
     const name = s && text(s.name, 45);
     if (!name || p === null) throw bad("שירות במחירון לא תקין");
-    return { name, price: p, duration: text(s.duration, 25) || "30 דק'", desc: text(s.desc, 140) };
+    // minutes is what books the diary; the "30 דק'" text customers see is always written from it.
+    const own = intIn(s.minutes, 5, 240);
+    const fromText = /(\d+)/.exec(String(s.duration || ""));
+    const minutes = own ?? (fromText ? intIn(fromText[1], 5, 240) : null) ?? 30;
+    return { name, price: p, minutes, duration: `${minutes} דק'`, desc: text(s.desc, 140) };
   });
 }
 

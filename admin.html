@@ -180,18 +180,8 @@
           <div class="adm-card hc-slots">
             <h3 class="hc-slots__title">כל כמה זמן אפשר לקבוע תור</h3>
             <div class="dv-slots">
-              <div class="adm-row">
-                <label class="adm-row__label" for="slotIntervalSelect">זמן בין תור לתור</label>
-                <select id="slotIntervalSelect" class="input-field adm-row__input" onchange="saveHoursSettings()">
-                  <option value="15">כל 15 דקות</option>
-                  <option value="20">כל 20 דקות</option>
-                  <option value="25">כל 25 דקות</option>
-                  <option value="30">כל 30 דקות</option>
-                  <option value="40">כל 40 דקות</option>
-                  <option value="45">כל 45 דקות</option>
-                  <option value="60">כל 60 דקות (שעה)</option>
-                </select>
-              </div>
+              <!-- זמן בין תור לתור: renderServiceLenRows מוסיף כאן שורה לכל תספורת. התור הבא באתר מתחיל כשהתספורת נגמרת, ועוד ההפסקה -->
+              <span id="serviceLenRows" hidden></span>
               <div class="adm-row">
                 <label class="adm-row__label" for="slotBufferSelect">הפסקה בין תורים</label>
                 <select id="slotBufferSelect" class="input-field adm-row__input" onchange="saveHoursSettings()">
@@ -830,7 +820,8 @@
       const here = list.filter(a => apptDate(a) === date && a.time === time);
       if (here.length) return here.map(a => apptBlockHtml(a, compact)).join("");
       if (pastTime(date, time)) return `<div class="dk-past" aria-hidden="true"></div>`;
-      if (slotClosedReason(date, time)) return `<div class="dk-off" aria-hidden="true"></div>`;
+      // Inside another haircut or its break: not free, same look as a closed slot.
+      if (slotClosedReason(date, time) || insideBusy(date, time)) return `<div class="dk-off" aria-hidden="true"></div>`;
       return `<button type="button" class="dk-free" data-fk="add-${date}-${time}" aria-label="פנוי. הוספת תור, ${esc(fullHebDate(date))} בשעה ${time}" onclick="openManualAddModal('${date}', '${time}')"><span aria-hidden="true">+ פנוי</span></button>`;
     }
 
@@ -842,6 +833,16 @@
         if (day.open) daySlots(date, day.start, day.end).forEach(t => out.add(t));
       });
       list.forEach(a => { if (dates.includes(apptDate(a)) && safeTime(a.time)) out.add(a.time); });
+      // The first free start after each haircut (its end plus the break), as customers see it.
+      dates.forEach(date => {
+        const day = effectiveDay(date);
+        if (!day.open) return;
+        busyRangesOn(date).forEach(r => {
+          const m = r.e + breakMinutes();
+          const t = `${pad2(Math.floor(m / 60))}:${pad2(m % 60)}`;
+          if (t >= day.start && t < day.end && !insideBusy(date, t)) out.add(t);
+        });
+      });
       return [...out].sort();
     }
 
@@ -1340,7 +1341,7 @@
       return live.map(t => ({
         time: t,
         current: apptDate(appt) === date && appt.time === t,
-        taken: appointments.some(a => a.id !== appt.id && apptDate(a) === date && a.time === t && a.status !== "canceled")
+        taken: appointments.some(a => a.id !== appt.id && apptDate(a) === date && a.time === t && a.status !== "canceled") || insideBusy(date, t, appt.id)
       }));
     }
 
@@ -2017,12 +2018,13 @@
       if (appointments.some(a => apptDate(a) === date && a.time === time && a.status !== "canceled")) {
         return showToast("השעה הזו כבר תפוסה!");
       }
+      if (insideBusy(date, time) && !(await askConfirm({ title: "התור עולה על תור אחר", text: "בשעה הזו עדיין יש תספורת אחרת או ההפסקה אחריה. להוסיף בכל זאת?", yes: "להוסיף בכל זאת", no: "חזרה" }))) return;
       if (!(await confirmClosedSlot(date, time))) return;
 
       const id = "ap_" + Date.now();
       appointments.push({
         id, date, dayIdx: ilDow(date), time, startsAtMs: ilEpochFor(date, time), dateStr: ddmm(date),
-        name, phone, srvIdx, price: srv.price, service: `${srv.name} • ${srv.price} ₪`,
+        name, phone, srvIdx, price: srv.price, service: `${srv.name} • ${srv.price} ₪`, durationMin: serviceMinutes(srv),
         adminNote: plainStr(document.getElementById("manualNoteInput").value, 100),
         status: "pending"
       });
@@ -2133,7 +2135,12 @@
         const desc = document.getElementById(`sdesc_${i}`);
         if (n && n.value.trim()) s.name = plainStr(n.value, 40);
         if (p && Number(p.value) >= 0) s.price = Number(p.value);
-        if (d && d.value.trim()) s.duration = plainStr(d.value, 20);
+        if (d && d.value.trim()) {
+          s.duration = plainStr(d.value, 20);
+          // The number written here is also the haircut's length in the diary.
+          const m = /(\d+)/.exec(s.duration);
+          if (m && Number(m[1]) >= 5 && Number(m[1]) <= 240) s.minutes = Number(m[1]);
+        }
         if (desc) s.desc = plainStr(desc.value, 120);
       });
     }
@@ -2147,7 +2154,7 @@
 
       if (!name) return showToast("נא להזין שם לתספורת החדשה");
 
-      SERVICES.push({ name, price, duration, desc });
+      SERVICES.push({ name, price, duration, minutes: serviceMinutes({ duration }), desc });
       document.getElementById("newSrvName").value = "";
       document.getElementById("newSrvPrice").value = "";
       document.getElementById("newSrvTime").value = "";
@@ -2190,8 +2197,26 @@
         `;
       });
 
-      document.getElementById("slotIntervalSelect").value = String(siteConfig.slotInterval || 30);
+      renderServiceLenRows();
       document.getElementById("slotBufferSelect").value = String(siteConfig.slotBuffer || 0);
+    }
+
+    // זמן בין תור לתור, לכל תספורת בנפרד. אותן מחלקות עיצוב כמו שורת ההפסקה.
+    const LEN_CHOICES = [10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 75, 90, 120];
+    function renderServiceLenRows() {
+      // The rows sit right in .dv-slots, next to the break row, so the list keeps its separators.
+      const marker = document.getElementById("serviceLenRows");
+      if (!marker) return;
+      marker.parentElement.querySelectorAll("[data-len-row]").forEach(el => el.remove());
+      marker.insertAdjacentHTML("afterend", SERVICES.map((s, i) => {
+        const cur = serviceMinutes(s);
+        const opts = [...new Set([...LEN_CHOICES, cur])].sort((a, b) => a - b)
+          .map(m => `<option value="${m}" ${m === cur ? "selected" : ""}>${m} דקות</option>`).join("");
+        return `<div class="adm-row" data-len-row>
+                <label class="adm-row__label" for="srvLen_${i}">${sanitizeStr(s.name, 40)}</label>
+                <select id="srvLen_${i}" class="input-field adm-row__input" onchange="saveHoursSettings()">${opts}</select>
+              </div>`;
+      }).join(""));
     }
 
     async function saveServicesAndTitles() {
@@ -2204,7 +2229,11 @@
     }
 
     async function saveHoursSettings() {
-      siteConfig.slotInterval = Number(document.getElementById("slotIntervalSelect").value) || 30;
+      SERVICES.forEach((s, i) => {
+        const sel = document.getElementById(`srvLen_${i}`);
+        const m = sel ? Number(sel.value) : 0;
+        if (m >= 5 && m <= 240) { s.minutes = m; s.duration = `${m} דק'`; }
+      });
       siteConfig.slotBuffer = Number(document.getElementById("slotBufferSelect").value) || 0;
       const r = await broadcastCloudState();
       renderAllAdmin();

@@ -68,7 +68,7 @@ async function createFromAdmin(ctx, raw, out) {
   if (name.length < 2 || !phone) { out.conflicts.push({ id: raw.id, reason: "נא להזין שם מלא וטלפון תקין" }); return; }
   const appt = {
     id: raw.id, createdAt: Date.now(), name, phone, price: V.price(raw.price) ?? 0, service: V.text(raw.service, 80),
-    srvIdx: V.intIn(raw.srvIdx, 0, 30) ?? 0, adminNote: V.text(raw.adminNote ?? raw.note, 120), status: "pending", movedCount: 0, reminderSent: false, source: "admin"
+    srvIdx: V.intIn(raw.srvIdx, 0, 30) ?? 0, durationMin: V.intIn(raw.durationMin, 5, 240) ?? undefined, adminNote: V.text(raw.adminNote ?? raw.note, 120), status: "pending", movedCount: 0, reminderSent: false, source: "admin"
   };
   S.placeAt(appt, date, raw.time);
   if (!(await S.acquireSlot(ctx, date, raw.time, appt.id))) { out.conflicts.push({ id: raw.id, reason: "השעה הזו כבר תפוסה ביומן!" }); return; }
